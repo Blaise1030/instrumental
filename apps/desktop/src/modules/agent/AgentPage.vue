@@ -26,13 +26,14 @@ function onBootstrapConsumed(): void {
   <div class="flex min-h-0 flex-1 flex-col bg-background">
     <TerminalPane
       v-if="activeWorktree && threadId"
+      :session-id="threadId"
       :worktree-id="activeWorktree.id"
-      :thread-id="threadId"
       :cwd="activeWorktree.path"
+      aria-label="Agent"
       :pending-agent-bootstrap="pendingBootstrap"
-      pty-kind="agent"
       @bootstrap-consumed="onBootstrapConsumed"
     />
+    
     <div
       v-else
       class="flex flex-1 items-center justify-center text-sm text-muted-foreground"

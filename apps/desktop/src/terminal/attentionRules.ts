@@ -19,7 +19,7 @@ export function chunkHasNonBellContent(
 }
 
 /**
- * PTY session id shown in the integrated terminal, matching `TerminalPane` / `ptySessionId`:
+ * PTY session id for the integrated terminal (must match `TerminalPane` `sessionId`):
  * thread id when active, else `__wt:${worktreeId}`.
  */
 export function visibleTerminalSessionId(

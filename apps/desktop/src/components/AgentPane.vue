@@ -62,10 +62,10 @@ const draftModel = computed({
 
       <div class="min-h-0 flex-1 overflow-hidden rounded-md border border-border">
         <TerminalPane
-          pty-kind="agent"
+          :session-id="threadId"
           :worktree-id="worktreeId"
-          :thread-id="threadId"
           :cwd="cwd"
+          aria-label="Agent"
           :pending-agent-bootstrap="pendingAgentBootstrap"
           @bootstrap-consumed="emit('bootstrapConsumed')"
         />

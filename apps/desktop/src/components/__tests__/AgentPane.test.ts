@@ -7,7 +7,7 @@ const terminalPanePropsSpy = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/TerminalPane.vue", () => ({
   default: {
-    props: ["worktreeId", "threadId", "cwd", "pendingAgentBootstrap", "ptyKind"],
+    props: ["sessionId", "worktreeId", "cwd", "pendingAgentBootstrap", "ariaLabel"],
     emits: ["bootstrapConsumed"],
     setup(props: Record<string, unknown>, { emit }: { emit: (event: string) => void }) {
       terminalPanePropsSpy(props);
@@ -91,10 +91,10 @@ describe("AgentPane", () => {
     expect(wrapper.get('[data-testid="terminal-pane"]')).toBeTruthy();
   });
 
-  it('passes pty-kind="agent" to TerminalPane', async () => {
+  it("passes sessionId to TerminalPane for the PTY key", async () => {
     renderAgentPane();
 
     expect(terminalPanePropsSpy).toHaveBeenCalled();
-    expect(terminalPanePropsSpy.mock.calls[0][0]).toMatchObject({ ptyKind: "agent" });
+    expect(terminalPanePropsSpy.mock.calls[0][0]).toMatchObject({ sessionId: "thread-1" });
   });
 });

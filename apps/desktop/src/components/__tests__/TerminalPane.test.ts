@@ -103,9 +103,8 @@ describe("TerminalPane", () => {
     const wrapper = mount(TerminalPane, {
       props: {
         worktreeId: "worktree-1",
-        threadId: "thread-1",
+        sessionId: "thread-1",
         cwd: "/tmp/instrument",
-        ptyKind: "agent",
         pendingAgentBootstrap
       },
       attachTo: document.body
@@ -138,7 +137,7 @@ describe("TerminalPane", () => {
     expect(wrapper.emitted("bootstrapConsumed")).toEqual([[]]);
   });
 
-  it("emits stdin-chunk for agent PTY when xterm sends data", async () => {
+  it("emits stdin-chunk when xterm sends data", async () => {
     const { wrapper } = mountPaneWithPtyCreate(
       vi.fn<WorkspaceApi["ptyCreate"]>().mockResolvedValue({ buffer: "", created: true }),
       null
