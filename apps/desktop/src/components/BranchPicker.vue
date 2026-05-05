@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import ScmBranchCombobox from "@/components/ScmBranchCombobox.vue";
 import {Button} from "@/components/ui/button";;
 import { Input } from "@/components/ui/input";
+import { useVocab } from "@/composables/useVocab";
 
 const props = withDefaults(
   defineProps<{
@@ -18,6 +19,8 @@ const emit = defineEmits<{
   create: [branch: string, baseBranch: string | null];
   cancel: [];
 }>();
+
+const { t: vt } = useVocab();
 
 const branches = ref<string[]>([]);
 const loading = ref(true);
@@ -75,24 +78,24 @@ function handleCreate(): void {
       )
     "
   >
-    <p class="mb-2 text-xs font-semibold text-foreground">Add worktree</p>
+    <p class="mb-2 text-xs font-semibold text-foreground">{{ vt('add_worktree') }}</p>
 
     <!-- Branch input -->
     <div class="mb-2">
-      <label class="mb-1 block text-[10px] text-muted-foreground">Branch</label>
+      <label class="mb-1 block text-[10px] text-muted-foreground">{{ vt('branch') }}</label>
       <Input
         v-model="branchInput"
         :disabled="loading"
-        :placeholder="loading ? 'Loading branches...' : 'Branch name'"
+        :placeholder="loading ? vt('loading_branches') : vt('branch_name')"
       />
     </div>
 
     <!-- Base branch (only when creating a new branch name) — same searchable branch control as the toolbar -->
     <div v-if="isNewBranchName" class="mb-2">
-      <label class="mb-1 block text-[10px] text-muted-foreground">Base branch</label>
+      <label class="mb-1 block text-[10px] text-muted-foreground">{{ vt('source_branch') }}</label>
       <ScmBranchCombobox
         v-if="!loading && branches.length > 0"
-        v-model:current-branch="baseBranch"        
+        v-model:current-branch="baseBranch"
         mode="pick"
         variant="footer"
         :branch-line="null"
@@ -102,13 +105,13 @@ function handleCreate(): void {
         v-else-if="!loading"
         class="rounded-md border border-border/60 bg-muted/20 px-2 py-2 text-xs text-muted-foreground"
       >
-        No local branches to branch from.
+        No local {{ vt('branches').toLowerCase() }} to branch from.
       </p>
       <div
         v-else
         class="flex h-8 items-center rounded-md border border-border/60 bg-muted/10 px-2 text-xs text-muted-foreground"
       >
-        Loading branches…
+        {{ vt('loading_branches') }}
       </div>
     </div>
 

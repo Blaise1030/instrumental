@@ -30,8 +30,10 @@ import type { KeybindingId } from "@/keybindings/registry";
 import { shortcutForModDigitSlot } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
 import ThreadSidebarNodes, { type ThreadSidebarNodeData } from "@/components/ThreadSidebarNodes.vue";
+import { useVocab } from "@/composables/useVocab";
 
 const keybindings = useKeybindingsStore();
+const { t } = useVocab();
 const { isFullscreen } = useIsFullscreen();
 function titleWithShortcut(label: string, id: KeybindingId): string {
   return keybindings.titleWithShortcut(label, id);
@@ -912,13 +914,13 @@ async function openAppUpdateUrl(url: string): Promise<void> {
                     variant="outline"
                     size="xs"
                     class="rounded-md"
-                    aria-label="Add worktree"
+                    :aria-label="t('add_worktree')"
                     title="Add a linked worktree"
                     :disabled="!projectId"
                     data-testid="thread-sidebar-footer-worktree-toggle"
                   >
                     <Plus class="h-5 w-5 shrink-0" />
-                    <span class="whitespace-nowrap">Add worktree</span>
+                    <span class="whitespace-nowrap">{{ t('add_worktree') }}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent

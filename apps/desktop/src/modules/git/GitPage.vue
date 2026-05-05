@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import SourceControlPanel from "@/components/SourceControlPanel.vue";
 import RemotePrPanel from "./RemotePrPanel.vue";
 import PillTabs from "@/components/ui/PillTabs.vue";
 import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
 import type { PillTabItem } from "@/components/ui/PillTabs.vue";
+import { useVocab } from "@/composables/useVocab";
 
 const { activeWorktree } = useActiveWorkspace();
+const { t } = useVocab();
 
 const activeTab = ref("local");
 
-const tabs: PillTabItem[] = [
+const tabs = computed<PillTabItem[]>(() => [
   { value: "local", label: "Local" },
-  { value: "prs", label: "Pull Requests" },
-];
+  { value: "prs", label: t("pull_requests") },
+]);
 </script>
 
 <template>
@@ -37,7 +39,7 @@ const tabs: PillTabItem[] = [
         v-else
         class="flex flex-1 items-center justify-center text-sm text-muted-foreground"
       >
-        No active worktree.
+        No active {{ t('worktree').toLowerCase() }}.
       </div>
     </div>
   </div>

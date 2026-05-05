@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { AlertTriangle } from "lucide-vue-next";
 import {Button} from "@/components/ui/button";;
+import { useVocab } from "@/composables/useVocab";
 
 defineProps<{
   branch: string;
@@ -9,6 +10,8 @@ defineProps<{
 const emit = defineEmits<{
   delete: [];
 }>();
+
+const { t } = useVocab();
 </script>
 
 <template>
@@ -20,7 +23,7 @@ const emit = defineEmits<{
           data-testid="worktree-stale-message"
           class="text-[11px] leading-4 text-foreground/90"
         >
-          The worktree for <span class="font-medium text-emerald-500">{{ branch }}</span>
+          {{ t('worktree_removed') }} <span class="font-medium text-emerald-500">{{ branch }}</span>
           was removed outside the app.
         </p>
         <div class="flex">

@@ -13,8 +13,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { KeybindingId } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
+import { useVocab } from "@/composables/useVocab";
 
 const keybindings = useKeybindingsStore();
+const { t } = useVocab();
 function titleWithShortcut(label: string, id: KeybindingId): string {
   return keybindings.titleWithShortcut(label, id);
 }
@@ -59,12 +61,12 @@ const primaryBranchBadge = computed(() => {
 
 const hoverDetails = computed(() => {
   if (props.isPrimary) {
-    const branchLine = primaryBranchBadge.value ? `\nBranch: ${primaryBranchBadge.value}` : "";
+    const branchLine = primaryBranchBadge.value ? `\n${t("branch")}: ${primaryBranchBadge.value}` : "";
     return `${props.title}${branchLine}\nDefault project context`;
   }
 
   const source = props.baseBranch?.trim() ? props.baseBranch : "—";
-  return `${props.title}\n${props.path ?? "—"}\nBranch: ${props.branch ?? "—"}\nSource branch: ${source}`;
+  return `${props.title}\n${props.path ?? "—"}\n${t("branch")}: ${props.branch ?? "—"}\n${t("source_branch")}: ${source}`;
 });
 
 const emit = defineEmits<{

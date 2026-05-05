@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { useVocab } from "@/composables/useVocab";
 
 const props = defineProps<{
   worktrees: Worktree[];
@@ -17,6 +18,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [worktreeId: string];
 }>();
+
+const { t } = useVocab();
 
 const activeWorktreeLabel = computed(
   () => props.worktrees.find((worktree) => worktree.id === props.activeWorktreeId)?.branch ?? ""
@@ -32,10 +35,10 @@ const selectedWorktreeId = computed({
 
 <template>
   <label class="flex items-center gap-2 text-sm">
-    <span>Worktree</span>
+    <span>{{ t('worktree') }}</span>
     <Select v-model="selectedWorktreeId">
       <SelectTrigger class="h-8 min-w-[11rem] bg-background text-sm">
-        <SelectValue :placeholder="activeWorktreeLabel || 'Select worktree'">
+        <SelectValue :placeholder="activeWorktreeLabel || t('select_worktree')">
           {{ activeWorktreeLabel }}
         </SelectValue>
       </SelectTrigger>

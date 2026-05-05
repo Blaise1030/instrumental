@@ -23,6 +23,7 @@ import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import type { FileSummary } from "@shared/ipc";
 import type { ThreadAgent } from "@shared/domain";
+import { useVocab } from "@/composables/useVocab";
 
 const open = defineModel<boolean>({ default: false });
 
@@ -37,6 +38,7 @@ const emit = defineEmits<{
 const workspace = useWorkspaceStore();
 const active = useActiveWorkspace();
 const keybindings = useKeybindingsStore();
+const { t } = useVocab();
 
 const query = ref("");
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -216,21 +218,21 @@ const THREAD_AGENT_LABELS: Record<ThreadAgent, string> = {
   gemini: "Gemini CLI"
 };
 
-const SECTION_LABELS: Record<LauncherSectionId, string> = {
+const SECTION_LABELS = computed<Record<LauncherSectionId, string>>(() => ({
   commands: "Commands",
   workspace: "Workspace",
-  worktrees: "Worktrees",
+  worktrees: t("worktrees"),
   agents: "Agents",
   files: "Files"
-};
+}));
 
-const SECTION_HINTS: Partial<Record<LauncherSectionId, string>> = {
+const SECTION_HINTS = computed<Partial<Record<LauncherSectionId, string>>>(() => ({
   commands: "Quick actions",
   workspace: "Switch to another open workspace",
-  worktrees: "Switch branch checkout in this project",
-  agents: "Threads in this worktree",
-  files: "Files in the active worktree"
-};
+  worktrees: t("switch_worktree_desc"),
+  agents: t("agents_in_worktree"),
+  files: t("files_in_worktree")
+}));
 
 function fileDisplayName(relativePath: string): string {
   const parts = relativePath.split(/[/\\]/).filter(Boolean);

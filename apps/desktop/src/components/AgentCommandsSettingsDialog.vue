@@ -34,6 +34,7 @@ import {
   type KeybindingId
 } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
+import VocabLevelPicker from "@/components/VocabLevelPicker.vue";
 
 const modelValue = defineModel<boolean>({ default: false });
 
@@ -61,17 +62,19 @@ const panelRef = ref<HTMLElement | null>(null);
 
 const { preferredAgent, setPreferredAgent, syncFromStorage } = usePreferredThreadAgent();
 
-type SettingsSection = "agents" | "terminal" | "keyboard";
+type SettingsSection = "agents" | "terminal" | "keyboard" | "display";
 const activeSection = ref<SettingsSection>("agents");
 const settingsSectionTabs: readonly PillTabItem[] = [
   { value: "agents", label: "Agents" },
   { value: "terminal", label: "Terminal" },
-  { value: "keyboard", label: "Keyboard" }
+  { value: "keyboard", label: "Keyboard" },
+  { value: "display", label: "Display" }
 ];
 
 const settingsPanelAgentsId = "workspace-settings-panel-agents";
 const settingsPanelTerminalId = "workspace-settings-panel-terminal";
 const settingsPanelKeyboardId = "workspace-settings-panel-keyboard";
+const settingsPanelDisplayId = "workspace-settings-panel-display";
 
 const KEYBIND_CATEGORY_ORDER: KeybindingDefinition["category"][] = [
   "Navigation",
@@ -247,7 +250,7 @@ function save(): void {
           Settings
         </DialogTitle>
         <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Configure agents, terminal, and keyboard settings. Agent commands require Save; other changes apply instantly.
+          Configure agents, terminal, keyboard, and display settings. Agent commands require Save; other changes apply instantly.
         </p>
 
         <div class="border rounded-lg w-fit">
@@ -404,6 +407,15 @@ function save(): void {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div
+            v-show="activeSection === 'display'"
+            :id="settingsPanelDisplayId"
+            role="tabpanel"
+            aria-label="Display settings"
+          >
+            <VocabLevelPicker />
           </div>
 
           <div

@@ -5,8 +5,10 @@ import { ChevronRight, FolderOpen } from "lucide-vue-next";
 import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useNavigateToProject } from "@/composables/useNavigateToProject";
 import { Button } from "@/components/ui/button";
+import { useVocab } from "@/composables/useVocab";
 
 const { navigateToProject } = useNavigateToProject();
+const { t } = useVocab();
 
 const { data: welcomeProjects, isPending: welcomeProjectsPending } = useQuery({
   queryKey: ["welcomeProjects"],
@@ -29,7 +31,7 @@ const { data: welcomeProjects, isPending: welcomeProjectsPending } = useQuery({
         </div>
         <h1 class="text-xl font-semibold tracking-tight">Workspaces</h1>
         <p class="text-sm text-muted-foreground max-w-sm">
-          Open a recent repository or pick from the list below.
+          Open a recent {{ t('repository').toLowerCase() }} or pick from the list below.
         </p>
       </div>
 
@@ -64,7 +66,7 @@ const { data: welcomeProjects, isPending: welcomeProjectsPending } = useQuery({
           class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground"
         >
           No projects in this workspace yet. Add a folder from the app menu once you are inside a
-          project, or reopen a repo you have added before.
+          project, or reopen a {{ t('repository').toLowerCase() }} you have added before.
         </p>
       </div>
     </div>

@@ -31,6 +31,7 @@ import MonacoDiffEditor from "@/components/MonacoDiffEditor.vue";
 import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
 import { useScmStore } from "@/stores/scmStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useVocab } from "@/composables/useVocab";
 
 const SCM_DIFF_LAYOUT_KEY = "instrument.scmDiffLayout";
 type ScmDiffLayout = "split" | "unified";
@@ -60,6 +61,7 @@ watch(scmDiffLayout, (v) => {
 const scm = useScmStore();
 const workspace = useWorkspaceStore();
 const { activeWorktree } = useActiveWorkspace();
+const { t } = useVocab();
 
 const scmFetchAvailable = computed(() => !!window.workspaceApi?.gitFetch);
 const scmPushAvailable = computed(() => !!window.workspaceApi?.gitPush);
@@ -234,7 +236,7 @@ const suggestCommitTitle = computed(() => {
   if (!hasStagedChanges.value) {
     return "Stage changes to generate a commit message.";
   }
-  return "Suggest commit message from staged changes";
+  return t("suggest_commit");
 });
 
 const commitExpanded = ref(false);
@@ -256,9 +258,9 @@ function applyLastCommitSubject(): void {
 const flatItems = computed<FlatItem[]>(() => {
   const out: FlatItem[] = [];
   const sections: [SectionId, string, FlatItem[]][] = [
-    ["staged", "Staged", stagedEntries.value],
-    ["unstaged", "Unstaged", unstagedEntries.value],
-    ["untracked", "Untracked", untrackedEntries.value]
+    ["staged", t("staged"), stagedEntries.value],
+    ["unstaged", t("unstaged"), unstagedEntries.value],
+    ["untracked", t("untracked"), untrackedEntries.value]
   ];
   let placedStagedBlock = false;
   let needMajorDividerBeforeNextSection = false;
@@ -621,7 +623,7 @@ onBeforeUnmount(() => {
           v-if="selectedEntry && scm.selectedMergeResult?.kind === 'ok'"
           class="flex shrink-0 items-center gap-px rounded-md border border-border p-px"
           role="group"
-          aria-label="Diff layout"
+          :aria-label="`${t('diff')} layout`"
         >
           <Button
             type="button"
@@ -933,8 +935,8 @@ onBeforeUnmount(() => {
               variant="outline"
               class="h-6 shrink-0 gap-1 px-2 text-[10px]"
               :disabled="scm.scmPushBusy || scm.scmFetchBusy"
-              aria-label="Push current branch to remote"
-              title="Push current branch (upstream must be set)"
+              :aria-label="t('push')"
+              :title="t('push_title')"
               @click="void scm.scmPush()"
             >
               <Loader2 v-if="scm.scmPushBusy" class="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden="true" />
@@ -944,7 +946,7 @@ onBeforeUnmount(() => {
                 :stroke-width="2"
                 aria-hidden="true"
               />
-              Push
+              {{ t('push') }}
             </Button>
           </div>
         </div>
@@ -953,7 +955,7 @@ onBeforeUnmount(() => {
           <textarea
             v-model="scm.scmCommitMessage"
             rows="4"
-            placeholder="Enter commit message"
+            :placeholder="t('commit_message_placeholder')"
             aria-label="Commit message draft"
             class="w-full resize-none rounded-none border-0 bg-background py-1.5 pl-2 pr-7 font-mono text-[10px] leading-snug text-foreground placeholder:text-muted-foreground focus:outline-none"
             :class="commitExpanded ? 'min-h-[11rem]' : 'min-h-[4.5rem]'"
@@ -982,7 +984,7 @@ onBeforeUnmount(() => {
               class="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               :disabled="suggestCommitDisabled || suggestCommitBusy"
               :title="suggestCommitTitle"
-              aria-label="Suggest commit message from staged changes"
+              :aria-label="t('suggest_commit')"
               @click="emit('suggestCommit')"
             >
               <Loader2
@@ -1005,11 +1007,11 @@ onBeforeUnmount(() => {
             variant="default"
             class="h-7 shrink-0 px-3 text-[10px]"
             :disabled="!canCommit"
-            aria-label="Commit staged changes"
+            :aria-label="t('commit_verb')"
             @click="void scm.scmCommit()"
           >
             <Loader2 v-if="scm.scmCommitBusy" class="mr-1 h-3 w-3 animate-spin" aria-hidden="true" />
-            Commit
+            {{ t('commit_verb') }}
           </Button>
         </div>
       </footer>
