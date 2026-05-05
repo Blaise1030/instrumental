@@ -1,0 +1,130 @@
+{
+  "vocab": {
+    "1": {
+      "worktree": "Working copy",
+      "worktrees": "Working copies",
+      "select_worktree": "Select working copy",
+      "add_worktree": "Add working copy",
+      "worktree_removed": "The working copy for",
+      "branch": "Version",
+      "branches": "Versions",
+      "loading_branches": "Loading versions…",
+      "branch_name": "Version name",
+      "source_branch": "Source version",
+      "commit_verb": "Save checkpoint",
+      "commit_noun": "Checkpoint",
+      "commit_message_placeholder": "Describe this checkpoint…",
+      "staged": "Ready to save",
+      "unstaged": "Changed",
+      "untracked": "New files",
+      "push": "Upload",
+      "push_title": "Upload changes to remote (remote must be set)",
+      "pull_request": "Change request",
+      "pull_requests": "Change requests",
+      "repository": "Project folder",
+      "diff": "Changes",
+      "suggest_commit": "Suggest description from ready-to-save changes",
+      "switch_worktree_desc": "Switch to another working copy in this project",
+      "agents_in_worktree": "Threads in this working copy",
+      "files_in_worktree": "Files in the active working copy"
+    },
+    "2": {
+      "worktree": "Workspace",
+      "worktrees": "Workspaces",
+      "select_worktree": "Select workspace",
+      "add_worktree": "Add workspace",
+      "worktree_removed": "The workspace for",
+      "branch": "Branch",
+      "branches": "Branches",
+      "loading_branches": "Loading branches…",
+      "branch_name": "Branch name",
+      "source_branch": "Source branch",
+      "commit_verb": "Commit",
+      "commit_noun": "Commit",
+      "commit_message_placeholder": "Enter commit message",
+      "staged": "Staged",
+      "unstaged": "Modified",
+      "untracked": "New files",
+      "push": "Push",
+      "push_title": "Push current branch to remote (upstream must be set)",
+      "pull_request": "Pull Request",
+      "pull_requests": "Pull Requests",
+      "repository": "Project",
+      "diff": "Changes",
+      "suggest_commit": "Suggest commit message from staged changes",
+      "switch_worktree_desc": "Switch branch workspace in this project",
+      "agents_in_worktree": "Threads in this workspace",
+      "files_in_worktree": "Files in the active workspace"
+    },
+    "3": {
+      "worktree": "Worktree",
+      "worktrees": "Worktrees",
+      "select_worktree": "Select worktree",
+      "add_worktree": "Add worktree",
+      "worktree_removed": "The worktree for",
+      "branch": "Branch",
+      "branches": "Branches",
+      "loading_branches": "Loading branches…",
+      "branch_name": "Branch name",
+      "source_branch": "Source branch",
+      "commit_verb": "Commit",
+      "commit_noun": "Commit",
+      "commit_message_placeholder": "Enter commit message",
+      "staged": "Staged",
+      "unstaged": "Unstaged",
+      "untracked": "Untracked",
+      "push": "Push",
+      "push_title": "Push current branch to remote (upstream must be set)",
+      "pull_request": "Pull Request",
+      "pull_requests": "Pull Requests",
+      "repository": "Repository",
+      "diff": "Diff",
+      "suggest_commit": "Suggest commit message from staged changes",
+      "switch_worktree_desc": "Switch branch checkout in this project",
+      "agents_in_worktree": "Threads in this worktree",
+      "files_in_worktree": "Files in the active worktree"
+    }
+  },
+  "ui": {
+    "settings": {
+      "title": "Settings",
+      "description": "Configure agents, terminal, keyboard, and display settings. Agent commands require Save; other changes apply instantly.",
+      "sections": {
+        "agents": "Agents",
+        "terminal": "Terminal",
+        "keyboard": "Keyboard",
+        "display": "Display"
+      },
+      "display": {
+        "vocab_level": "Terminology level",
+        "vocab_level_hint": "Choose how git concepts are labelled throughout the app.",
+        "locale": "Language",
+        "locale_hint": "Choose the display language for the app."
+      },
+      "vocab_levels": {
+        "1": "Plain",
+        "2": "Standard",
+        "3": "Developer"
+      },
+      "vocab_level_hints": {
+        "1": "Everyday language — no git terms.",
+        "2": "Familiar terms like Commit and Branch.",
+        "3": "Standard git terminology."
+      }
+    },
+    "welcome": {
+      "heading": "Workspaces",
+      "subtitle": "Open a recent {repository} or pick from the list below.",
+      "projects_label": "Projects",
+      "loading": "Loading workspaces…",
+      "empty": "No projects in this workspace yet. Add a folder from the app menu once you are inside a project, or reopen a {repository} you have added before."
+    },
+    "git": {
+      "no_active_worktree": "No active {worktree}."
+    },
+    "launcher": {
+      "search_placeholder": "Search commands, workspaces, {worktrees}, threads, files…",
+      "aria_label": "Workspace search"
+    }
+  }
+}

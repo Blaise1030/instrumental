@@ -1,0 +1,130 @@
+{
+  "vocab": {
+    "1": {
+      "worktree": "Copia de trabajo",
+      "worktrees": "Copias de trabajo",
+      "select_worktree": "Seleccionar copia de trabajo",
+      "add_worktree": "Añadir copia de trabajo",
+      "worktree_removed": "La copia de trabajo de",
+      "branch": "Versión",
+      "branches": "Versiones",
+      "loading_branches": "Cargando versiones…",
+      "branch_name": "Nombre de versión",
+      "source_branch": "Versión de origen",
+      "commit_verb": "Guardar punto de control",
+      "commit_noun": "Punto de control",
+      "commit_message_placeholder": "Describe este punto de control…",
+      "staged": "Listo para guardar",
+      "unstaged": "Modificado",
+      "untracked": "Archivos nuevos",
+      "push": "Subir",
+      "push_title": "Subir cambios al servidor (debe estar configurado)",
+      "pull_request": "Solicitud de cambio",
+      "pull_requests": "Solicitudes de cambio",
+      "repository": "Carpeta del proyecto",
+      "diff": "Cambios",
+      "suggest_commit": "Sugerir descripción de los cambios listos para guardar",
+      "switch_worktree_desc": "Cambiar a otra copia de trabajo en este proyecto",
+      "agents_in_worktree": "Hilos en esta copia de trabajo",
+      "files_in_worktree": "Archivos en la copia de trabajo activa"
+    },
+    "2": {
+      "worktree": "Espacio de trabajo",
+      "worktrees": "Espacios de trabajo",
+      "select_worktree": "Seleccionar espacio de trabajo",
+      "add_worktree": "Añadir espacio de trabajo",
+      "worktree_removed": "El espacio de trabajo de",
+      "branch": "Rama",
+      "branches": "Ramas",
+      "loading_branches": "Cargando ramas…",
+      "branch_name": "Nombre de rama",
+      "source_branch": "Rama de origen",
+      "commit_verb": "Confirmar",
+      "commit_noun": "Confirmación",
+      "commit_message_placeholder": "Introduce el mensaje de confirmación",
+      "staged": "Preparado",
+      "unstaged": "Modificado",
+      "untracked": "Archivos nuevos",
+      "push": "Publicar",
+      "push_title": "Publicar rama actual en el servidor (debe estar configurado el upstream)",
+      "pull_request": "Pull Request",
+      "pull_requests": "Pull Requests",
+      "repository": "Proyecto",
+      "diff": "Cambios",
+      "suggest_commit": "Sugerir mensaje de confirmación de los cambios preparados",
+      "switch_worktree_desc": "Cambiar espacio de trabajo de rama en este proyecto",
+      "agents_in_worktree": "Hilos en este espacio de trabajo",
+      "files_in_worktree": "Archivos en el espacio de trabajo activo"
+    },
+    "3": {
+      "worktree": "Worktree",
+      "worktrees": "Worktrees",
+      "select_worktree": "Seleccionar worktree",
+      "add_worktree": "Añadir worktree",
+      "worktree_removed": "El worktree de",
+      "branch": "Branch",
+      "branches": "Branches",
+      "loading_branches": "Cargando branches…",
+      "branch_name": "Nombre de branch",
+      "source_branch": "Branch de origen",
+      "commit_verb": "Commit",
+      "commit_noun": "Commit",
+      "commit_message_placeholder": "Introduce el mensaje de commit",
+      "staged": "Staged",
+      "unstaged": "Unstaged",
+      "untracked": "Untracked",
+      "push": "Push",
+      "push_title": "Push de la branch actual al servidor (debe configurarse el upstream)",
+      "pull_request": "Pull Request",
+      "pull_requests": "Pull Requests",
+      "repository": "Repositorio",
+      "diff": "Diff",
+      "suggest_commit": "Sugerir mensaje de commit de los cambios en staged",
+      "switch_worktree_desc": "Cambiar checkout de branch en este proyecto",
+      "agents_in_worktree": "Hilos en este worktree",
+      "files_in_worktree": "Archivos en el worktree activo"
+    }
+  },
+  "ui": {
+    "settings": {
+      "title": "Configuración",
+      "description": "Configura agentes, terminal, teclado y visualización. Los comandos de agente requieren guardar; otros cambios se aplican al instante.",
+      "sections": {
+        "agents": "Agentes",
+        "terminal": "Terminal",
+        "keyboard": "Teclado",
+        "display": "Visualización"
+      },
+      "display": {
+        "vocab_level": "Nivel de terminología",
+        "vocab_level_hint": "Elige cómo se etiquetan los conceptos de git en la app.",
+        "locale": "Idioma",
+        "locale_hint": "Elige el idioma de visualización de la app."
+      },
+      "vocab_levels": {
+        "1": "Sencillo",
+        "2": "Estándar",
+        "3": "Desarrollador"
+      },
+      "vocab_level_hints": {
+        "1": "Lenguaje cotidiano, sin términos de git.",
+        "2": "Términos conocidos como Commit y Rama.",
+        "3": "Terminología estándar de git."
+      }
+    },
+    "welcome": {
+      "heading": "Espacios de trabajo",
+      "subtitle": "Abre un {repository} reciente o elige de la lista.",
+      "projects_label": "Proyectos",
+      "loading": "Cargando espacios de trabajo…",
+      "empty": "Aún no hay proyectos en este espacio de trabajo. Añade una carpeta desde el menú de la app o vuelve a abrir un {repository} añadido anteriormente."
+    },
+    "git": {
+      "no_active_worktree": "Sin {worktree} activo."
+    },
+    "launcher": {
+      "search_placeholder": "Buscar comandos, espacios de trabajo, {worktrees}, hilos, archivos…",
+      "aria_label": "Búsqueda de espacio de trabajo"
+    }
+  }
+}
