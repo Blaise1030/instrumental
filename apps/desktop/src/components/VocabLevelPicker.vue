@@ -1,42 +1,38 @@
 <script setup lang="ts">
-import { VOCAB_LEVEL_LABELS, type VocabLevel } from "@/constants/vocab";
+import { useI18n } from "vue-i18n";
+import type { VocabLevel } from "@/constants/vocab";
 import { useVocab } from "@/composables/useVocab";
 
+const { t } = useI18n();
 const { level, setLevel } = useVocab();
 
-const levels: { value: VocabLevel; label: string; hint: string }[] = [
-  { value: 1, label: VOCAB_LEVEL_LABELS[1], hint: "Everyday language — no git terms." },
-  { value: 2, label: VOCAB_LEVEL_LABELS[2], hint: "Familiar terms like Commit and Branch." },
-  { value: 3, label: VOCAB_LEVEL_LABELS[3], hint: "Standard git terminology." },
-];
+const levels: VocabLevel[] = [1, 2, 3];
 </script>
 
 <template>
   <div class="flex flex-col gap-2">
-    <p class="text-sm font-medium text-foreground">Terminology level</p>
-    <p class="text-xs text-muted-foreground">
-      Choose how git concepts are labelled throughout the app.
-    </p>
-    <div class="mt-1 flex gap-2" role="group" aria-label="Terminology level">
+    <p class="text-sm font-medium text-foreground">{{ t('ui.settings.display.vocab_level') }}</p>
+    <p class="text-xs text-muted-foreground">{{ t('ui.settings.display.vocab_level_hint') }}</p>
+    <div class="mt-1 flex gap-2" role="group" :aria-label="t('ui.settings.display.vocab_level')">
       <button
-        v-for="opt in levels"
-        :key="opt.value"
+        v-for="lv in levels"
+        :key="lv"
         type="button"
-        :aria-pressed="level === opt.value"
-        :title="opt.hint"
+        :aria-pressed="level === lv"
+        :title="t(`ui.settings.vocab_level_hints.${lv}`)"
         :class="[
           'rounded-md border px-3 py-1.5 text-sm transition-colors',
-          level === opt.value
+          level === lv
             ? 'border-primary bg-primary text-primary-foreground'
             : 'border-border bg-background text-foreground hover:bg-muted',
         ]"
-        @click="setLevel(opt.value)"
+        @click="setLevel(lv)"
       >
-        {{ opt.label }}
+        {{ t(`ui.settings.vocab_levels.${lv}`) }}
       </button>
     </div>
     <p class="text-[11px] text-muted-foreground">
-      {{ levels.find((l) => l.value === level)?.hint }}
+      {{ t(`ui.settings.vocab_level_hints.${level}`) }}
     </p>
   </div>
 </template>

@@ -35,6 +35,7 @@ import {
 } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
 import VocabLevelPicker from "@/components/VocabLevelPicker.vue";
+import LocalePicker from "@/components/LocalePicker.vue";
 
 const modelValue = defineModel<boolean>({ default: false });
 
@@ -415,7 +416,12 @@ function save(): void {
             role="tabpanel"
             aria-label="Display settings"
           >
-            <VocabLevelPicker />
+            <div class="flex flex-col gap-6">
+              <VocabLevelPicker />
+              <div class="border-t border-border pt-4">
+                <LocalePicker />
+              </div>
+            </div>
           </div>
 
           <div

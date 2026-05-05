@@ -5,6 +5,7 @@ import App from "./App.vue";
 import { initColorSchemeFromStorage } from "./composables/useColorScheme";
 import { initUiThemePresetFromStorage } from "./composables/useUiThemePreset";
 import { router } from "./router/index";
+import { i18n } from "./locales/index";
 import "./styles/globals.css";
 
 initColorSchemeFromStorage();
@@ -24,4 +25,5 @@ const app = createApp(App);
 app.use(createPinia());
 app.use(VueQueryPlugin, { queryClient });
 app.use(router);
+app.use(i18n);
 app.mount("#app");
