@@ -1,36 +1,10 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
 import { useToast } from "@/composables/useToast";
+import type { RemoteGitProvider } from "@/lib/remoteGitProvider";
+import { createProvider } from "@/lib/providers/createProvider";
 
-export interface GitHubPr {
-  number: number;
-  title: string;
-  html_url: string;
-  state: "open" | "closed";
-  draft: boolean;
-  user: { login: string; avatar_url: string };
-  head: { ref: string; sha: string };
-  base: { ref: string };
-  created_at: string;
-  updated_at: string;
-  comments: number;
-  review_comments: number;
-  additions: number;
-  deletions: number;
-  changed_files: number;
-}
-
-export interface GitHubPrComment {
-  id: number;
-  path: string;
-  line: number | null;
-  original_line: number | null;
-  body: string;
-  user: { login: string; avatar_url: string };
-  created_at: string;
-  diff_hunk: string;
-  side: "LEFT" | "RIGHT";
-}
+export type { RemotePullRequest as GitHubPr, RemotePrComment as GitHubPrComment } from "@/lib/remoteGitProvider";
 
 export interface ParsedFileDiff {
   oldFileName: string;
@@ -45,7 +19,6 @@ export interface ParsedFileDiff {
 
 function parsePrDiff(diff: string): ParsedFileDiff[] {
   const result: ParsedFileDiff[] = [];
-  // Split on each "diff --git" marker
   const sections = diff.split(/(?=^diff --git )/m).filter((s) => s.trim());
 
   for (const section of sections) {
@@ -109,6 +82,8 @@ function parsePrDiff(diff: string): ParsedFileDiff[] {
 const STORAGE_TOKEN_KEY = "instrument.githubToken";
 const STORAGE_OWNER_KEY = "instrument.githubOwner";
 const STORAGE_REPO_KEY = "instrument.githubRepo";
+const STORAGE_PROVIDER_KEY = "instrument.gitProvider";
+const STORAGE_GITLAB_URL_KEY = "instrument.gitlabBaseUrl";
 
 function readStorage(key: string): string {
   try {
@@ -129,18 +104,24 @@ function writeStorage(key: string, value: string): void {
   }
 }
 
+import type { RemotePullRequest, RemotePrComment } from "@/lib/remoteGitProvider";
+
 export const useGitHubPrStore = defineStore("githubPr", () => {
   const toast = useToast();
 
   const githubToken = ref(readStorage(STORAGE_TOKEN_KEY));
   const repoOwner = ref(readStorage(STORAGE_OWNER_KEY));
   const repoName = ref(readStorage(STORAGE_REPO_KEY));
+  const providerName = ref<"github" | "gitlab">(
+    (readStorage(STORAGE_PROVIDER_KEY) as "github" | "gitlab") || "github"
+  );
+  const gitlabBaseUrl = ref(readStorage(STORAGE_GITLAB_URL_KEY) || undefined as string | undefined);
 
-  const prs = ref<GitHubPr[]>([]);
+  const prs = ref<RemotePullRequest[]>([]);
   const selectedPrNumber = ref<number | null>(null);
   const parsedFiles = ref<ParsedFileDiff[]>([]);
   const selectedFileName = ref<string | null>(null);
-  const prComments = ref<GitHubPrComment[]>([]);
+  const prComments = ref<RemotePrComment[]>([]);
   const loading = ref(false);
   const diffLoading = ref(false);
   const error = ref<string | null>(null);
@@ -163,21 +144,27 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
     return prComments.value.filter((c) => c.path === name);
   });
 
-  function saveConfig(token: string, owner: string, repo: string): void {
+  function getProvider(): RemoteGitProvider {
+    return createProvider(providerName.value, githubToken.value, gitlabBaseUrl.value);
+  }
+
+  function saveConfig(
+    token: string,
+    owner: string,
+    repo: string,
+    provider: "github" | "gitlab" = "github",
+    glBaseUrl?: string
+  ): void {
     githubToken.value = token.trim();
     repoOwner.value = owner.trim();
     repoName.value = repo.trim();
+    providerName.value = provider;
+    gitlabBaseUrl.value = glBaseUrl;
     writeStorage(STORAGE_TOKEN_KEY, githubToken.value);
     writeStorage(STORAGE_OWNER_KEY, repoOwner.value);
     writeStorage(STORAGE_REPO_KEY, repoName.value);
-  }
-
-  function apiHeaders(acceptOverride?: string): Record<string, string> {
-    return {
-      Authorization: `Bearer ${githubToken.value}`,
-      Accept: acceptOverride ?? "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    };
+    writeStorage(STORAGE_PROVIDER_KEY, provider);
+    writeStorage(STORAGE_GITLAB_URL_KEY, glBaseUrl ?? "");
   }
 
   async function fetchPrs(): Promise<void> {
@@ -185,13 +172,7 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
     loading.value = true;
     error.value = null;
     try {
-      const url = `https://api.github.com/repos/${repoOwner.value}/${repoName.value}/pulls?state=open&per_page=30`;
-      const res = await fetch(url, { headers: apiHeaders() });
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(`GitHub API error ${res.status}: ${msg}`);
-      }
-      prs.value = await res.json() as GitHubPr[];
+      prs.value = await getProvider().listPullRequests(repoOwner.value, repoName.value);
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Failed to fetch PRs.";
       toast.error("Failed to load PRs", error.value);
@@ -209,9 +190,10 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
     diffLoading.value = true;
     error.value = null;
     try {
+      const provider = getProvider();
       const [diffText, comments] = await Promise.all([
-        fetchPrDiff(prNumber),
-        fetchPrComments(prNumber),
+        provider.getPullRequestDiff(repoOwner.value, repoName.value, prNumber),
+        provider.getPullRequestComments(repoOwner.value, repoName.value, prNumber),
       ]);
       parsedFiles.value = parsePrDiff(diffText);
       prComments.value = comments;
@@ -226,24 +208,6 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
     }
   }
 
-  async function fetchPrDiff(prNumber: number): Promise<string> {
-    const url = `https://api.github.com/repos/${repoOwner.value}/${repoName.value}/pulls/${prNumber}`;
-    const res = await fetch(url, { headers: apiHeaders("application/vnd.github.diff") });
-    if (!res.ok) {
-      throw new Error(`GitHub API error ${res.status}`);
-    }
-    return res.text();
-  }
-
-  async function fetchPrComments(prNumber: number): Promise<GitHubPrComment[]> {
-    const url = `https://api.github.com/repos/${repoOwner.value}/${repoName.value}/pulls/${prNumber}/comments?per_page=100`;
-    const res = await fetch(url, { headers: apiHeaders() });
-    if (!res.ok) {
-      throw new Error(`GitHub API error ${res.status}`);
-    }
-    return res.json() as Promise<GitHubPrComment[]>;
-  }
-
   function clearPr(): void {
     selectedPrNumber.value = null;
     parsedFiles.value = [];
@@ -256,6 +220,8 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
     githubToken,
     repoOwner,
     repoName,
+    providerName,
+    gitlabBaseUrl,
     prs,
     selectedPrNumber,
     parsedFiles,
