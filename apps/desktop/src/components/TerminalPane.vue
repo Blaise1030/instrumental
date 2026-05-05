@@ -320,7 +320,19 @@ function refreshTerminal(): void {
   });
 }
 
-defineExpose({ focus: focusTerminal, refresh: refreshTerminal });
+/** Send raw text to the PTY as stdin, then Enter — same pattern as agent bootstrap injection. */
+function injectPrompt(text: string): void {
+  if (text.length === 0) return;
+  const api = getApi();
+  const sid = activeSessionId.value;
+  if (!api || !sid) return;
+  emit("user-typed", sid);
+  void api.ptyWrite(sid, text);
+  void api.ptyWrite(sid, "\r");
+  terminal?.focus();
+}
+
+defineExpose({ focus: focusTerminal, refresh: refreshTerminal, injectPrompt });
 </script>
 
 <template>

@@ -205,4 +205,18 @@ describe("TerminalPane", () => {
     expect(ptyWrite).not.toHaveBeenCalled();
     expect(wrapper.emitted("bootstrapConsumed")).toBeUndefined();
   });
+
+  it("injectPrompt writes text and Enter to the PTY", async () => {
+    const { wrapper, ptyWrite } = mountPaneWithPtyCreate(
+      vi.fn<WorkspaceApi["ptyCreate"]>().mockResolvedValue({ buffer: "", created: true }),
+      null
+    );
+
+    await flushPromises();
+
+    (wrapper.vm as { injectPrompt: (text: string) => void }).injectPrompt("fix the bug\nplease");
+
+    expect(ptyWrite).toHaveBeenCalledWith("thread-1", "fix the bug\nplease");
+    expect(ptyWrite).toHaveBeenCalledWith("thread-1", "\r");
+  });
 });
