@@ -56,6 +56,11 @@ export const router = createRouter({
                   name: "gitPullRequests",
                   component: RemotePrPanel,
                 },
+                {
+                  path: "pull-requests/:prId",
+                  name: "gitPullRequest",
+                  component: RemotePrPanel,
+                },
               ],
             },
             {

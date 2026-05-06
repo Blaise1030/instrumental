@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import {
   ExternalLink,
   File,
@@ -49,7 +50,37 @@ import Label from "@/components/ui/label/Label.vue";
 
 const props = defineProps<{ cwd: string }>();
 
+const route = useRoute();
+const router = useRouter();
 const store = useGitHubPrStore();
+
+function parseRoutePrId(): number | null {
+  const raw = route.params.prId;
+  const s = Array.isArray(raw) ? raw[0] : raw;
+  if (s === undefined || s === null || typeof s !== "string") return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function workspaceThreadParams(): {
+  projectId: string;
+  branch: string;
+  threadId: string;
+} {
+  return {
+    projectId: route.params.projectId as string,
+    branch: route.params.branch as string,
+    threadId: route.params.threadId as string,
+  };
+}
+
+function navigateToPr(prNumber: number): void {
+  void router.push({
+    name: "gitPullRequest",
+    params: { ...workspaceThreadParams(), prId: String(prNumber) },
+  });
+}
+
 const showSetup = ref(!store.isConfigured);
 const fileFilter = ref("");
 const fileListPopoverOpen = ref(false);
@@ -64,6 +95,40 @@ watch(
 onMounted(() => {
   if (store.isConfigured && store.prs.length === 0) void store.fetchPrs();
 });
+
+watch(
+  () => route.name,
+  (name) => {
+    if (name === "gitPullRequests") {
+      store.clearPr();
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () =>
+    [
+      route.name,
+      route.params.prId,
+      store.prs.length,
+      store.loading,
+      store.isConfigured,
+    ] as const,
+  async () => {
+    if (!store.isConfigured) return;
+    if (route.name !== "gitPullRequest") return;
+    const prId = parseRoutePrId();
+    if (prId === null) return;
+    if (store.loading && store.prs.length === 0) return;
+    if (store.prs.length === 0 && !store.loading) {
+      await store.fetchPrs();
+    }
+    if (!store.prs.some((p) => p.number === prId)) return;
+    await store.selectPr(prId);
+  },
+  { immediate: true },
+);
 
 function onSaved(): void {
   showSetup.value = false;
@@ -251,7 +316,7 @@ const filteredFiles = computed(() =>
                     size="sm"
                     class="h-auto min-h-auto flex-col items-stretch gap-1 whitespace-normal"
                     :is-active="store.selectedPrNumber === pr.number"
-                    @click="void store.selectPr(pr.number)"
+                    @click="navigateToPr(pr.number)"
                   >
                     <div class="flex items-start gap-1.5">
                       <span

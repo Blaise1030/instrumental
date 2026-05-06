@@ -15,7 +15,10 @@ const tabs: PillTabItem[] = [
 ];
 
 const activeTab = computed({
-  get: () => (route.name === "gitPullRequests" ? "prs" : "local"),
+  get: () =>
+    route.name === "gitPullRequests" || route.name === "gitPullRequest"
+      ? "prs"
+      : "local",
   set: (v: string) => {
     const projectId = route.params.projectId as string;
     const branch = route.params.branch as string;

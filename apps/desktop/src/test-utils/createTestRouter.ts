@@ -21,6 +21,7 @@ export async function createTestRouter(initialRoute: RouteLocationRaw = "/") {
             children: [
               { path: "", name: "gitPanel", component: Stub },
               { path: "pull-requests", name: "gitPullRequests", component: Stub },
+              { path: "pull-requests/:prId", name: "gitPullRequest", component: Stub },
             ],
           },
           { path: "preview", name: "previewPanel", component: Stub },
