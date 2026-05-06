@@ -30,7 +30,7 @@ export function buildThreadCreatePromptWithAttachmentBlocks(
     parts.push(`[Attached skills]\n${nextSkills.join("\n")}`);
   }
   for (const p of nextFiles) {
-    parts.push(p);
+    if (!note.includes(p)) parts.push(p);
   }
 
   return parts.join("\n").trim();

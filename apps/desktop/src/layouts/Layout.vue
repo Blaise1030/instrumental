@@ -352,7 +352,7 @@ async function onCreateWorktreeGroup(
           <ThemeToggle variant="outline" size="icon-sm" />
         </div>
       </nav>
-      <div className="flex flex-1">
+      <div class="flex min-h-0 flex-1">
         <Sidebar
           class="top-(--header-height) h-[calc(100dvh-var(--header-height))]"
         >
@@ -611,7 +611,7 @@ async function onCreateWorktreeGroup(
           </SidebarFooter>
           <SidebarRail />
         </Sidebar>
-        <SidebarInset class="h-[calc(100dvh-var(--header-height))]">
+        <SidebarInset class="h-[calc(100dvh-var(--header-height))] min-h-0">
           <RouterView />
         </SidebarInset>
       </div>

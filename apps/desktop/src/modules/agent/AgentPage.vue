@@ -49,7 +49,6 @@ onMounted(async () => {
           session.resumeId
         );
         await nextTick();
-        console.log(resumeCmd)
         terminalRef.value?.injectPrompt(resumeCmd);
         
       }
@@ -79,24 +78,35 @@ function submitPrompt(): void {
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col justify-end">
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col">
     <template v-if="activeWorktree && threadId">
-      <TerminalPane ref="terminalRef" class="flex-1" :session-id="threadId" :worktree-id="activeWorktree.id" :cwd="activeWorktree.path"
-        aria-label="Agent" :pending-agent-bootstrap="pendingBootstrap" @bootstrap-consumed="onBootstrapConsumed" />      
-        <div class="p-2 flex min-h-0 items-end shrink-0">
+      <!-- flex-1 wrapper: TerminalPane uses h-full; it must not also be a flex-1 sibling or % height fills the whole column and the prompt cannot steal height -->
+      <div class="min-h-0 min-w-0 flex-1 overflow-hidden">
+        <TerminalPane
+          ref="terminalRef"
+          class="h-full min-h-0"
+          :session-id="threadId"
+          :worktree-id="activeWorktree.id"
+          :cwd="activeWorktree.path"
+          aria-label="Agent"
+          :pending-agent-bootstrap="pendingBootstrap"
+          @bootstrap-consumed="onBootstrapConsumed"
+        />
+      </div>
+      <div class="shrink-0 p-2">
         <ThreadAdaptivePromptInput
-        class="w-full mx-auto"
-        ref="promptEditorRef"
-        v-model:prompt="prompt"
-        v-model:attachments="attachments"
-        v-model:skill-paths="skillPaths"
-        test-id-prefix="agent-page-prompt"
-        :worktree-path="activeWorktree.path"
-        placeholder="Use @ for files or / for skills..."
-        composer-label="Composer 2"
-        @submit="submitPrompt"
-        />      
-        </div>      
+          class="mx-auto w-full"
+          ref="promptEditorRef"
+          v-model:prompt="prompt"
+          v-model:attachments="attachments"
+          v-model:skill-paths="skillPaths"
+          test-id-prefix="agent-page-prompt"
+          :worktree-path="activeWorktree.path"
+          placeholder="Use @ for files or / for skills..."
+          composer-label="Composer 2"
+          @submit="submitPrompt"
+        />
+      </div>
     </template>
     <div v-else class="flex flex-1 items-center justify-center text-sm text-muted-foreground">
       No active thread.

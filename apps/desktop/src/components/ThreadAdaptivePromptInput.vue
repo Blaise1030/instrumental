@@ -312,6 +312,7 @@ function onSend(): void {
   // Defer the editor clear so TipTap finishes handling the current event first
   Promise.resolve().then(() => {
     tiptapEditor.value?.commands.clearContent(true);
+    tiptapEditor.value?.commands.focus();
   });
 }
 
@@ -370,6 +371,13 @@ defineExpose({
       >
         <EditorContent :editor="tiptapEditor" />
       </div>
+
+      <!-- Cmd+Enter hint — single-line only -->
+      <span
+        v-show="!isMultiLine"
+        class="shrink-0 select-none pr-2 font-mono text-xs text-muted-foreground/60"
+        aria-hidden="true"
+      >⌘↵ to send</span>
 
       <!-- Send button — single-line position (after editor) -->
       <Button

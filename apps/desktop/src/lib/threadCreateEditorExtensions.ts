@@ -227,7 +227,7 @@ export const ThreadImageBadge = Node.create({
     ];
   },
   renderText({ node }) {
-    return `🖼️ ${node.attrs.name || ""}`;
+    return String(node.attrs.path ?? "");
   }
 });
 
@@ -272,8 +272,8 @@ export const ThreadFileBadge = Node.create({
       ["span", { class: "min-w-0 truncate font-mono font-medium", title: path }, name]
     ];
   },
-  renderText() {
-    return "";
+  renderText({ node }) {
+    return String(node.attrs.path ?? "");
   }
 });
 
