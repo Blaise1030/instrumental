@@ -90,7 +90,7 @@ const panelTabs = [
 
 const activeTab = computed<string>(() => {
   const name = route.name as string;
-  if (name === "gitPanel") return "gitPanel";
+  if (name === "gitPanel" || name === "gitPullRequests") return "gitPanel";
   if (name === "previewPanel") return "previewPanel";
   if (name === "filesPanel" || name === "fileDetail") return "filesPanel";
   return "agent";

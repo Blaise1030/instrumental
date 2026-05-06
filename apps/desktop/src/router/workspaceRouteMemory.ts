@@ -7,6 +7,7 @@ const PERSISTED_ROUTE_NAMES = new Set([
   "threadNew",
   "agent",
   "gitPanel",
+  "gitPullRequests",
   "previewPanel",
   "filesPanel",
   "fileDetail",

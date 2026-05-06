@@ -4,6 +4,8 @@ import WelcomePage from "@/modules/welcome/WelcomePage.vue";
 import CreateNewThread from "@/modules/agent/CreateNewThread.vue";
 import AgentPage from "@/modules/agent/AgentPage.vue";
 import GitPage from "@/modules/git/GitPage.vue";
+import SourceControlPanel from "@/components/SourceControlPanel.vue";
+import RemotePrPanel from "@/modules/git/RemotePrPanel.vue";
 import BrowserPage from "@/modules/browser/BrowserPage.vue";
 import ExplorerPage from "@/modules/explorer/ExplorerPage.vue";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -42,8 +44,19 @@ export const router = createRouter({
             },
             {
               path: "git",
-              name: "gitPanel",
               component: GitPage,
+              children: [
+                {
+                  path: "",
+                  name: "gitPanel",
+                  component: SourceControlPanel,
+                },
+                {
+                  path: "pull-requests",
+                  name: "gitPullRequests",
+                  component: RemotePrPanel,
+                },
+              ],
             },
             {
               path: "preview",
