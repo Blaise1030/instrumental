@@ -2,7 +2,7 @@
 import type { ThreadAgent, ThreadCreateWithAgentPayload } from "@shared/domain";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import PromptWithFileAttachments from "@/components/PromptWithFileAttachments.vue";
-import {Button} from "@/components/ui/button";;
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import AgentIcon from "@/components/ui/AgentIcon.vue";
 import { readPreferredThreadAgent } from "@/composables/usePreferredThreadAgent";
+import { buildThreadCreatePromptWithAttachmentBlocks } from "@/lib/threadCreatePromptAssembly";
 import type { LocalFileAttachment } from "@/lib/localFileAttachment";
 import ditherDarkImage from "@/assets/thread-inline-prompt-dither-dark.png";
 import ditherLightImage from "@/assets/thread-inline-prompt-dither-light.png";
@@ -54,44 +55,21 @@ const attachments = ref<LocalFileAttachment[]>([]);
 const skillPaths = ref<string[]>([]);
 const isDarkTheme = ref(false);
 
-const promptEditorRef = ref<{ flushToModels: () => void } | null>(null);
+const promptEditorRef = ref<{
+  flushToModels: () => void;
+  openFilePicker: () => void;
+} | null>(null);
 let themeObserver: MutationObserver | null = null;
 
 const ditherImageSrc = computed(() => (isDarkTheme.value ? ditherDarkImage : ditherLightImage));
 
-function dedupe(values: string[]): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const value of values) {
-    const v = value.trim();
-    if (!v || seen.has(v)) continue;
-    seen.add(v);
-    out.push(v);
-  }
-  return out;
-}
-
-function buildPromptWithAttachmentBlocks(text: string): string {
-  const parts: string[] = [];
-  const note = text.trim();
-  if (note) parts.push(note);
-
-  const nextSkills = dedupe(skillPaths.value);
-  const nextFiles = dedupe(attachments.value.map((a) => a.path));
-
-  if (nextSkills.length > 0) {
-    parts.push(`[Attached skills]\n${nextSkills.join("\n")}`);
-  }
-  if (nextFiles.length > 0) {
-    parts.push(`[Attached files]\n${nextFiles.join("\n")}`);
-  }
-
-  return parts.join("\n\n").trim();
-}
-
 function startThread(): void {
   promptEditorRef.value?.flushToModels();
-  const finalPrompt = buildPromptWithAttachmentBlocks(prompt.value);
+  const finalPrompt = buildThreadCreatePromptWithAttachmentBlocks(
+    prompt.value,
+    skillPaths.value,
+    attachments.value.map((a) => a.path)
+  );
   emit("submit", { agent: selectedAgent.value, prompt: finalPrompt });
 }
 
@@ -125,7 +103,12 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeyDown, { capture: true });
 });
 
-defineExpose({ submit });
+defineExpose({
+  submit,
+  /** Parity with `PromptWithFileAttachments` — sync TipTap → v-models before reading prompt. */
+  flushToModels: () => promptEditorRef.value?.flushToModels(),
+  openFilePicker: () => promptEditorRef.value?.openFilePicker()
+});
 </script>
 
 <template>

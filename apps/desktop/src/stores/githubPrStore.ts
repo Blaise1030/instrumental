@@ -36,6 +36,7 @@ export interface ParsedFileDiff {
   oldFileName: string;
   newFileName: string;
   displayName: string;
+  rawSection: string;
   hunks: string[];
   isNewFile: boolean;
   isDeletedFile: boolean;
@@ -45,8 +46,9 @@ export interface ParsedFileDiff {
 
 function parsePrDiff(diff: string): ParsedFileDiff[] {
   const result: ParsedFileDiff[] = [];
+  const normalized = diff.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   // Split on each "diff --git" marker
-  const sections = diff.split(/(?=^diff --git )/m).filter((s) => s.trim());
+  const sections = normalized.split(/(?=^diff --git )/m).filter((s) => s.trim());
 
   for (const section of sections) {
     const lines = section.split("\n");
@@ -94,6 +96,7 @@ function parsePrDiff(diff: string): ParsedFileDiff[] {
         oldFileName: oldFileName || "/dev/null",
         newFileName: newFileName || "/dev/null",
         displayName: effectiveName,
+        rawSection: section,
         hunks,
         isNewFile,
         isDeletedFile,
