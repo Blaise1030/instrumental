@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useIsFullscreen } from "@/composables/useIsFullscreen";
 import { useAppContext } from "@/app-context/useAppContext";
 import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
 import { useAddProjectFromDirectoryPick } from "@/composables/useAddProjectFromDirectoryPick";
@@ -52,6 +53,7 @@ import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useToast } from "@/composables/useToast";
 
 const appContext = useAppContext();
+const { isFullscreen } = useIsFullscreen();
 const toast = useToast();
 const queryClient = useQueryClient();
 const route = useRoute();
@@ -82,10 +84,10 @@ const canAddProject = computed(() => {
 });
 
 const panelTabs = [
-  { value: "agent", label: "Agent" },
-  { value: "gitPanel", label: "Git" },
-  { value: "previewPanel", label: "Browser" },
-  { value: "filesPanel", label: "Files" },
+  { value: "agent", label: "🤖 Agent" },
+  { value: "gitPanel", label: "🔧 Git" },
+  { value: "previewPanel", label: "🌐 Browser" },
+  { value: "filesPanel", label: "🗂️ Files" },
 ] as const;
 
 const activeTab = computed<string>(() => {
@@ -275,7 +277,10 @@ async function onCreateWorktreeGroup(
       <nav
         class="h-(--header-height) bg-sidebar sticky top-0 left-0 z-10 flex min-w-0 items-center gap-1 border-b"
       >
-        <div class="flex shrink-0 items-center justify-end gap-1 ps-20">
+        <div
+          class="flex shrink-0 items-center justify-end gap-1 ps-2"
+          :class="{ 'ps-20': !isFullscreen }"
+        >
           <SidebarTrigger class="border" />
           <ButtonGroup>
             <Button
@@ -299,7 +304,7 @@ async function onCreateWorktreeGroup(
           </ButtonGroup>
         </div>
         <div class="flex min-w-0 flex-1 items-center gap-1">
-          <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">            
             <Button
               v-for="value in projectTabs ?? []"
               :key="value.id"
@@ -310,6 +315,11 @@ async function onCreateWorktreeGroup(
               :aria-current="value.id === projectId ? 'page' : undefined"
               @click="navigateToProject(value.id)"
             >
+            <span
+              class="inline-flex shrink-0 items-center justify-center ps-0.5 text-[15px] leading-none select-none"
+              role="img"
+              aria-label="Workspace"
+              >📁</span>
               {{ value.name }}
             </Button>
             <Button
