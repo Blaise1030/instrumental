@@ -931,6 +931,7 @@ async function openAppUpdateUrl(url: string): Promise<void> {
                     v-if="projectId"
                     variant="popover"
                     :project-id="projectId"
+                    :cwd="scmCwd ?? ''"
                     @create="(branch, baseBranch) => emit('createWorktreeGroup', branch, baseBranch)"
                     @cancel="emit('cancelBranchPicker')"
                   />

@@ -124,6 +124,43 @@ importers:
       zod:
         specifier: 3.25.76
         version: 3.25.76
+    optionalDependencies:
+      '@tailwindcss/oxide-android-arm64':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-darwin-arm64':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-darwin-x64':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-freebsd-x64':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-linux-arm-gnueabihf':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-linux-arm64-gnu':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-linux-arm64-musl':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-linux-x64-gnu':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-linux-x64-musl':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-wasm32-wasi':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-win32-arm64-msvc':
+        specifier: 4.2.2
+        version: 4.2.2
+      '@tailwindcss/oxide-win32-x64-msvc':
+        specifier: 4.2.2
+        version: 4.2.2
     devDependencies:
       '@electron/rebuild':
         specifier: ^4.0.3

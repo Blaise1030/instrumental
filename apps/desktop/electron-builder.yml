@@ -3,7 +3,7 @@ appId: com.workbench.desktop
 productName: workbench
 copyright: Copyright © workbench contributors
 # Must match devDependency `electron` in package.json — native modules (better-sqlite3, node-pty)
-# are rebuilt in postinstall via `electron-builder install-app-deps` using this version.
+# are aligned in postinstall via `build/ensureElectronNatives.cjs` (electron-rebuild when ABI mismatches).
 electronVersion: 39.8.5
 
 directories:

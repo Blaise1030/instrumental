@@ -8,6 +8,7 @@
     "build:electron": "pnpm --filter workbench build:electron",
     "build:app": "pnpm --filter workbench build:app",
     "dev:electron": "pnpm --filter workbench dev:electron",
+    "repair:electron": "pnpm --filter workbench repair:electron",
     "test": "pnpm --filter workbench test",
     "test:watch": "pnpm --filter workbench test:watch",
     "lint": "pnpm --filter workbench lint",

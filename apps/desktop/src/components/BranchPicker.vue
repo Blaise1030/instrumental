@@ -2,16 +2,19 @@
 import { ref, computed, onMounted } from "vue";
 import { cn } from "@/lib/utils";
 import ScmBranchCombobox from "@/components/ScmBranchCombobox.vue";
+import BranchSelector from "@/components/BranchSelector.vue";
 import {Button} from "@/components/ui/button";;
 import { Input } from "@/components/ui/input";
 
 const props = withDefaults(
   defineProps<{
     projectId: string;
+    /** Primary repo path for `gitService` (enables `BranchSelector` for base branch). */
+    cwd?: string;
     /** Tighter layout when embedded in the thread sidebar footer. */
     variant?: "default" | "footer" | "popover";
   }>(),
-  { variant: "default" }
+  { variant: "default", cwd: "" }
 );
 
 const emit = defineEmits<{
@@ -87,11 +90,17 @@ function handleCreate(): void {
       />
     </div>
 
-    <!-- Base branch (only when creating a new branch name) — same searchable branch control as the toolbar -->
+    <!-- Base branch (only when creating a new branch name) -->
     <div v-if="isNewBranchName" class="mb-2">
       <label class="mb-1 block text-[10px] text-muted-foreground">Base branch</label>
+      <BranchSelector
+        v-if="props.cwd"
+        v-model="baseBranch"
+        purpose="pick"
+        :cwd="props.cwd"
+      />
       <ScmBranchCombobox
-        v-if="!loading && branches.length > 0"
+        v-else-if="!loading && branches.length > 0"
         v-model:current-branch="baseBranch"        
         mode="pick"
         variant="footer"

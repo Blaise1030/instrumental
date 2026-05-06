@@ -82,8 +82,8 @@ function onPromptKeydown(e: KeyboardEvent): void {
     <div v-if="activeWorktree && threadId" class="grid min-h-0 flex-1">
       <TerminalPane ref="terminalRef" class="flex-1" :session-id="threadId" :worktree-id="activeWorktree.id" :cwd="activeWorktree.path"
         aria-label="Agent" :pending-agent-bootstrap="pendingBootstrap" @bootstrap-consumed="onBootstrapConsumed" />
-      <div class="p-1 min-h-0 flex-col" @keydown.capture="onPromptKeydown">
-        <PromptWithFileAttachments class="max-w-lg w-full mx-auto" ref="promptEditorRef" v-model:prompt="prompt" v-model:attachments="attachments"
+      <div class="px-4 pt-1 min-h-0 flex-col" @keydown.capture="onPromptKeydown">
+        <PromptWithFileAttachments class="w-full mx-auto" ref="promptEditorRef" v-model:prompt="prompt" v-model:attachments="attachments"
           v-model:skill-paths="skillPaths" test-id-prefix="agent-page-prompt" :tiptap="true" :show-done-button="false"
           :worktree-path="activeWorktree.path" placeholder="Use @ for files or / for skills...">
           <template #footer>
@@ -93,7 +93,7 @@ function onPromptKeydown(e: KeyboardEvent): void {
                   Ctrl/⌘ + Enter to send
                 </span>
                 <Button type="button" data-testid="agent-page-send-prompt" @click="submitPrompt">
-                  Send to terminal
+                  Submit
                 </Button>
               </div>
             </header>

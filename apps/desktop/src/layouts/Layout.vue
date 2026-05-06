@@ -33,7 +33,7 @@ import AgentIcon from "@/components/ui/AgentIcon.vue";
 import { Button } from "@/components/ui/button";
 import Switch from "@/components/ui/Switch.vue";
 import Label from "@/components/ui/label/Label.vue";
-import TrackedBranchSelector from "@/components/TrackedBranchSelector.vue";
+import BranchSelector from "@/components/BranchSelector.vue";
 import SidebarTrigger from "@/components/ui/sidebar/SidebarTrigger.vue";
 import {
   Tooltip,
@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Terminal, Settings } from "lucide-vue-next";
 import ThemeToggle from "@/components/ThemeToggle.vue";
+import BranchPicker from "@/components/BranchPicker.vue";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const appContext = useAppContext();
 const queryClient = useQueryClient();
@@ -198,6 +200,22 @@ function openSettings(): void {
 function openTerminalPanel(): void {
   router.push({ name: "terminal" });
 }
+
+const addWorktreePopoverOpen = ref(false);
+
+const canCreateWorktree = computed(() => {
+  if (typeof window === "undefined") return false;
+  return Boolean(appContext.value.gitService && window.workspaceApi?.createWorktreeGroup);
+});
+
+async function onCreateWorktreeGroup(branch: string, baseBranch: string | null): Promise<void> {
+  const api = window.workspaceApi;
+  const pid = projectId.value;
+  if (!api?.createWorktreeGroup || !pid) return;
+  await api.createWorktreeGroup({ projectId: pid, branch, baseBranch });
+  addWorktreePopoverOpen.value = false;
+  void queryClient.invalidateQueries({ queryKey: ["worktrees"] });
+}
 </script>
 
 <template>
@@ -246,7 +264,8 @@ function openTerminalPanel(): void {
       <div className="flex flex-1">
         <Sidebar class="top-(--header-height) h-[calc(100dvh-var(--header-height))]">
           <SidebarContent class="gap-0 flex flex-col">
-            <SidebarGroup v-for="(value, index) in threadsGroup" class="gap-0 flex flex-col"
+            <template v-for="(value, index) in threadsGroup ?? []" :key="value.branch">
+            <SidebarGroup class="gap-0 flex flex-col"
               :class="index === 0 ? 'px-1' : ''">
               <Collapsible default-open class="group/collapsible p-0">
                 <SidebarGroupLabel as-child class="px-0">
@@ -260,7 +279,7 @@ function openTerminalPanel(): void {
                       </Button>
                     </CollapsibleTrigger>
                     <div class="flex-1">
-                      <TrackedBranchSelector v-if="projectPath" :cwd="projectPath" @branch-changed="
+                      <BranchSelector v-if="projectPath" :cwd="projectPath" @branch-changed="
                         void queryClient.invalidateQueries({
                           queryKey: ['worktrees'],
                         })
@@ -341,6 +360,46 @@ function openTerminalPanel(): void {
                 </CollapsibleContent>
               </Collapsible>
             </SidebarGroup>
+            <div
+              v-if="index === 0"
+              class="flex items-center gap-1 px-1 pb-1 pt-0"
+            >
+              <div class="h-px flex-1 bg-border/80" />
+              <Popover v-model:open="addWorktreePopoverOpen">
+                <PopoverTrigger as-child>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    class="shrink-0 rounded-md"
+                    aria-label="Add worktree"
+                    title="Add a linked worktree"
+                    :disabled="!canCreateWorktree || !projectId"
+                    data-testid="layout-add-worktree-trigger"
+                  >
+                    <PlusIcon class="h-4 w-4 shrink-0" />
+                    <span class="whitespace-nowrap">Add worktree</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="center"
+                  side="bottom"
+                  class="max-w-[240px] p-2"
+                  data-testid="layout-add-worktree-popover"
+                >
+                  <BranchPicker
+                    v-if="projectId"
+                    variant="popover"
+                    :project-id="projectId"
+                    :cwd="projectPath ?? ''"
+                    @create="onCreateWorktreeGroup"
+                    @cancel="addWorktreePopoverOpen = false"
+                  />
+                </PopoverContent>
+              </Popover>
+              <div class="h-px flex-1 bg-border/80" />
+            </div>
+            </template>
           </SidebarContent>          
           <SidebarFooter class="flex flex-row items-center justify-end">
             <Tooltip>

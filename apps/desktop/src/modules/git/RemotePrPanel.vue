@@ -4,7 +4,7 @@ import { ExternalLink, Loader2, MessageSquare, RefreshCw, Settings2 } from "luci
 import { DiffView, DiffModeEnum } from "@git-diff-view/vue";
 import "@git-diff-view/vue/styles/diff-view.css";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge/index";
 import { useGitHubPrStore, type GitHubPrComment } from "@/stores/githubPrStore";
 import GitHubTokenSetup from "./GitHubTokenSetup.vue";
 
