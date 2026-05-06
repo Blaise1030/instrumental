@@ -4,6 +4,7 @@ import {
   ExternalLink,
   File,
   Filter,
+  GitBranch,
   List,
   Loader2,
   MessageSquare,
@@ -44,6 +45,7 @@ import {
   type ParsedFileDiff,
 } from "@/stores/githubPrStore";
 import GitHubTokenSetup from "./GitHubTokenSetup.vue";
+import Label from "@/components/ui/label/Label.vue";
 
 const props = defineProps<{ cwd: string }>();
 
@@ -190,35 +192,42 @@ const filteredFiles = computed(() =>
     <template v-else>      
       <SidebarProvider class="flex h-full flex-1 border-t overflow-hidden">        
           <Sidebar collapsible="none" class="h-full min-h-0 border-e">
-            <SidebarHeader class="flex flex-row items-center justify-end gap-0.5">
-              <TooltipProvider :delay-duration="500">
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <Button
-                      size="icon-sm"
-                      variant="outline"
-                      :disabled="store.loading"
-                      @click="void store.fetchPrs()"
-                    >
-                      <Loader2 v-if="store.loading" class="animate-spin" />
-                      <RefreshCw v-else />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Refresh</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <Button
-                      size="icon-sm"
-                      variant="outline"
-                      @click="showSetup = true"
-                    >
-                      <Settings2 />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Settings</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <SidebarHeader
+              class="flex flex-col gap-1"
+            >
+              <div class="flex flex-row items-center justify-end gap-0.5">
+                <Label class="me-auto text-xs text-muted-foreground">
+                  Pull Requests
+                </Label>
+                <TooltipProvider :delay-duration="500">
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        :disabled="store.loading"
+                        @click="void store.fetchPrs()"
+                      >
+                        <Loader2 v-if="store.loading" class="animate-spin" />
+                        <RefreshCw v-else />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Refresh</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        @click="showSetup = true"
+                      >
+                        <Settings2 />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Settings</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>              
             </SidebarHeader>
 
             <SidebarContent class="min-h-0 px-1 py-1">
@@ -273,6 +282,26 @@ const filteredFiles = computed(() =>
                         {{ pr.review_comments }}
                       </span>
                     </div>
+                    <div
+                      class="flex flex-wrap items-center gap-1 ps-[22px] pt-0.5"
+                      :title="`${pr.head.ref} merges into ${pr.base.ref}`"
+                    >
+                      <Badge
+                        variant="outline"
+                        class="h-auto text-start min-w-0 justify-start truncate max-w-[40%] font-mono text-[9px] font-normal leading-tight"
+                        :title="pr.head.ref"
+                      >
+                        {{ pr.head.ref }}
+                      </Badge>
+                      <span class="text-[9px] text-muted-foreground/80" aria-hidden="true">→</span>
+                      <Badge
+                        variant="outline"
+                        class="h-auto text-start justify-start truncate max-w-[40%] font-mono text-[9px] font-normal leading-tight"
+                        :title="pr.base.ref"
+                      >
+                        {{ pr.base.ref }}
+                      </Badge>
+                    </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -280,7 +309,7 @@ const filteredFiles = computed(() =>
           </Sidebar>
 
           <SidebarInset>
-            <div class="flex min-h-0 min-w-0 flex-1 flex-col pb-20">
+            <div class="flex min-h-0 min-w-0 flex-1 flex-col pb-[80px]">
               <!-- No PR selected -->
               <div
                 v-if="!store.selectedPrNumber"
@@ -301,41 +330,75 @@ const filteredFiles = computed(() =>
               <template v-else-if="store.selectedPr">
                 <!-- PR header -->
                 <div
-                  class="flex h-10 min-w-0 shrink-0 items-center gap-2 border-b border-border px-3"
+                  class="flex min-w-0 shrink-0 flex-col gap-1 border-b border-border px-3 py-1.5"
                 >
-                  <Badge
-                    :variant="store.selectedPr.draft ? 'secondary' : 'default'"
-                    class="shrink-0 text-[10px]"
+                  <div
+                    class="flex min-h-8 min-w-0 items-center gap-2"
+                    :title="`${store.selectedPr.head.ref} → ${store.selectedPr.base.ref}`"
                   >
-                    {{ store.selectedPr.draft ? "Draft" : "Open" }}
-                  </Badge>
-                  <span
-                    class="min-w-0 flex-1 truncate text-sm font-semibold text-foreground"
-                  >
-                    {{ store.selectedPr.title }}
-                  </span>
-                  <span
-                    class="shrink-0 font-mono text-xs text-muted-foreground"
-                  >
-                    #{{ store.selectedPr.number }}
-                  </span>
-                  <TooltipProvider :delay-duration="500">
-                    <Tooltip>
-                      <TooltipTrigger as-child>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          class="h-7 w-7 shrink-0"
-                          @click="openInBrowser(store.selectedPr!.html_url)"
+                    <Badge
+                      :variant="store.selectedPr.draft ? 'secondary' : 'default'"
+                      class="shrink-0 text-[10px]"
+                    >
+                      {{ store.selectedPr.draft ? "Draft" : "Open" }}
+                    </Badge>
+                    <span
+                      class="min-w-0 flex-1 truncate text-sm font-semibold text-foreground"
+                    >
+                      {{ store.selectedPr.title }}
+                    </span>
+                    <span
+                      class="shrink-0 font-mono text-xs text-muted-foreground"
+                    >
+                      #{{ store.selectedPr.number }}
+                    </span>
+                    <TooltipProvider :delay-duration="500">
+                      <Tooltip>
+                        <TooltipTrigger as-child>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            class="h-7 w-7 shrink-0"
+                            @click="openInBrowser(store.selectedPr!.html_url)"
+                          >
+                            <ExternalLink class="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom"
+                          >View on GitHub</TooltipContent
                         >
-                          <ExternalLink class="h-3.5 w-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom"
-                        >View on GitHub</TooltipContent
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div
+                    class="flex min-w-0 items-center gap-1.5 ps-0.5"
+                    role="group"
+                    :aria-label="`${store.selectedPr.head.ref} into ${store.selectedPr.base.ref}`"
+                  >
+                    <GitBranch
+                      class="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <div
+                      class="flex min-w-0 flex-1 flex-wrap items-center gap-1"
+                    >
+                      <Badge
+                        variant="outline"
+                        class="h-auto justify-start truncate px-1.5 py-0 font-mono text-[10px] font-normal leading-tight"
+                        :title="store.selectedPr.head.ref"
                       >
-                    </Tooltip>
-                  </TooltipProvider>
+                        {{ store.selectedPr.head.ref }}
+                      </Badge>
+                      <span class="text-[10px] text-muted-foreground/80">→</span>
+                      <Badge
+                        variant="secondary"
+                        class="h-auto justify-start truncate px-1.5 py-0 font-mono text-[10px] font-normal leading-tight"
+                        :title="store.selectedPr.base.ref"
+                      >
+                        {{ store.selectedPr.base.ref }}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
 
                 <div

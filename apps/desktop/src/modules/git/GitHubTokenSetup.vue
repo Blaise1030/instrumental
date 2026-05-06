@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { ChevronLeft } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { useGitHubPrStore } from "@/stores/githubPrStore";
 import { detectGitHubRemote } from "@/composables/useGitHubRemote";
+
+const route = useRoute();
+const router = useRouter();
 
 const props = defineProps<{
   cwd: string;
@@ -35,11 +40,29 @@ async function save(): Promise<void> {
   await store.saveConfig(tokenInput.value, ownerInput.value, repoInput.value);
   emit("saved");
 }
+
+function goBack(): void {
+  const projectId = route.params.projectId as string;
+  const branch = route.params.branch as string;
+  const threadId = route.params.threadId as string;
+  void router.push({ name: "gitPanel", params: { projectId, branch, threadId } });
+}
 </script>
 
 <template>
   <div class="flex flex-1 flex-col items-center justify-center gap-4 p-6">
     <div class="w-full max-w-sm space-y-4">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        class="-ms-2 gap-1 px-2 text-muted-foreground hover:text-foreground"
+        aria-label="Back to local Git"
+        @click="goBack"
+      >
+        <ChevronLeft class="h-4 w-4 shrink-0" />
+        Back
+      </Button>
       <div class="space-y-1">
         <h2 class="text-sm font-semibold text-foreground">Connect to GitHub</h2>
         <p class="text-[11px] text-muted-foreground">
