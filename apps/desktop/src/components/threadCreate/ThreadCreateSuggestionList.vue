@@ -34,6 +34,10 @@ function isSkillRow(item: SuggestionRow): boolean {
   return item.itemKind === "skill";
 }
 
+function baseName(path: string): string {
+  return path.split(/[\\/]/).pop() ?? path;
+}
+
 const listScrollRef = ref<HTMLElement | null>(null);
 
 watch(
@@ -53,7 +57,7 @@ watch(
 <template>
   <div
     data-testid="thread-create-suggestion-menu"
-    class="flex min-h-0 min-w-[12rem] max-w-[min(100vw-2rem,22rem)] max-h-[min(13rem,45vh)] flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
+    class="flex min-h-0 w-[min(100vw-2rem,22rem)] max-h-[min(13rem,45vh)] flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
     role="listbox"
     :aria-label="variant === 'slash' ? 'Slash skills' : 'Files'"
   >
@@ -99,7 +103,7 @@ watch(
             />
             <span v-else class="shrink-0 text-[13px] leading-none" aria-hidden="true">📄</span>
             <span class="min-w-0 truncate font-mono text-[11px] font-medium text-foreground">{{
-              item.label
+              variant === "at" && !isSkillRow(item) ? baseName(item.label) : item.label
             }}</span>
           </span>
           <span
@@ -111,6 +115,11 @@ watch(
             v-else-if="variant === 'at' && isSkillRow(item)"
             class="pl-5 text-[10px] text-muted-foreground"
             >Skill</span
+          >
+          <span
+            v-else-if="variant === 'at' && !isSkillRow(item)"
+            class="pl-5 truncate text-[10px] text-muted-foreground"
+            >{{ item.label }}</span
           >
         </button>
       </template>

@@ -79,26 +79,25 @@ function submitPrompt(): void {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col">
-    <div v-if="activeWorktree && threadId" class="grid min-h-0 flex-1">
+  <div class="flex flex-1 flex-col justify-end">
+    <template v-if="activeWorktree && threadId">
       <TerminalPane ref="terminalRef" class="flex-1" :session-id="threadId" :worktree-id="activeWorktree.id" :cwd="activeWorktree.path"
-        aria-label="Agent" :pending-agent-bootstrap="pendingBootstrap" @bootstrap-consumed="onBootstrapConsumed" />
-      <div class="px-4 pt-1 min-h-0 flex-col">
+        aria-label="Agent" :pending-agent-bootstrap="pendingBootstrap" @bootstrap-consumed="onBootstrapConsumed" />      
+        <div class="p-2 flex min-h-0 items-end shrink-0">
         <ThreadAdaptivePromptInput
-          class="w-full mx-auto"
-          ref="promptEditorRef"
-          v-model:prompt="prompt"
-          v-model:attachments="attachments"
-          v-model:skill-paths="skillPaths"
-          test-id-prefix="agent-page-prompt"
-          :worktree-path="activeWorktree.path"
-          placeholder="Use @ for files or / for skills..."
-          composer-label="Composer 2"
-          @submit="submitPrompt"
-        />
-      </div>
-    </div>
-
+        class="w-full mx-auto"
+        ref="promptEditorRef"
+        v-model:prompt="prompt"
+        v-model:attachments="attachments"
+        v-model:skill-paths="skillPaths"
+        test-id-prefix="agent-page-prompt"
+        :worktree-path="activeWorktree.path"
+        placeholder="Use @ for files or / for skills..."
+        composer-label="Composer 2"
+        @submit="submitPrompt"
+        />      
+        </div>      
+    </template>
     <div v-else class="flex flex-1 items-center justify-center text-sm text-muted-foreground">
       No active thread.
     </div>

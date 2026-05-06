@@ -81,9 +81,7 @@ const tiptapEditor: Ref<Editor | null | undefined> = useEditor({
     handleKeyDown(_view, event) {
       if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
-        const ed = tiptapEditor.value;
-        if (ed) applyEditorToModels(ed);
-        emit("submit");
+        onSend();
         return true;
       }
       return false;
@@ -306,7 +304,15 @@ function onDrop(e: DragEvent): void {
 function onSend(): void {
   const ed = tiptapEditor.value;
   if (ed) applyEditorToModels(ed);
+  prompt.value = "";
+  attachments.value = [];
+  skillPaths.value = [];
+  isMultiLine.value = false;
   emit("submit");
+  // Defer the editor clear so TipTap finishes handling the current event first
+  Promise.resolve().then(() => {
+    tiptapEditor.value?.commands.clearContent(true);
+  });
 }
 
 defineExpose({
