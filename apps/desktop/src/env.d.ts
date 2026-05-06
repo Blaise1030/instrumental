@@ -99,6 +99,8 @@ interface WorkspaceApi {
   applyPatch: (payload: { cwd: string; relativeFilePath: string; content: string }) => Promise<void>;
   /** @param sessionId Thread id or `__wt:${worktreeId}` when no thread is selected. */
   ptyCreate: (sessionId: string, cwd: string, worktreeId: string) => Promise<{ buffer: string; created?: boolean }>;
+  /** True when main process already holds a live PTY for this session id (`ptyCreate` would reattach). */
+  ptyHasSession?: (sessionId: string) => Promise<boolean>;
   ptyWrite: (sessionId: string, data: string) => Promise<void>;
   ptyResize: (sessionId: string, cols: number, rows: number) => Promise<void>;
   ptyKill: (sessionId: string) => Promise<void>;

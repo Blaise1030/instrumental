@@ -1,16 +1,25 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
 import { takePendingAgentBootstrapForThread } from "@/lib/pendingAgentBootstrapSession";
+import { useAgentBootstrapCommands } from "@/composables/useAgentBootstrapCommands";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { threadAgentResumeCommandLine } from "@shared/threadAgentBootstrap";
+import { isValidPersistedResumeId } from "@shared/resumeSessionId";
 import PromptWithFileAttachments from "@/components/PromptWithFileAttachments.vue";
 import TerminalPane from "@/components/TerminalPane.vue";
 import { Button } from "@/components/ui/button";
 import type { LocalFileAttachment } from "@/lib/localFileAttachment";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
+import type { Thread } from "@shared/domain";
+import { useAppContext } from "@/app-context/useAppContext";
 
 const route = useRoute();
 const { activeWorktree } = useActiveWorkspace();
+const appContext = useAppContext();
+const workspace = useWorkspaceStore();
+const { bootstrapCommandFor } = useAgentBootstrapCommands();
 
 const threadId = computed(() => route.params.threadId as string);
 const pendingBootstrap = ref<PendingAgentBootstrap | null>(null);
@@ -20,9 +29,33 @@ const skillPaths = ref<string[]>([]);
 const promptEditorRef = ref<{ flushToModels: () => void } | null>(null);
 const terminalRef = ref<InstanceType<typeof TerminalPane> | null>(null);
 
-onMounted(() => {
+onMounted(async () => {
   const tid = threadId.value;
-  if (tid) pendingBootstrap.value = takePendingAgentBootstrapForThread(tid);
+  if (!tid) return;
+
+  let boot = takePendingAgentBootstrapForThread(tid);
+  if (!boot) {
+    const thread: Thread | null = await appContext.value.threadManagementService.getThread(tid);
+    if (thread) {
+      const session = workspace.threadSessionFor(tid);
+      if (
+        session?.resumeId &&
+        session.status === "resumable" &&
+        isValidPersistedResumeId(session.resumeId)
+      ) {
+        const resumeCmd = threadAgentResumeCommandLine(
+          bootstrapCommandFor(thread.agent),
+          thread.agent,
+          session.resumeId
+        );
+        await nextTick();
+        console.log(resumeCmd)
+        terminalRef.value?.injectPrompt(resumeCmd);
+        
+      }
+    }
+  }
+  pendingBootstrap.value = boot ?? null;
 });
 
 function onBootstrapConsumed(): void {
@@ -78,7 +111,7 @@ function onPromptKeydown(e: KeyboardEvent): void {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col bg-background">
+  <div class="flex min-h-0 flex-1 flex-col">
     <div v-if="activeWorktree && threadId" class="grid min-h-0 flex-1">
       <TerminalPane ref="terminalRef" class="flex-1" :session-id="threadId" :worktree-id="activeWorktree.id" :cwd="activeWorktree.path"
         aria-label="Agent" :pending-agent-bootstrap="pendingBootstrap" @bootstrap-consumed="onBootstrapConsumed" />

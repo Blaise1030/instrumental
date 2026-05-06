@@ -89,6 +89,7 @@ const IPC_CHANNELS = {
   previewNativeGoForward: "preview:nativeGoForward",
   previewNavigationStateChanged: "preview:navigationStateChanged",
   terminalPtyCreate: "terminal:ptyCreate",
+  terminalPtyHasSession: "terminal:ptyHasSession",
   terminalPtyWrite: "terminal:ptyWrite",
   terminalPtyResize: "terminal:ptyResize",
   terminalPtyKill: "terminal:ptyKill",
@@ -229,6 +230,8 @@ contextBridge.exposeInMainWorld("workspaceApi", {
   applyPatch: (payload: { cwd: string; relativeFilePath: string; content: string }) => ipcRenderer.invoke(IPC_CHANNELS.editApplyPatch, payload),
   ptyCreate: (sessionId: string, cwd: string, worktreeId: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.terminalPtyCreate, { sessionId, cwd, worktreeId }),
+  ptyHasSession: (sessionId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.terminalPtyHasSession, { sessionId }) as Promise<boolean>,
   ptyWrite: (sessionId: string, data: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.terminalPtyWrite, { sessionId, data }),
   ptyResize: (sessionId: string, cols: number, rows: number) =>

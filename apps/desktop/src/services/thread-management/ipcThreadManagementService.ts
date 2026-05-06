@@ -26,6 +26,15 @@ export class IpcThreadManagementService implements ThreadManagementService {
     return snapshot.threads.filter((thread) => thread.projectId === projectId);
   }
 
+  async getThread(threadId: string): Promise<Thread | null> {
+    const a = this.requireApi();
+    if (!a.getSnapshot) {
+      throw new Error("workspaceApi.getSnapshot is not available.");
+    }
+    const snapshot = (await a.getSnapshot()) as WorkspaceSnapshot;
+    return snapshot.threads.find((t) => t.id === threadId) ?? null;
+  }
+
   async createThread(input: CreateThreadInput): Promise<Thread> {
     const a = this.requireApi();
     if (!a.createThread) {

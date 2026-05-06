@@ -40,6 +40,11 @@ const props = withDefaults(
     queueRemoveAriaLabel?: string;
     /** TipTap mode: show the internal Done control that toggles to read-only blob */
     showDoneButton?: boolean;
+    /**
+     * TipTap only: pill-shaped single-row chrome when content fits one line; switches to
+     * stacked editor + bottom toolbar when text wraps or spans multiple blocks / badges.
+     */
+    adaptiveLineLayout?: boolean;
   }>(),
   {
     placeholder: "",
@@ -51,7 +56,8 @@ const props = withDefaults(
     contextTagLabel: null,
     showQueueRemove: false,
     queueRemoveAriaLabel: "Remove this queue entry",
-    showDoneButton: true
+    showDoneButton: true,
+    adaptiveLineLayout: false
   }
 );
 
@@ -88,6 +94,10 @@ function applyEditorToModels(editor: Editor): void {
   skillPaths.value = [...inlineSkillPaths];
 }
 
+const tiptapProseMirrorClass = props.adaptiveLineLayout
+  ? "tiptap min-h-0 max-h-[12rem] overflow-y-auto px-2 py-1 text-[13px] leading-snug text-foreground outline-none focus:outline-none [&_p]:my-0.5 [&_p:first-child]:mb-0"
+  : "tiptap min-h-[7rem] max-h-[12rem] overflow-y-auto px-2.5 py-1.5 text-[13px] leading-snug text-foreground outline-none focus:outline-none [&_p]:my-0.5 [&_p:first-child]:mb-0";
+
 // TipTap editor — only instantiated when tiptap=true (prop is static after mount)
 const tiptapEditor: Ref<Editor | null | undefined> = props.tiptap
   ? useEditor({
@@ -107,8 +117,7 @@ const tiptapEditor: Ref<Editor | null | undefined> = props.tiptap
       immediatelyRender: false,
       editorProps: {
         attributes: {
-          class:
-            "tiptap min-h-[7rem] max-h-[12rem] overflow-y-auto px-2.5 py-1.5 text-[13px] leading-snug text-foreground outline-none focus:outline-none [&_p]:my-0.5 [&_p:first-child]:mb-0",
+          class: tiptapProseMirrorClass,
           role: "textbox",
           "aria-multiline": "true",
           "aria-placeholder":
@@ -180,9 +189,91 @@ const isEditing = ref(true);
 
 const isDocEmpty = computed(() => tiptapEditor.value?.isEmpty ?? true);
 
+/** TipTap + adaptiveLineLayout: true when wrapped text or multiple blocks / badges need a taller shell. */
+const isMultiLine = ref(false);
+
+let detachTiptapLayoutListeners: (() => void) | null = null;
+let tiptapResizeObserver: ResizeObserver | null = null;
+
+function scheduleAdaptiveLayoutMeasure(): void {
+  void nextTick(() => {
+    requestAnimationFrame(() => {
+      measureAdaptiveMultiline();
+    });
+  });
+}
+
+function measureAdaptiveMultiline(): void {
+  const ed = tiptapEditor.value;
+  if (!ed?.view || ed.isDestroyed || !props.adaptiveLineLayout) return;
+  const pm = ed.view.dom as HTMLElement;
+  const cs = getComputedStyle(pm);
+  const lhParsed = parseFloat(cs.lineHeight);
+  const lineHeight =
+    Number.isFinite(lhParsed) && lhParsed > 0 ? lhParsed : Math.max(pm.clientHeight, 20);
+  const wrapMultiline = pm.scrollHeight > lineHeight + 10;
+
+  const doc = ed.state.doc;
+  let nonEmptyParagraphs = 0;
+  doc.forEach((node) => {
+    if (node.type.name === "paragraph" && node.textContent.trim().length > 0) {
+      nonEmptyParagraphs += 1;
+    }
+  });
+  let hasAttachmentBadge = false;
+  doc.descendants((node) => {
+    if (node.type.name === "threadFileBadge" || node.type.name === "threadImageBadge") {
+      hasAttachmentBadge = true;
+      return false;
+    }
+  });
+
+  isMultiLine.value = wrapMultiline || nonEmptyParagraphs > 1 || hasAttachmentBadge;
+}
+
+function attachAdaptiveLayoutListeners(): void {
+  detachTiptapLayoutListeners?.();
+  tiptapResizeObserver?.disconnect();
+  tiptapResizeObserver = null;
+  detachTiptapLayoutListeners = null;
+
+  const ed = tiptapEditor.value;
+  if (!ed || ed.isDestroyed || !props.adaptiveLineLayout) return;
+
+  const onTx = (): void => {
+    scheduleAdaptiveLayoutMeasure();
+  };
+  ed.on("transaction", onTx);
+  detachTiptapLayoutListeners = () => {
+    ed.off("transaction", onTx);
+  };
+
+  tiptapResizeObserver = new ResizeObserver(() => {
+    scheduleAdaptiveLayoutMeasure();
+  });
+  tiptapResizeObserver.observe(ed.view.dom);
+  scheduleAdaptiveLayoutMeasure();
+}
+
 watch(isEditing, (v) => {
   tiptapEditor.value?.setEditable(v);
 });
+
+watch(
+  () => [props.tiptap, props.adaptiveLineLayout, tiptapEditor.value] as const,
+  ([tiptap, adaptive, ed]) => {
+    detachTiptapLayoutListeners?.();
+    tiptapResizeObserver?.disconnect();
+    tiptapResizeObserver = null;
+    detachTiptapLayoutListeners = null;
+    if (!tiptap || !adaptive || !ed || ed.isDestroyed) {
+      isMultiLine.value = false;
+      return;
+    }
+    attachAdaptiveLayoutListeners();
+  },
+  { flush: "post", immediate: true }
+);
 
 function flatTextToDocJson(text: string, contextTag: string | null) {
   const tag = contextTag?.trim() || null;
@@ -384,6 +475,13 @@ defineExpose({
     if (editor) applyEditorToModels(editor);
   }
 });
+
+onBeforeUnmount(() => {
+  detachTiptapLayoutListeners?.();
+  detachTiptapLayoutListeners = null;
+  tiptapResizeObserver?.disconnect();
+  tiptapResizeObserver = null;
+});
 </script>
 
 <template>
@@ -477,6 +575,97 @@ defineExpose({
     />
 
     <div
+      v-if="adaptiveLineLayout && isEditing"
+      :class="
+        cn(
+          'overflow-hidden border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+          isMultiLine
+            ? 'flex flex-col rounded-xl'
+            : 'flex flex-row items-center gap-1.5 rounded-full px-1 py-0.5'
+        )
+      "
+      :data-testid="`${testIdPrefix}-tiptap-placeholder-hint`"
+    >
+      <Button
+        v-if="!isMultiLine"
+        type="button"
+        variant="outline"
+        size="icon-xs"
+        class="h-8 w-8 shrink-0 rounded-full border-0 bg-muted/60 shadow-none"
+        title="Attach files or images"
+        aria-label="Attach files or images"
+        :data-testid="`${testIdPrefix}-add-file`"
+        @click="fileInputRef?.click()"
+      >
+        <Paperclip class="size-3.5" stroke-width="2" />
+      </Button>
+      <div class="min-h-0 min-w-0 flex-1">
+        <EditorContent :editor="tiptapEditor" />
+      </div>
+      <div
+        :class="
+          cn(
+            'flex min-w-0 items-center gap-2',
+            isMultiLine
+              ? 'w-full border-t border-border/50 bg-muted/10 px-2 py-1.5'
+              : 'shrink-0 pe-0.5'
+          )
+        "
+      >
+        <Button
+          v-if="isMultiLine"
+          type="button"
+          variant="outline"
+          size="icon-xs"
+          class="h-8 w-8 shrink-0 rounded-full border-0 bg-muted/60 shadow-none"
+          title="Attach files or images"
+          aria-label="Attach files or images"
+          :data-testid="`${testIdPrefix}-add-file-toolbar`"
+          @click="fileInputRef?.click()"
+        >
+          <Paperclip class="size-3.5" stroke-width="2" />
+        </Button>
+        <div
+          :class="
+            isMultiLine
+              ? 'ms-auto flex min-w-0 flex-wrap items-center gap-2'
+              : 'contents min-w-0'
+          "
+        >
+          <slot name="footer">
+            <div class="ms-auto flex items-center gap-1.5">
+              <Button
+                v-if="showQueueRemove"
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="h-7 px-2.5 text-[11px] text-muted-foreground hover:text-destructive"
+                :data-testid="`${testIdPrefix}-queue-remove`"
+                :aria-label="queueRemoveAriaLabel"
+                @click="onQueueRemoveClick"
+              >
+                Remove
+              </Button>
+              <Button
+                v-if="showDoneButton"
+                type="button"
+                variant="outline"
+                size="sm"
+                class="inline-flex h-7 items-center gap-1.5 px-2.5 text-[11px]"
+                :data-testid="`${testIdPrefix}-tiptap-done`"
+                @click="onDone"
+              >
+                <Check class="size-3.5 shrink-0" stroke-width="2" aria-hidden="true" />
+                <span>Done</span>
+              </Button>
+            </div>
+          </slot>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-else
       :class="
         isEditing
           ? 'flex flex-col overflow-hidden rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2'
@@ -536,7 +725,7 @@ defineExpose({
       </div>
     </div>
 
-    <div v-if="isEditing" class="mt-1 flex items-center gap-2">
+    <div v-if="isEditing && !adaptiveLineLayout" class="mt-1 flex items-center gap-2">
       <Button
         type="button"
         variant="outline"

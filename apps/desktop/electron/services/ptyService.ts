@@ -120,6 +120,11 @@ export class PtyService {
     return { buffer: this.sessions.get(sessionId)?.buffer ?? "" };
   }
 
+  /** Whether a PTY is already running for this session key (attach would use `created: false`). */
+  hasLiveSession(sessionId: string): boolean {
+    return this.sessions.has(sessionId);
+  }
+
   /**
    * Sends Ctrl+C (ETX) to the session, like the user interrupting the foreground job.
    * Avoids `kill("SIGINT")` so Windows ConPTY behaves consistently.

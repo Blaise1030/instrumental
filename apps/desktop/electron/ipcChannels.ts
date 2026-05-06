@@ -83,6 +83,7 @@ export const IPC_CHANNELS = {
   /** Main → renderer: current URL + back/forward availability after any navigation. */
   previewNavigationStateChanged: "preview:navigationStateChanged",
   terminalPtyCreate: "terminal:ptyCreate",
+  terminalPtyHasSession: "terminal:ptyHasSession",
   terminalPtyWrite: "terminal:ptyWrite",
   terminalPtyResize: "terminal:ptyResize",
   terminalPtyKill: "terminal:ptyKill",

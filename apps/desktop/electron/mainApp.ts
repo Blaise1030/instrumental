@@ -584,6 +584,9 @@ function registerIpc(workspaceService: WorkspaceService): void {
       return ptyService.getOrCreate(payload.sessionId, payload.cwd, payload.worktreeId, extraEnv);
     }
   );
+  ipcMain.handle(IPC_CHANNELS.terminalPtyHasSession, (_, payload: { sessionId: string }) =>
+    ptyService.hasLiveSession(payload.sessionId)
+  );
   ipcMain.handle(IPC_CHANNELS.terminalPtyWrite, (_, payload: { sessionId: string; data: string }) => {
     ptyService.write(payload.sessionId, payload.data);
   });

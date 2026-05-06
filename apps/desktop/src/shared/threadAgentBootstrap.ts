@@ -21,15 +21,33 @@ export const THREAD_AGENT_BOOTSTRAP_COMMAND: Record<ThreadAgent, string> = {
 };
 
 /**
+ * Resume line built from the user’s configured bootstrap command (settings / localStorage)
+ * plus provider-specific resume spelling — same flags as {@link threadAgentResumeCommand}.
+ */
+export function threadAgentResumeCommandLine(
+  baseCommand: string,
+  agent: ThreadAgent,
+  resumeId: string
+): string {
+  const base = baseCommand.trim();
+  switch (agent) {
+    case "claude":
+      return `${base} --resume ${resumeId}`;
+    case "cursor":
+      return `${base} --resume=${resumeId}`;
+    /** Codex CLI uses `resume` as a subcommand, not `--resume`. */
+    case "codex":
+      return `${base} resume ${resumeId}`;
+    case "gemini":
+      return `${base} --resume ${resumeId}`;
+  }
+}
+
+/**
  * Shell command to resume a previously interrupted agent session by its stored resume ID.
  * The command is typed into the PTY shell (plus Enter) when re-opening a resumable thread.
+ * Uses app default entrypoints; prefer {@link threadAgentResumeCommandLine} when applying settings.
  */
 export function threadAgentResumeCommand(agent: ThreadAgent, resumeId: string): string {
-  switch (agent) {
-    case "claude":  return `claude --resume ${resumeId}`;
-    case "cursor":  return `cursor agent --resume=${resumeId}`;
-    /** Codex CLI uses `resume` as a subcommand, not `--resume`. */
-    case "codex":   return `codex resume ${resumeId}`;
-    case "gemini":  return `gemini --resume ${resumeId}`;
-  }
+  return threadAgentResumeCommandLine(THREAD_AGENT_BOOTSTRAP_COMMAND[agent], agent, resumeId);
 }

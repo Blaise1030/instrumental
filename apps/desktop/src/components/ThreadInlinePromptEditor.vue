@@ -162,7 +162,8 @@ defineExpose({ submit });
             v-model:attachments="attachments"
             v-model:skill-paths="skillPaths"
             test-id-prefix="inline-prompt"
-            :tiptap="true"                    
+            :tiptap="true"
+            adaptive-line-layout
             :show-done-button="false"
             :worktree-path="worktreePath"
             placeholder="Use @ for files or / for skills..."

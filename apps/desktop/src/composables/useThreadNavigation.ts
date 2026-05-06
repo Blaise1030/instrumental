@@ -1,9 +1,10 @@
 import { watch, type Ref } from "vue";
 import { useRouter } from "vue-router";
-import { threadAgentResumeCommand } from "@shared/threadAgentBootstrap";
+import { threadAgentResumeCommandLine } from "@shared/threadAgentBootstrap";
 import { isValidPersistedResumeId } from "@shared/resumeSessionId";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
 import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
+import { useAgentBootstrapCommands } from "@/composables/useAgentBootstrapCommands";
 import type { useWorkspaceStore } from "@/stores/workspaceStore";
 import { encodeBranch } from "@/router/branchParam";
 
@@ -17,6 +18,7 @@ export function useThreadNavigation(
   maybeSetResumeBootstrap: (threadId: string | null) => void;
 } {
   const router = useRouter();
+  const { bootstrapCommandFor } = useAgentBootstrapCommands();
 
   function maybeSetResumeBootstrap(threadId: string | null): void {
     if (!threadId) return;
@@ -32,7 +34,11 @@ export function useThreadNavigation(
     if (pendingAgentBootstrap.value?.threadId === threadId) return;
     pendingAgentBootstrap.value = {
       threadId,
-      command: threadAgentResumeCommand(thread.agent, session.resumeId),
+      command: threadAgentResumeCommandLine(
+        bootstrapCommandFor(thread.agent),
+        thread.agent,
+        session.resumeId
+      ),
       mode: "resume"
     };
   }
