@@ -103,3 +103,11 @@ CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
 CREATE INDEX IF NOT EXISTS idx_thread_sessions_status ON thread_sessions(status);
 CREATE INDEX IF NOT EXISTS idx_events_run_id ON run_events(run_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
+
+/** Global GitHub PR panel credentials (single app-level row, id = 1). */
+CREATE TABLE IF NOT EXISTS github_pr_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  token TEXT NOT NULL DEFAULT '',
+  owner TEXT NOT NULL DEFAULT '',
+  repo TEXT NOT NULL DEFAULT ''
+);

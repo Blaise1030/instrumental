@@ -20,6 +20,7 @@ import {
   type CreateThreadInput,
   type CreateWorktreeGroupInput,
   type DeleteThreadInput,
+  type GitHubPrSettings,
   type FileAbsolutePathInput,
   type FileReadInput,
   type FileResolveMarkdownImageUrlInput,
@@ -376,6 +377,10 @@ function registerIpc(workspaceService: WorkspaceService): void {
       );
     }
   );
+  ipcMain.handle(IPC_CHANNELS.workspaceGetGitHubPrSettings, () => workspaceService.getGitHubPrSettings());
+  ipcMain.handle(IPC_CHANNELS.workspaceSetGitHubPrSettings, (_, payload: GitHubPrSettings) => {
+    workspaceService.setGitHubPrSettings(payload);
+  });
   ipcMain.handle(IPC_CHANNELS.workspaceCreateThread, async (_, payload: CreateThreadInput) => {
     const snapshot = workspaceService.getSnapshot();
     const wt = snapshot.worktrees.find((w) => w.id === payload.worktreeId);

@@ -31,8 +31,8 @@ onMounted(async () => {
   }
 });
 
-function save(): void {
-  store.saveConfig(tokenInput.value, ownerInput.value, repoInput.value);
+async function save(): Promise<void> {
+  await store.saveConfig(tokenInput.value, ownerInput.value, repoInput.value);
   emit("saved");
 }
 </script>

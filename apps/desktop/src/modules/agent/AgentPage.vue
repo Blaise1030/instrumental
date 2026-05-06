@@ -38,20 +38,14 @@ onMounted(async () => {
     const thread: Thread | null = await appContext.value.threadManagementService.getThread(tid);
     if (thread) {
       const session = workspace.threadSessionFor(tid);
-      if (
-        session?.resumeId &&
-        session.status === "resumable" &&
-        isValidPersistedResumeId(session.resumeId)
-      ) {
-        const resumeCmd = threadAgentResumeCommandLine(
-          bootstrapCommandFor(thread.agent),
-          thread.agent,
-          session.resumeId
-        );
-        await nextTick();
-        terminalRef.value?.injectPrompt(resumeCmd);
-        
-      }
+      const resumeCmd = threadAgentResumeCommandLine(
+        bootstrapCommandFor(thread.agent),
+        thread.agent,
+        session.resumeId
+      );      
+      await nextTick();
+      await nextTick();
+      terminalRef.value?.injectPrompt(resumeCmd);
     }
   }
   pendingBootstrap.value = boot ?? null;

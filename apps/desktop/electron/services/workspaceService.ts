@@ -5,6 +5,7 @@ import { isValidPersistedResumeId } from "../../src/shared/resumeSessionId.js";
 import type {
   CreateThreadInput,
   CreateWorktreeGroupInput,
+  GitHubPrSettings,
   WorkspaceSnapshot,
   WorktreeEditorState
 } from "../../src/shared/ipc.js";
@@ -70,6 +71,14 @@ export class WorkspaceService {
 
   getSnapshot(): WorkspaceSnapshot {
     return this.store.getSnapshot();
+  }
+
+  getGitHubPrSettings(): GitHubPrSettings {
+    return this.store.getGitHubPrSettings();
+  }
+
+  setGitHubPrSettings(payload: GitHubPrSettings): void {
+    this.store.setGitHubPrSettings(payload);
   }
 
   addProject(name: string, repoPath: string): Project {

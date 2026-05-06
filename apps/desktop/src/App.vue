@@ -1,9 +1,16 @@
 <script setup lang="ts">
+import { onMounted } from "vue";
 import { RouterView } from "vue-router";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./styles/globals.css";
 import AppContext from "@/app-context/AppContext.vue";
+import { useGitHubPrStore } from "@/stores/githubPrStore";
+
+const githubPrStore = useGitHubPrStore();
+onMounted(() => {
+  void githubPrStore.syncPersistenceFromMain();
+});
 </script>
 
 <template>  

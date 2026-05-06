@@ -10,6 +10,7 @@ import type {
   MarkNotificationReadInput,
   PreviewBounds,
   PreviewDevToolsToggleResult,
+  GitHubPrSettings,
   PreviewNativeLoadResult,
   PreviewProbeResult,
   RemoveProjectInput,
@@ -103,6 +104,8 @@ const IPC_CHANNELS = {
   workspaceWorktreeHealth: "workspace:worktreeHealth",
   workspaceSyncWorktrees: "workspace:syncWorktrees",
   workspaceSetAgentSkillSearchRoots: "workspace:setAgentSkillSearchRoots",
+  workspaceGetGitHubPrSettings: "workspace:getGitHubPrSettings",
+  workspaceSetGitHubPrSettings: "workspace:setGitHubPrSettings",
   uiOpenWorkspaceSettings: "ui:openWorkspaceSettings",
   appGetVersion: "app:getVersion",
   appGetUserHomeDir: "app:getUserHomeDir",
@@ -168,6 +171,9 @@ contextBridge.exposeInMainWorld("workspaceApi", {
   syncWorktrees: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.workspaceSyncWorktrees, { projectId }),
   setAgentSkillSearchRoots: (roots: string[]) =>
     ipcRenderer.invoke(IPC_CHANNELS.workspaceSetAgentSkillSearchRoots, roots),
+  getGitHubPrSettings: () => ipcRenderer.invoke(IPC_CHANNELS.workspaceGetGitHubPrSettings) as Promise<GitHubPrSettings>,
+  setGitHubPrSettings: (payload: GitHubPrSettings) =>
+    ipcRenderer.invoke(IPC_CHANNELS.workspaceSetGitHubPrSettings, payload),
   startRun: (payload: { agent: string; cwd: string; prompt: string }) => ipcRenderer.invoke(IPC_CHANNELS.runStart, payload),
   sendRunInput: (runId: string, input: string) => ipcRenderer.invoke(IPC_CHANNELS.runSendInput, { runId, input }),
   interruptRun: (runId: string) => ipcRenderer.invoke(IPC_CHANNELS.runInterrupt, runId),

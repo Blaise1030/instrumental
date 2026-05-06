@@ -177,6 +177,13 @@ export interface AppUpdateAvailability {
   compareUrl: string;
 }
 
+/** GitHub PAT + default repo for the in-app PR panel (`workspace.db`). */
+export interface GitHubPrSettings {
+  token: string;
+  owner: string;
+  repo: string;
+}
+
 /** Result of checking whether a preview URL responds (main process; no CORS). */
 export type PreviewProbeResult =
   | { ok: true; status: number }

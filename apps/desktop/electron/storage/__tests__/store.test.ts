@@ -668,6 +668,21 @@ describe("WorkspaceStore", () => {
 
     expect(storeDbIndexInfo(store, "threads", "idx_threads_worktree_sort_order")).toBeUndefined();
   });
+
+  it("persists GitHub PR settings in github_pr_settings", () => {
+    const baseDir = makeTempDir();
+    const store = new WorkspaceStore(baseDir);
+    store.migrate(NEW_SCHEMA);
+
+    expect(store.getGitHubPrSettings()).toEqual({ token: "", owner: "", repo: "" });
+
+    store.setGitHubPrSettings({ token: "ghp_secret", owner: "acme", repo: "widget" });
+    expect(store.getGitHubPrSettings()).toEqual({ token: "ghp_secret", owner: "acme", repo: "widget" });
+
+    const reopened = new WorkspaceStore(baseDir);
+    reopened.migrate(NEW_SCHEMA);
+    expect(reopened.getGitHubPrSettings()).toEqual({ token: "ghp_secret", owner: "acme", repo: "widget" });
+  });
 });
 
 function storeDbIndexInfo(

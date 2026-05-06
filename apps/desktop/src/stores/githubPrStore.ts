@@ -166,13 +166,53 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
     return prComments.value.filter((c) => c.path === name);
   });
 
-  function saveConfig(token: string, owner: string, repo: string): void {
+  function applyLocalConfig(token: string, owner: string, repo: string): void {
     githubToken.value = token.trim();
     repoOwner.value = owner.trim();
     repoName.value = repo.trim();
     writeStorage(STORAGE_TOKEN_KEY, githubToken.value);
     writeStorage(STORAGE_OWNER_KEY, repoOwner.value);
     writeStorage(STORAGE_REPO_KEY, repoName.value);
+  }
+
+  async function saveConfig(token: string, owner: string, repo: string): Promise<void> {
+    applyLocalConfig(token, owner, repo);
+    const api = window.workspaceApi;
+    if (api?.setGitHubPrSettings) {
+      try {
+        await api.setGitHubPrSettings({
+          token: githubToken.value,
+          owner: repoOwner.value,
+          repo: repoName.value
+        });
+      } catch {
+        toast.error("Could not save GitHub settings", "Settings were kept in this session only.");
+      }
+    }
+  }
+
+  /** Electron: load credentials from `workspace.db`, or migrate legacy localStorage into the DB once. */
+  async function syncPersistenceFromMain(): Promise<void> {
+    const api = window.workspaceApi;
+    if (!api?.getGitHubPrSettings || !api?.setGitHubPrSettings) return;
+    try {
+      const fromDb = await api.getGitHubPrSettings();
+      const dbHasData = Boolean(fromDb.token.trim() || fromDb.owner.trim() || fromDb.repo.trim());
+      const localHasData = Boolean(
+        githubToken.value.trim() || repoOwner.value.trim() || repoName.value.trim()
+      );
+      if (dbHasData) {
+        applyLocalConfig(fromDb.token, fromDb.owner, fromDb.repo);
+      } else if (localHasData) {
+        await api.setGitHubPrSettings({
+          token: githubToken.value,
+          owner: repoOwner.value,
+          repo: repoName.value
+        });
+      }
+    } catch {
+      /* ignore — fall back to localStorage-backed refs */
+    }
   }
 
   function apiHeaders(acceptOverride?: string): Record<string, string> {
@@ -272,6 +312,7 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
     selectedFileDiff,
     commentsForSelectedFile,
     saveConfig,
+    syncPersistenceFromMain,
     fetchPrs,
     selectPr,
     clearPr,

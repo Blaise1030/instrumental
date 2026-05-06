@@ -170,10 +170,50 @@ export class WorkspaceStore {
       `);
       this.db.exec("CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC)");
     }
+    const hasGithubPrSettings = this.db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='github_pr_settings' LIMIT 1")
+      .get();
+    if (!hasGithubPrSettings) {
+      this.db.exec(`
+        CREATE TABLE github_pr_settings (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          token TEXT NOT NULL DEFAULT '',
+          owner TEXT NOT NULL DEFAULT '',
+          repo TEXT NOT NULL DEFAULT ''
+        )
+      `);
+      this.db.prepare("INSERT OR IGNORE INTO github_pr_settings (id, token, owner, repo) VALUES (1, '', '', '')").run();
+    }
   }
 
   getDatabase(): DatabaseInstance {
     return this.db;
+  }
+
+  getGitHubPrSettings(): { token: string; owner: string; repo: string } {
+    const row = this.db
+      .prepare(
+        `SELECT token AS token, owner AS owner, repo AS repo FROM github_pr_settings WHERE id = 1`
+      )
+      .get() as { token: string; owner: string; repo: string } | undefined;
+    return {
+      token: row?.token ?? "",
+      owner: row?.owner ?? "",
+      repo: row?.repo ?? ""
+    };
+  }
+
+  setGitHubPrSettings(payload: { token: string; owner: string; repo: string }): void {
+    this.db
+      .prepare(
+        `INSERT INTO github_pr_settings (id, token, owner, repo)
+         VALUES (1, @token, @owner, @repo)
+         ON CONFLICT(id) DO UPDATE SET
+           token = excluded.token,
+           owner = excluded.owner,
+           repo = excluded.repo`
+      )
+      .run(payload);
   }
 
   upsertProject(project: Project): void {

@@ -12,6 +12,7 @@ import type {
   RemoveProjectInput,
   RenameThreadInput,
   ReorderProjectsInput,
+  GitHubPrSettings,
   UpdateThreadInput,
   WorktreeEditorState,
   PreviewProbeResult,
@@ -118,6 +119,9 @@ interface WorkspaceApi {
   syncWorktrees?: (projectId: string) => Promise<unknown>;
   /** Electron: absolute skill-directory roots from Settings → Agents (custom paths outside ~/.*/skills). */
   setAgentSkillSearchRoots?: (roots: string[]) => Promise<void>;
+  /** Electron: GitHub PR panel credentials from `workspace.db`. */
+  getGitHubPrSettings?: () => Promise<GitHubPrSettings>;
+  setGitHubPrSettings?: (payload: GitHubPrSettings) => Promise<void>;
   pickRepoDirectory: () => Promise<string | null>;
   /** Present when running under Electron preload; maps a webkitdirectory file to the chosen folder path. */
   resolveRepoRootFromWebkitFile?: (file: File) => string;
