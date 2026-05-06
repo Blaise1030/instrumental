@@ -76,11 +76,26 @@ export function isThreadCreateSuggestionActive(view: EditorView): boolean {
 function placeSuggestionMenu(el: HTMLElement, clientRect: (() => DOMRect | null) | undefined): void {
   const rect = clientRect?.();
   if (!rect) return;
+
+  const GAP = 6;
+  const menuHeight = el.offsetHeight || 300;
+  const menuWidth = Math.max(200, rect.width);
+  const spaceBelow = window.innerHeight - rect.bottom;
+
   el.style.position = "fixed";
-  el.style.left = `${rect.left}px`;
-  el.style.top = `${rect.bottom + 6}px`;
   el.style.zIndex = "200";
-  el.style.minWidth = `${Math.max(200, rect.width)}px`;
+  el.style.minWidth = `${menuWidth}px`;
+
+  if (spaceBelow < menuHeight + GAP && rect.top > spaceBelow) {
+    el.style.top = "";
+    el.style.bottom = `${window.innerHeight - rect.top + GAP}px`;
+  } else {
+    el.style.bottom = "";
+    el.style.top = `${rect.bottom + GAP}px`;
+  }
+
+  const left = Math.min(rect.left, window.innerWidth - menuWidth - 8);
+  el.style.left = `${Math.max(8, left)}px`;
 }
 
 function createSuggestionRender(variant: "slash" | "at", getLoading?: () => boolean) {
@@ -242,7 +257,7 @@ export const ThreadFileBadge = Node.create({
   },
   renderHTML({ HTMLAttributes, node }) {
     const path = String(node.attrs.path ?? "");
-    const display = path.length > 56 ? `${path.slice(0, 28)}…${path.slice(-24)}` : path;
+    const name = String(node.attrs.name ?? "") || (path.split(/[\\/]/).pop() ?? path);
     return [
       "span",
       mergeAttributes(
@@ -254,7 +269,7 @@ export const ThreadFileBadge = Node.create({
         HTMLAttributes
       ),
       ["span", { "aria-hidden": "true", class: "text-[13px] leading-none" }, "📎"],
-      ["span", { class: "min-w-0 truncate font-mono font-medium", title: path }, display]
+      ["span", { class: "min-w-0 truncate font-mono font-medium", title: path }, name]
     ];
   },
   renderText() {

@@ -317,7 +317,7 @@ defineExpose({
 </script>
 
 <template>
-  <div @dragover="onDragOver" @drop="onDrop" class="py-2">
+  <div @dragover="onDragOver" @drop="onDrop">
     <!-- Hidden file input -->
     <input
       ref="fileInputRef"
@@ -330,18 +330,21 @@ defineExpose({
       @change="onFileInputChange"
     />
 
-    <!-- ── Single-line pill ────────────────────────────────────────── -->
+    <!-- ── Single adaptive container — shape driven by CSS only ─── -->
     <div
-      v-if="!isMultiLine"
+      :data-testid="`${testIdPrefix}-container`"
       :class="
         cn(
-          'flex items-center gap-1 rounded-full border border-input bg-background p-1 shadow-xs',
-          'focus-within:shadow-md'
+          'border border-input bg-background shadow-xs focus-within:shadow-md',
+          isMultiLine
+            ? 'flex flex-col rounded-xl'
+            : 'flex items-center gap-1 rounded-full p-1'
         )
       "
-      :data-testid="`${testIdPrefix}-container`"
     >
+      <!-- Plus button — single-line position (before editor) -->
       <Button
+        v-show="!isMultiLine"
         type="button"
         variant="outline"
         size="icon"
@@ -354,11 +357,17 @@ defineExpose({
         <Plus class="size-4" stroke-width="2" />
       </Button>
 
-      <div class="min-w-0 flex-1 cursor-text" @click="tiptapEditor?.commands.focus()">
+      <!-- Editor — always mounted, never destroyed -->
+      <div
+        :class="cn('cursor-text', !isMultiLine && 'min-w-0 flex-1')"
+        @click="tiptapEditor?.commands.focus()"
+      >
         <EditorContent :editor="tiptapEditor" />
-      </div>      
+      </div>
 
+      <!-- Send button — single-line position (after editor) -->
       <Button
+        v-show="!isMultiLine"
         type="button"
         size="icon"
         class="h-8 w-8 shrink-0 rounded-full bg-foreground text-background shadow-none hover:bg-foreground/90"
@@ -368,23 +377,9 @@ defineExpose({
       >
         <ArrowUp class="size-4" stroke-width="2.5" />
       </Button>
-    </div>
 
-    <!-- ── Multi-line expanded — text anchored bottom, grows up ───── -->
-    <div
-      v-else
-      :data-testid="`${testIdPrefix}-container`"
-      :class="
-        cn(
-          'flex flex-col rounded-xl border border-input bg-background shadow-xs',
-          'focus-within:shadow-md'
-        )
-      "      
-    >            
-      <div class="cursor-text" @click="tiptapEditor?.commands.focus()">
-        <EditorContent :editor="tiptapEditor" />
-      </div>      
-      <div class="flex w-full items-center gap-2 px-2 py-1.5">
+      <!-- Toolbar — multi-line position (below editor) -->
+      <div v-show="isMultiLine" class="flex w-full items-center gap-2 px-2 py-1.5">
         <Button
           type="button"
           variant="outline"
@@ -403,7 +398,7 @@ defineExpose({
             type="button"
             size="icon"
             class="h-8 w-8 shrink-0 rounded-full bg-foreground text-background shadow-none hover:bg-foreground/90"
-            :data-testid="`${testIdPrefix}-send`"
+            :data-testid="`${testIdPrefix}-send-multiline`"
             aria-label="Send message"
             @click="onSend"
           >

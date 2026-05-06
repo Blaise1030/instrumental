@@ -135,7 +135,7 @@ function buildItemForSend(row: QueueItem): QueueItem {
     if (note) parts.push(note);
     const att = row.reviewAttachments;
     if (att?.length) {
-      parts.push(`[Attached files]\n${att.map((a) => a.path).join("\n")}`);
+      for (const a of att) parts.push(a.path);
     }
   }
   return {

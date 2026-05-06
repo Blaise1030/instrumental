@@ -12,8 +12,7 @@ export function dedupePromptPaths(values: string[]): string[] {
 }
 
 /**
- * Final CLI/bootstrap string: user note + optional `[Attached skills]` / `[Attached files]`
- * blocks (same contract as `PromptWithFileAttachments` + thread create flow).
+ * Final CLI/bootstrap string: user note with skills and file paths appended inline.
  */
 export function buildThreadCreatePromptWithAttachmentBlocks(
   text: string,
@@ -30,9 +29,9 @@ export function buildThreadCreatePromptWithAttachmentBlocks(
   if (nextSkills.length > 0) {
     parts.push(`[Attached skills]\n${nextSkills.join("\n")}`);
   }
-  if (nextFiles.length > 0) {
-    parts.push(`[Attached files]\n${nextFiles.join("\n")}`);
+  for (const p of nextFiles) {
+    parts.push(p);
   }
 
-  return parts.join("\n\n").trim();
+  return parts.join("\n").trim();
 }
