@@ -1,26 +1,20 @@
-import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useToast } from "@/composables/useToast";
 import { displayNameFromRepoPath, normalizeRepoPathForCompare } from "@/lib/repoPathUtils";
+import { useAppContext } from "@/app-context/useAppContext";
 
 export function useAddProjectFromDirectoryPick(options: {
-  navigateToProject: (projectId: string) => Promise<void>;
+  navigateToProject: (projectId: string) => Promise<void | boolean>;
 }): { pickAndAddProject: () => Promise<void> } {
   const toast = useToast();
+  const appContext = useAppContext();
 
   async function pickAndAddProject(): Promise<void> {
-    if (
-      typeof window === "undefined" ||
-      !window.workspaceApi?.getSnapshot ||
-      !window.workspaceApi.pickRepoDirectory ||
-      !window.workspaceApi.addProject
-    ) {
-      return;
-    }
+    const workspaceService = appContext.value?.workspaceService;
+    if (!workspaceService) return;
 
-    const api = window.workspaceApi;
-    const before = (await api.getSnapshot()) as WorkspaceSnapshot;
+    const before = await workspaceService.getSnapshot();
 
-    const picked = await api.pickRepoDirectory();
+    const picked = await workspaceService.pickRepoDirectory();
     if (picked == null) {
       return;
     }
@@ -36,9 +30,9 @@ export function useAddProjectFromDirectoryPick(options: {
 
     const name = displayNameFromRepoPath(picked);
 
-    let after: WorkspaceSnapshot;
+    let after;
     try {
-      after = (await api.addProject({ name, repoPath: picked })) as WorkspaceSnapshot;
+      after = await workspaceService.addProject({ name, repoPath: picked });
     } catch (err) {
       toast.error("Could not add project", String(err));
       return;

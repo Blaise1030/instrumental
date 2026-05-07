@@ -106,6 +106,7 @@ const IPC_CHANNELS = {
   workspaceSetAgentSkillSearchRoots: "workspace:setAgentSkillSearchRoots",
   workspaceGetGitHubPrSettings: "workspace:getGitHubPrSettings",
   workspaceSetGitHubPrSettings: "workspace:setGitHubPrSettings",
+  workspaceGithubFetchPrDiff: "workspace:githubFetchPrDiff",
   uiOpenWorkspaceSettings: "ui:openWorkspaceSettings",
   appGetVersion: "app:getVersion",
   appGetUserHomeDir: "app:getUserHomeDir",
@@ -174,6 +175,8 @@ contextBridge.exposeInMainWorld("workspaceApi", {
   getGitHubPrSettings: () => ipcRenderer.invoke(IPC_CHANNELS.workspaceGetGitHubPrSettings) as Promise<GitHubPrSettings>,
   setGitHubPrSettings: (payload: GitHubPrSettings) =>
     ipcRenderer.invoke(IPC_CHANNELS.workspaceSetGitHubPrSettings, payload),
+  githubFetchPrDiff: (payload: { owner: string; repo: string; prNumber: number; token: string }) =>
+    ipcRenderer.invoke(IPC_CHANNELS.workspaceGithubFetchPrDiff, payload) as Promise<string>,
   startRun: (payload: { agent: string; cwd: string; prompt: string }) => ipcRenderer.invoke(IPC_CHANNELS.runStart, payload),
   sendRunInput: (runId: string, input: string) => ipcRenderer.invoke(IPC_CHANNELS.runSendInput, { runId, input }),
   interruptRun: (runId: string) => ipcRenderer.invoke(IPC_CHANNELS.runInterrupt, runId),

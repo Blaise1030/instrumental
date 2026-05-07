@@ -100,6 +100,7 @@ export const IPC_CHANNELS = {
   workspaceSetAgentSkillSearchRoots: "workspace:setAgentSkillSearchRoots",
   workspaceGetGitHubPrSettings: "workspace:getGitHubPrSettings",
   workspaceSetGitHubPrSettings: "workspace:setGitHubPrSettings",
+  workspaceGithubFetchPrDiff: "workspace:githubFetchPrDiff",
   /** macOS often captures ⌘, for the app menu; main sends this so the renderer can open settings. */
   uiOpenWorkspaceSettings: "ui:openWorkspaceSettings",
   /** Running app semver from Electron `app.getVersion()`. */

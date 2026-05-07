@@ -1,6 +1,5 @@
 import type { Router } from "vue-router";
 import { useRoute, useRouter } from "vue-router";
-import type { WorkspaceSnapshot } from "@shared/ipc";
 import { decodeBranch, encodeBranch } from "@/router/branchParam";
 import {
   loadStoredWorkspaceRoute,
@@ -9,12 +8,14 @@ import {
   routeParamFirst,
 } from "@/router/workspaceRouteMemory";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useAppContext } from "@/app-context/useAppContext";
+import type { WorkspaceService } from "@/app-context/workspaceService";
 
 type WorkspaceStore = ReturnType<typeof useWorkspaceStore>;
 
 async function tryRestoreStoredRoute(
   router: Router,
-  api: NonNullable<typeof window.workspaceApi>,
+  workspaceService: WorkspaceService,
   workspace: WorkspaceStore,
   targetProjectId: string,
 ): Promise<boolean> {
@@ -37,13 +38,11 @@ async function tryRestoreStoredRoute(
   if (!worktree) return false;
 
   if (stored.name === "threadNew") {
-    if (api.setActive) {
-      await api.setActive({
-        projectId: targetProjectId,
-        worktreeId: worktree.id,
-        threadId: null,
-      });
-    }
+    await workspaceService.setActive({
+      projectId: targetProjectId,
+      worktreeId: worktree.id,
+      threadId: null,
+    });
     await router.push(storedRouteToLocation(stored));
     return true;
   }
@@ -56,13 +55,11 @@ async function tryRestoreStoredRoute(
   );
   if (!thread) return false;
 
-  if (api.setActive) {
-    await api.setActive({
-      projectId: targetProjectId,
-      worktreeId: worktree.id,
-      threadId: thread.id,
-    });
-  }
+  await workspaceService.setActive({
+    projectId: targetProjectId,
+    worktreeId: worktree.id,
+    threadId: thread.id,
+  });
 
   await router.push(storedRouteToLocation(stored));
   return true;
@@ -74,33 +71,32 @@ export function useNavigateToProject(): {
   const router = useRouter();
   const route = useRoute();
   const workspace = useWorkspaceStore();
+  const appContext = useAppContext();
 
   async function navigateToProject(targetProjectId: string): Promise<boolean> {
     if ((route.params.projectId as string | undefined) === targetProjectId) {
       return false;
     }
 
-    const api = window.workspaceApi;
-    if (!api?.getSnapshot) return false;
+    const workspaceService = appContext.value?.workspaceService;
+    if (!workspaceService) return false;
 
-    let snapshot = (await api.getSnapshot()) as WorkspaceSnapshot;
+    let snapshot = await workspaceService.getSnapshot();
     workspace.hydrate(snapshot);
 
-    if (api.syncWorktrees) {
-      const synced = await api.syncWorktrees(targetProjectId);
-      if (synced) {
-        workspace.hydrate(synced as WorkspaceSnapshot);
-      }
+    const synced = await workspaceService.syncWorktrees(targetProjectId);
+    if (synced) {
+      workspace.hydrate(synced);
     }
 
-    snapshot = (await api.getSnapshot()) as WorkspaceSnapshot;
+    snapshot = await workspaceService.getSnapshot();
     workspace.hydrate(snapshot);
 
     const project = workspace.projects.find((p) => p.id === targetProjectId);
     if (!project) return false;
 
-    if (await tryRestoreStoredRoute(router, api, workspace, targetProjectId)) {
-      snapshot = (await api.getSnapshot()) as WorkspaceSnapshot;
+    if (await tryRestoreStoredRoute(router, workspaceService, workspace, targetProjectId)) {
+      snapshot = await workspaceService.getSnapshot();
       workspace.hydrate(snapshot);
       return true;
     }
@@ -116,15 +112,13 @@ export function useNavigateToProject(): {
       (lastThreadId && workspace.threads.find((t) => t.id === lastThreadId)) ||
       workspace.threads.find((t) => t.worktreeId === worktree.id);
 
-    if (api.setActive) {
-      await api.setActive({
-        projectId: targetProjectId,
-        worktreeId: worktree.id,
-        threadId: thread?.id ?? null,
-      });
-    }
+    await workspaceService.setActive({
+      projectId: targetProjectId,
+      worktreeId: worktree.id,
+      threadId: thread?.id ?? null,
+    });
 
-    snapshot = (await api.getSnapshot()) as WorkspaceSnapshot;
+    snapshot = await workspaceService.getSnapshot();
     workspace.hydrate(snapshot);
 
     const eb = encodeBranch(worktree.branch);

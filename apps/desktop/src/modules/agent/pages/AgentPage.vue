@@ -5,11 +5,11 @@ import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
 import { buildThreadCreatePromptWithAttachmentBlocks } from "@/lib/threadCreatePromptAssembly";
 import { useAgentBootstrapCommands } from "@/composables/useAgentBootstrapCommands";
 import { threadAgentResumeCommandLine } from "@shared/threadAgentBootstrap";
+import { isValidPersistedResumeId } from "@/shared/resumeSessionId";
 import ThreadAdaptivePromptInput from "@/modules/agent/components/ThreadAdaptivePromptInput.vue";
 import TerminalPane from "@/modules/agent/components/TerminalPane.vue";
 import type { LocalFileAttachment } from "@/lib/localFileAttachment";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
-import type { Thread } from "@shared/domain";
 import { useAppContext } from "@/app-context/useAppContext";
 import { useThreadMessageDraft, clearThreadMessageDraft } from "@/composables/useThreadMessageDraft";
 
@@ -31,16 +31,23 @@ useThreadMessageDraft(threadId, prompt);
 onMounted(async () => {
   const tid = threadId.value;
   if (!tid) return;
-  const thread: Thread | null = await appContext.value.threadManagementService.getThread(tid);
-  if (thread) {
-    const resumeCmd = threadAgentResumeCommandLine(
-      bootstrapCommandFor(thread.agent),
-      thread.agent,
-      thread?.id
-    );      
-    console.log("resumeCmd", resumeCmd);
-    terminalRef.value?.injectPrompt(resumeCmd);
-  }
+
+  const workspaceService = appContext.value?.workspaceService;
+  if (!workspaceService) return;
+
+  const snapshot = await workspaceService.getSnapshot();
+  const thread = snapshot.threads.find((t) => t.id === tid);
+  if (!thread) return;
+
+  const session = snapshot.threadSessions.find((s) => s.threadId === tid);
+  if (!session?.resumeId || !isValidPersistedResumeId(session.resumeId)) return;
+
+  const resumeCmd = threadAgentResumeCommandLine(
+    bootstrapCommandFor(thread.agent),
+    thread.agent,
+    session.resumeId,
+  );
+  terminalRef.value?.injectPrompt(resumeCmd);
 });
 
 function onBootstrapConsumed(): void {

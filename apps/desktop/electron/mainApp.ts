@@ -381,6 +381,22 @@ function registerIpc(workspaceService: WorkspaceService): void {
   ipcMain.handle(IPC_CHANNELS.workspaceSetGitHubPrSettings, (_, payload: GitHubPrSettings) => {
     workspaceService.setGitHubPrSettings(payload);
   });
+  ipcMain.handle(
+    IPC_CHANNELS.workspaceGithubFetchPrDiff,
+    async (_, payload: { owner: string; repo: string; prNumber: number; token: string }) => {
+      const url = `https://api.github.com/repos/${payload.owner}/${payload.repo}/pulls/${payload.prNumber}`;
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${payload.token}`,
+          Accept: "application/vnd.github.diff",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "User-Agent": "instrument-app",
+        },
+      });
+      if (!res.ok) throw new Error(`GitHub API error ${res.status}`);
+      return res.text();
+    }
+  );
   ipcMain.handle(IPC_CHANNELS.workspaceCreateThread, async (_, payload: CreateThreadInput) => {
     const snapshot = workspaceService.getSnapshot();
     const wt = snapshot.worktrees.find((w) => w.id === payload.worktreeId);

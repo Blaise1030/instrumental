@@ -270,11 +270,18 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
   }
 
   async function fetchPrDiff(prNumber: number): Promise<string> {
+    const api = window.workspaceApi;
+    if (api?.githubFetchPrDiff) {
+      return api.githubFetchPrDiff({
+        owner: repoOwner.value,
+        repo: repoName.value,
+        prNumber,
+        token: githubToken.value,
+      });
+    }
     const url = `https://api.github.com/repos/${repoOwner.value}/${repoName.value}/pulls/${prNumber}`;
     const res = await fetch(url, { headers: apiHeaders("application/vnd.github.diff") });
-    if (!res.ok) {
-      throw new Error(`GitHub API error ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`GitHub API error ${res.status}`);
     return res.text();
   }
 

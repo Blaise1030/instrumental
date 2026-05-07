@@ -1,20 +1,21 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useNavigateToProject } from "@/composables/useNavigateToProject";
 import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import WorkbenchLogoMark from "@/modules/agent/components/WorkbenchLogoMark.vue";
 import { useAddProjectFromDirectoryPick } from "@/composables/useAddProjectFromDirectoryPick";
+import { useAppContext } from "@/app-context/useAppContext";
 
+const appContext = useAppContext();
 const { navigateToProject } = useNavigateToProject();
 
 const { data: welcomeProjects, isPending: welcomeProjectsPending } = useQuery({
   queryKey: ["welcomeProjects"],
-  enabled: computed(() => Boolean(window.workspaceApi?.getSnapshot)),
+  enabled: computed(() => Boolean(appContext.value?.workspaceService)),
   queryFn: async () => {
-    const res = (await window.workspaceApi!.getSnapshot()) as WorkspaceSnapshot;
+    const res = await appContext.value!.workspaceService.getSnapshot();
     return [...(res.projects ?? [])].sort((a, b) => a.tabOrder - b.tabOrder);
   },
 });
