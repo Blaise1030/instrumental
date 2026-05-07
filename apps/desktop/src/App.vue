@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./styles/globals.css";
 import AppContext from "@/app-context/AppContext.vue";
-import { useGitHubPrStore } from "@/stores/githubPrStore";
+import { useGitHubPrStore } from "@/modules/git/stores/githubPrStore";
 
 const githubPrStore = useGitHubPrStore();
 onMounted(() => {

@@ -5,7 +5,7 @@ import type { WorkspaceThreadContext } from "@/stores/workspaceStore";
 import { Download, FileText, PanelLeftClose, Plus, Settings, Terminal, X } from "lucide-vue-next";
 import type { CSSProperties } from "vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import BranchPicker from "@/components/BranchPicker.vue";
+import BranchPicker from "@/modules/git/components/BranchPicker.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import ContextQueueReviewDropdown from "@/components/contextQueue/ContextQueueReviewDropdown.vue";
 import { useIsFullscreen } from "@/composables/useIsFullscreen";

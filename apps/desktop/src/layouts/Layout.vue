@@ -34,7 +34,7 @@ import AgentIcon from "@/components/ui/AgentIcon.vue";
 import { Button } from "@/components/ui/button";
 import Switch from "@/components/ui/Switch.vue";
 import Label from "@/components/ui/label/Label.vue";
-import BranchSelector from "@/components/BranchSelector.vue";
+import BranchSelector from "@/modules/git/components/BranchSelector.vue";
 import SidebarTrigger from "@/components/ui/sidebar/SidebarTrigger.vue";
 import {
   Tooltip,
@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Terminal, Settings } from "lucide-vue-next";
 import ThemeToggle from "@/components/ThemeToggle.vue";
-import BranchPicker from "@/components/BranchPicker.vue";
+import BranchPicker from "@/modules/git/components/BranchPicker.vue";
 import {
   Popover,
   PopoverContent,

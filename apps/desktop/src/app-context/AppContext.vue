@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { onMounted, provide, ref } from 'vue';
 import type { AppContext, AppMode } from './type';
-import { IpcGitService } from "@/services/git/ipcGitService";
+import { IpcGitService } from "@/modules/git/services/ipcGitService";
 import { IpcThreadManagementService } from "@/services/thread-management/ipcThreadManagementService";
 
 const props = defineProps<{ mode: AppMode }>();

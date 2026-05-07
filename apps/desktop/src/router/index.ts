@@ -3,9 +3,7 @@ import Layout from "@/layouts/Layout.vue";
 import WelcomePage from "@/modules/welcome/WelcomePage.vue";
 import CreateNewThread from "@/modules/agent/CreateNewThread.vue";
 import AgentPage from "@/modules/agent/AgentPage.vue";
-import GitPage from "@/modules/git/GitPage.vue";
-import SourceControlPanel from "@/components/SourceControlPanel.vue";
-import RemotePrPanel from "@/modules/git/RemotePrPanel.vue";
+import { gitRoutes } from "@/modules/git/gitRoute";
 import BrowserPage from "@/modules/browser/BrowserPage.vue";
 import ExplorerLayout from "@/modules/explorer/ExplorerLayout.vue";
 import FilePage from "@/modules/explorer/FilePage.vue";
@@ -43,27 +41,7 @@ export const router = createRouter({
               name: "agent",
               component: AgentPage,
             },
-            {
-              path: "git",
-              component: GitPage,
-              children: [
-                {
-                  path: "",
-                  name: "gitPanel",
-                  component: SourceControlPanel,
-                },
-                {
-                  path: "pull-requests",
-                  name: "gitPullRequests",
-                  component: RemotePrPanel,
-                },
-                {
-                  path: "pull-requests/:prId",
-                  name: "gitPullRequest",
-                  component: RemotePrPanel,
-                },
-              ],
-            },
+            gitRoutes,
             {
               path: "preview",
               name: "previewPanel",

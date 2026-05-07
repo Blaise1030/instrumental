@@ -37,7 +37,7 @@ import { RunService } from "./services/runService.js";
 import { PtyService } from "./services/ptyService.js";
 import { simpleGit } from "simple-git";
 import { createGitAdapter } from "./services/gitAdapter.js";
-import { filterLocalBranchesExcludingOtherWorktrees } from "../src/services/git/ipcGitService.js";
+import { filterLocalBranchesExcludingOtherWorktrees } from "../src/modules/git/services/ipcGitService.js";
 import { shouldAllowAppClose } from "./lifecycle/closeConfirmation.js";
 import { buildCloseConfirmationDetail } from "./lifecycle/closeConfirmation.js";
 import { collectResumeIdsFromActiveTerminals } from "./lifecycle/quitResumeCapture.js";

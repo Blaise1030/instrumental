@@ -633,7 +633,7 @@ function onSearchInput(event: Event): void {
 }
 
 const { containerRef, setSearch } = useFileTree(
-  ref(props.worktreePath),
+  computed(() => props.worktreePath),
   paths,
   (path) => emit("selectFile", path),
   (payload) => emit("queueForAgent", payload)

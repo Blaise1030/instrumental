@@ -16,6 +16,6 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["electron/**/*.ts", "src/shared/**/*.ts", "src/services/git/ipcGitService.ts"],
+  "include": ["electron/**/*.ts", "src/shared/**/*.ts", "src/modules/git/services/ipcGitService.ts"],
   "exclude": ["node_modules", "dist", "dist-electron", "electron/**/__tests__/**"]
 }

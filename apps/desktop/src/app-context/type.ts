@@ -1,4 +1,4 @@
-import type { GitService } from "@/services/git/gitService";
+import type { GitService } from "@/modules/git/services/gitService";
 import type { ThreadManagementService } from "@/services/thread-management/threadManagementService";
 
 export type AppMode = "desktop" | "mobile" | "cloud";

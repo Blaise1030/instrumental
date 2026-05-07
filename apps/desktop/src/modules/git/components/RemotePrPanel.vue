@@ -44,7 +44,7 @@ import {
   useGitHubPrStore,
   type GitHubPrComment,
   type ParsedFileDiff,
-} from "@/stores/githubPrStore";
+} from "@/modules/git/stores/githubPrStore";
 import GitHubTokenSetup from "./GitHubTokenSetup.vue";
 import Label from "@/components/ui/label/Label.vue";
 

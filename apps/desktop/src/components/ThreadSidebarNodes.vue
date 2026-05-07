@@ -5,7 +5,7 @@ import type { RunStatus, Thread } from "@shared/domain";
 import { computed } from "vue";
 import { Plus, Archive, ChevronDown, ChevronUp} from "lucide-vue-next";
 import ThreadRow from "@/components/ThreadRow.vue";
-import WorktreeStaleCallout from "@/components/WorktreeStaleCallout.vue";
+import WorktreeStaleCallout from "@/modules/git/components/WorktreeStaleCallout.vue";
 import {Button} from "@/components/ui/button";;
 import {
   ContextMenu,

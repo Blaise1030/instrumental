@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import MonacoDiffEditor from "@/components/MonacoDiffEditor.vue";
 import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
-import { useScmStore } from "@/stores/scmStore";
+import { useScmStore } from "@/modules/git/stores/scmStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 const SCM_DIFF_LAYOUT_KEY = "instrument.scmDiffLayout";

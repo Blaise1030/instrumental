@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { GitWorktreeListEntry, RepoScmSnapshot, RepoStatusEntry } from "@shared/ipc";
-import type { GitService } from "@/services/git/gitService";
+import type { GitService } from "./gitService";
 
 /** Minimal preload bridge surface used here (Electron renderer); avoids coupling electron `tsc` to `env.d.ts`). */
 type WorkspaceApi = {
