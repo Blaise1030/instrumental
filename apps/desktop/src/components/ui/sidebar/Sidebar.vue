@@ -5,7 +5,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet'
 import SheetDescription from '@/components/ui/sheet/SheetDescription.vue'
 import SheetHeader from '@/components/ui/sheet/SheetHeader.vue'
 import SheetTitle from '@/components/ui/sheet/SheetTitle.vue'
-import { SIDEBAR_WIDTH_MOBILE, useSidebar } from './utils'
+import { SIDEBAR_WIDTH_MOBILE, useFileExplorerSidebar, useSidebar } from './utils'
 
 defineOptions({
   inheritAttrs: false,
@@ -15,9 +15,12 @@ const props = withDefaults(defineProps<SidebarProps>(), {
   side: 'left',
   variant: 'sidebar',
   collapsible: 'offcanvas',
+  layout: 'default',
+  sidebarScope: 'thread',
 })
 
-const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+const { isMobile, state, openMobile, setOpenMobile } =
+  props.sidebarScope === 'fileExplorer' ? useFileExplorerSidebar() : useSidebar()
 </script>
 
 <template>
@@ -76,7 +79,9 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
       data-slot="sidebar-container"
       :data-side="side"
       :class="cn(
-        'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex',
+        props.layout === 'nested'
+          ? 'absolute inset-y-0 z-10 hidden h-full w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex'
+          : 'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex',
         side === 'left'
           ? 'left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]'
           : 'right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]',

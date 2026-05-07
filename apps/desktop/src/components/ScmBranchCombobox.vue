@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { Check, ChevronDown, ChevronsUpDown, GitBranch, Loader2 } from "lucide-vue-next";
+import { Check, ChevronDown, ChevronsUpDown, GitBranch } from "lucide-vue-next";
 import {
   Combobox,
   ComboboxAnchor,
@@ -11,7 +11,8 @@ import {
   ComboboxList,
   ComboboxTrigger,
   ComboboxViewport
-} from "@/components/ui/combobox";``
+} from "@/components/ui/combobox";
+import { CursorLoading } from "@/components/ui/cursor-loading";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/composables/useToast";
@@ -213,7 +214,11 @@ async function onModelUpdate(branch: string | undefined): Promise<void> {
           "
           :class="triggerClass"
         >
-          <Loader2 v-if="checkoutBusy" class="size-2.5 shrink-0 animate-spin" aria-hidden="true" />
+          <CursorLoading
+            v-if="checkoutBusy"
+            class="inline-block size-2.5 min-h-0 shrink-0 overflow-hidden"
+            aria-hidden="true"
+          />
           <template v-if="variant === 'toolbar' || isPickMode">
             <GitBranch
               v-if="!checkoutBusy"
@@ -238,10 +243,9 @@ async function onModelUpdate(branch: string | undefined): Promise<void> {
         <ComboboxViewport>
           <div
             v-if="branchesLoading"
-            class="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground"
+            class="min-h-16 px-3 py-2"
           >
-            <Loader2 class="size-3.5 shrink-0 animate-spin" aria-hidden="true" />
-            Loading branches…
+            <CursorLoading class="min-h-14 w-full" />
           </div>
           <template v-else>
             <ComboboxEmpty class="px-3 py-2 text-xs">No branch found.</ComboboxEmpty>

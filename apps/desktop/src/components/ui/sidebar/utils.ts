@@ -8,7 +8,7 @@ export const SIDEBAR_WIDTH_MOBILE = '18rem'
 export const SIDEBAR_WIDTH_ICON = '3rem'
 export const SIDEBAR_KEYBOARD_SHORTCUT = 'b'
 
-export const [useSidebar, provideSidebarContext] = createContext<{
+export type SidebarContextValue = {
   state: ComputedRef<'expanded' | 'collapsed'>
   open: Ref<boolean>
   setOpen: (value: boolean) => void
@@ -16,4 +16,12 @@ export const [useSidebar, provideSidebarContext] = createContext<{
   openMobile: Ref<boolean>
   setOpenMobile: (value: boolean) => void
   toggleSidebar: () => void
-}>('Sidebar')
+}
+
+/** Thread / workspace shell (Layout.vue). */
+export const [useSidebar, provideSidebarContext] =
+  createContext<SidebarContextValue>('Sidebar')
+
+/** File explorer panel — isolated from thread sidebar context. */
+export const [useFileExplorerSidebar, provideFileExplorerSidebarContext] =
+  createContext<SidebarContextValue>('FileExplorerSidebar')

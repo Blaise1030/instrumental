@@ -2,12 +2,7 @@
 import { Folder, GitBranch, PanelLeft, Search } from "lucide-vue-next";
 import { computed, nextTick, ref, watch } from "vue";
 import AgentIcon from "@/components/ui/AgentIcon.vue";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog";
+import { CursorLoading } from "@/components/ui/cursor-loading";
 import {
   parseLauncherQuery,
   searchLauncherCommands,
@@ -86,7 +81,6 @@ const rows = computed<LauncherRow[]>(() => {
 });
 
 const emptyHint = computed(() => {
-  if (loading.value) return "Loading…";
   if (loadError.value) return loadError.value;
   if (parsed.value.mode === "worktree") {
     if (!query.value.startsWith("@wt")) return "";
@@ -394,6 +388,13 @@ function showSectionDividerAbove(i: number): boolean {
               </div>
             </template>
           </template>
+          <div
+            v-if="loading"
+            class="flex min-h-[8rem] flex-col"
+            data-testid="workspace-launcher-loading"
+          >
+            <CursorLoading class="min-h-[8rem] w-full" />
+          </div>
           <div
             v-else
             class="py-8 text-center text-sm text-muted-foreground"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from "vue";
+import { ref, computed, onMounted, nextTick, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
 import { buildThreadCreatePromptWithAttachmentBlocks } from "@/lib/threadCreatePromptAssembly";
@@ -14,6 +14,7 @@ import type { LocalFileAttachment } from "@/lib/localFileAttachment";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
 import type { Thread } from "@shared/domain";
 import { useAppContext } from "@/app-context/useAppContext";
+import { useThreadMessageDraft, clearThreadMessageDraft } from "@/composables/useThreadMessageDraft";
 
 const route = useRoute();
 const { activeWorktree } = useActiveWorkspace();
@@ -28,6 +29,8 @@ const attachments = ref<LocalFileAttachment[]>([]);
 const skillPaths = ref<string[]>([]);
 const promptEditorRef = ref<InstanceType<typeof ThreadAdaptivePromptInput> | null>(null);
 const terminalRef = ref<InstanceType<typeof TerminalPane> | null>(null);
+
+useThreadMessageDraft(threadId, prompt);
 
 onMounted(async () => {
   const tid = threadId.value;
@@ -64,6 +67,7 @@ function submitPrompt(): void {
   );
   if (!finalPrompt.trim()) return;
   terminalRef.value?.injectPrompt(finalPrompt);
+  clearThreadMessageDraft(threadId.value);
   prompt.value = "";
   attachments.value = [];
   skillPaths.value = [];

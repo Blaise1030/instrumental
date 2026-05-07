@@ -4,11 +4,11 @@ import type { ToasterProps } from 'vue-sonner'
 import {
   CircleCheckIcon,
   InfoIcon,
-  Loader2Icon,
   OctagonXIcon,
   TriangleAlertIcon,
   XIcon,
 } from 'lucide-vue-next'
+import { CursorLoading } from '@/components/ui/cursor-loading'
 import { Toaster as Sonner } from 'vue-sonner'
 import { cn } from '@/lib/utils'
 
@@ -44,9 +44,7 @@ const props = defineProps<ToasterProps>()
       <OctagonXIcon class="size-4" />
     </template>
     <template #loading-icon>
-      <div>
-        <Loader2Icon class="size-4 animate-spin" />
-      </div>
+      <CursorLoading class="inline-block size-4 min-h-0 shrink-0 overflow-hidden" />
     </template>
     <template #close-icon>
       <XIcon class="size-4" />

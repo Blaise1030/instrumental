@@ -7,7 +7,6 @@ import {
   ChevronsDown,
   ChevronsUp,
   FileText,
-  Loader2,
   Maximize2,
   Minimize2,
   Minus,
@@ -18,6 +17,7 @@ import {
   Undo2
 } from "lucide-vue-next";
 import {Button} from "@/components/ui/button";;
+import { CursorLoading } from "@/components/ui/cursor-loading";
 import { Badge } from "@/components/ui/badge/index";
 import ScmBranchCombobox from "@/components/ScmBranchCombobox.vue";
 import {
@@ -662,8 +662,8 @@ onBeforeUnmount(() => {
       </header>
 
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div v-if="scm.selectedDiffLoading" class="flex h-full items-center justify-center text-[11px] text-muted-foreground">
-          Loading diff…
+        <div v-if="scm.selectedDiffLoading" class="flex min-h-0 flex-1 flex-col">
+          <CursorLoading class="min-h-0 flex-1" />
         </div>
         <div
           v-else-if="emptyMessage"
@@ -917,7 +917,11 @@ onBeforeUnmount(() => {
               aria-label="Fetch from remote"
               @click="void scm.scmFetch()"
             >
-              <Loader2 v-if="scm.scmFetchBusy" class="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden="true" />
+              <CursorLoading
+                v-if="scm.scmFetchBusy"
+                class="inline-block h-2.5 w-2.5 min-h-0 shrink-0 overflow-hidden"
+                aria-hidden="true"
+              />
               <ArrowDownToLine
                 v-else
                 class="h-2.5 w-2.5 shrink-0 opacity-80"
@@ -937,7 +941,11 @@ onBeforeUnmount(() => {
               title="Push current branch (upstream must be set)"
               @click="void scm.scmPush()"
             >
-              <Loader2 v-if="scm.scmPushBusy" class="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden="true" />
+              <CursorLoading
+                v-if="scm.scmPushBusy"
+                class="inline-block h-2.5 w-2.5 min-h-0 shrink-0 overflow-hidden"
+                aria-hidden="true"
+              />
               <ArrowUpFromLine
                 v-else
                 class="h-2.5 w-2.5 shrink-0 opacity-80"
@@ -985,9 +993,9 @@ onBeforeUnmount(() => {
               aria-label="Suggest commit message from staged changes"
               @click="emit('suggestCommit')"
             >
-              <Loader2
+              <CursorLoading
                 v-if="suggestCommitBusy"
-                class="h-3 w-3 animate-spin"
+                class="inline-block h-3 w-3 min-h-0 shrink-0 overflow-hidden"
                 aria-hidden="true"
               />
               <span v-else class="text-xs">✨</span>
@@ -1008,7 +1016,11 @@ onBeforeUnmount(() => {
             aria-label="Commit staged changes"
             @click="void scm.scmCommit()"
           >
-            <Loader2 v-if="scm.scmCommitBusy" class="mr-1 h-3 w-3 animate-spin" aria-hidden="true" />
+            <CursorLoading
+              v-if="scm.scmCommitBusy"
+              class="mr-1 inline-block h-3 w-3 min-h-0 shrink-0 overflow-hidden"
+              aria-hidden="true"
+            />
             Commit
           </Button>
         </div>

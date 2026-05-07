@@ -1,8 +1,48 @@
-import { mount, flushPromises } from "@vue/test-utils";
+import { mount, flushPromises, DOMWrapper, type ComponentMountingOptions } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { defineComponent, h, nextTick } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import FileSearchEditor from "../FileSearchEditor.vue";
+import ExplorerLayout from "@/modules/explorer/ExplorerLayout.vue";
+
+const { mockPush, mockReplace } = vi.hoisted(() => ({
+  mockPush: vi.fn(),
+  mockReplace: vi.fn(),
+}));
+
+vi.mock("vue-router", async (importOriginal) => {
+  const vue = await import("vue");
+  const FilePageMod = await import("@/modules/explorer/FilePage.vue");
+  const actual = await importOriginal<typeof import("vue-router")>();
+  return {
+    ...actual,
+    useRouter: () => ({
+      push: mockPush,
+      replace: mockReplace,
+    }),
+    useRoute: () => ({
+      name: undefined as string | undefined,
+      params: {} as Record<string, string | string[]>,
+      fullPath: "/",
+    }),
+    RouterView: vue.defineComponent({
+      name: "RouterViewStub",
+      setup(_, { slots }) {
+        return () =>
+          slots.default?.({
+            Component: FilePageMod.default,
+          });
+      },
+    }),
+  };
+});
+
+function mountFileSearchEditor(
+  options?: ComponentMountingOptions<typeof ExplorerLayout>,
+) {
+  return mount(ExplorerLayout, {
+    ...options,
+  });
+}
 
 vi.mock("@/components/ui/Button.vue", () => ({
   default: { template: "<button v-bind=\"$attrs\"><slot /></button>" }
@@ -99,6 +139,10 @@ describe("FileSearchEditor", () => {
     setWorktreeEditorState.mockResolvedValue();
     onWorkspaceChangedCb = null;
     onWorkingTreeFilesChangedCb = null;
+    mockPush.mockReset();
+    mockReplace.mockReset();
+    mockPush.mockResolvedValue(undefined);
+    mockReplace.mockResolvedValue(undefined);
 
     window.workspaceApi = {
       getSnapshot: vi.fn(),
@@ -169,7 +213,7 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -184,7 +228,7 @@ describe("FileSearchEditor", () => {
   it("does not render workspace context in the file editor header", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -198,7 +242,7 @@ describe("FileSearchEditor", () => {
       .mockResolvedValueOnce([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }])
       .mockResolvedValueOnce([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -216,7 +260,7 @@ describe("FileSearchEditor", () => {
       .mockResolvedValueOnce([{ relativePath: "src/App.vue", size: 11, modifiedAt: 2 }])
       .mockResolvedValueOnce([{ relativePath: "src/App.vue", size: 11, modifiedAt: 3 }]);
 
-    mount(FileSearchEditor, {
+    mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
     await flushPromises();
@@ -235,7 +279,7 @@ describe("FileSearchEditor", () => {
   it("renders the search input with the updated field styling", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -248,26 +292,26 @@ describe("FileSearchEditor", () => {
     expect(input.classes()).toContain("bg-background");
     expect(input.classes()).toContain("font-normal");
     expect(input.classes()).toContain("focus-visible:ring-2");
-    expect(input.classes()).toContain("disabled:bg-input/50");
+    expect(input.classes()).toContain("disabled:opacity-50");
   });
 
   it("renders a thinner editor header", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
     await flushPromises();
 
     const header = wrapper.get('[data-testid="file-editor-header"]');
-    expect(header.classes()).toContain("py-1.5");
+    expect(header.classes()).toContain("py-0");
   });
 
   it("renders the file search header with padded, spaced layout", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -275,13 +319,13 @@ describe("FileSearchEditor", () => {
 
     const header = wrapper.get('[data-testid="file-search-header"]');
     expect(header.classes()).toContain("gap-1");
-    expect(header.classes()).toContain("p-1");
+    expect(header.classes()).toContain("p-2");
   });
 
   it("collapses and expands the file sidebar", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -292,20 +336,19 @@ describe("FileSearchEditor", () => {
     await wrapper.get('[data-testid="file-search-sidebar-collapse"]').trigger("click");
     await flushPromises();
 
-    expect(wrapper.get("#file-search-sidebar").classes()).toContain("translate-x-full");
     expect(wrapper.find('[data-testid="file-search-sidebar-expand"]').exists()).toBe(true);
 
     await wrapper.get('[data-testid="file-search-sidebar-expand"]').trigger("click");
     await flushPromises();
 
-    expect(wrapper.get("#file-search-sidebar").classes()).toContain("translate-x-0");
+    expect(wrapper.find('[data-testid="file-search-sidebar-expand"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="file-search-input"]').exists()).toBe(true);
   });
 
   it("renders and emits the thread sidebar expand control when requested", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project", showThreadSidebarExpand: true }
     });
 
@@ -321,7 +364,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }]);
     readFile.mockResolvedValue("const value = 1;\n");
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -340,7 +383,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }]);
     readFile.mockResolvedValue("const value = 1;\n");
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -362,7 +405,7 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -385,7 +428,7 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -408,7 +451,7 @@ describe("FileSearchEditor", () => {
     ]);
     searchFileContents.mockResolvedValue(["src/App.vue"]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -433,7 +476,7 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -452,7 +495,7 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -474,7 +517,7 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -497,7 +540,7 @@ describe("FileSearchEditor", () => {
     ]);
     readFile.mockResolvedValue("<template />");
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -526,7 +569,7 @@ describe("FileSearchEditor", () => {
     });
     readFile.mockResolvedValue("<template />");
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreeId: "worktree-1", worktreePath: "/tmp/project" }
     });
 
@@ -544,7 +587,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }]);
     readFile.mockResolvedValue("const value = 1;\n");
 
-    mount(FileSearchEditor, {
+    mountFileSearchEditor({
       props: { worktreeId: "worktree-1", worktreePath: "/tmp/project" }
     });
 
@@ -565,7 +608,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("<template />");
     writeFile.mockResolvedValue();
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -596,7 +639,7 @@ describe("FileSearchEditor", () => {
     ]);
     readFile.mockResolvedValue("<template />");
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -618,7 +661,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "README.md", size: 20, modifiedAt: 1 }]);
     readFile.mockResolvedValue("# Hello\n\n**Bold** text.");
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -636,7 +679,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "shots/clip.png", size: 500, modifiedAt: 1 }]);
     readFile.mockResolvedValue("binary");
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -653,7 +696,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "x.png", size: 4, modifiedAt: 1 }]);
     readFile.mockResolvedValue("fake-utf8");
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -685,7 +728,7 @@ describe("FileSearchEditor", () => {
       .mockResolvedValueOnce("two")
       .mockResolvedValueOnce("one");
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -727,7 +770,7 @@ describe("FileSearchEditor", () => {
     ]);
     readFile.mockImplementation(async (_cwd, relativePath) => relativePath);
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project", worktreeId: "worktree-1" }
     });
 
@@ -753,7 +796,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("original");
     writeFile.mockResolvedValue();
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project-a" },
       attachTo: document.body
     });
@@ -811,7 +854,7 @@ describe("FileSearchEditor", () => {
           })
       );
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -848,7 +891,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("");
     createFile.mockResolvedValue();
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -859,16 +902,13 @@ describe("FileSearchEditor", () => {
       await flushPromises();
       await nextTick();
 
-      const pathInput = document.querySelector(
-        '[data-testid="new-file-path-input"]'
-      ) as HTMLInputElement;
-      expect(pathInput).toBeTruthy();
-      pathInput.value = "src/new.ts";
-      pathInput.dispatchEvent(new Event("input", { bubbles: true }));
+      const inputEl = document.querySelector(
+        '[data-testid="new-file-path-input"]',
+      ) as HTMLInputElement | null;
+      expect(inputEl).toBeTruthy();
+      await new DOMWrapper(inputEl!).setValue("src/new.ts");
 
-      const confirm = document.querySelector('[data-testid="new-file-confirm"]') as HTMLButtonElement;
-      expect(confirm).toBeTruthy();
-      confirm.click();
+      (document.querySelector('[data-testid="new-file-confirm"]') as HTMLButtonElement).click();
       await flushPromises();
 
       expect(createFile).toHaveBeenCalledWith("/tmp/project", "src/new.ts");
@@ -886,7 +926,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("x");
     deleteFile.mockResolvedValue();
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -926,7 +966,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("");
     createFile.mockResolvedValue();
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -947,12 +987,11 @@ describe("FileSearchEditor", () => {
       await flushPromises();
       await nextTick();
 
-      const pathInput = document.querySelector(
-        '[data-testid="new-file-path-input"]'
-      ) as HTMLInputElement;
-      expect(pathInput).toBeTruthy();
-      pathInput.value = "src/pane-new.ts";
-      pathInput.dispatchEvent(new Event("input", { bubbles: true }));
+      const inputEl = document.querySelector(
+        '[data-testid="new-file-path-input"]',
+      ) as HTMLInputElement | null;
+      expect(inputEl).toBeTruthy();
+      await new DOMWrapper(inputEl!).setValue("src/pane-new.ts");
       (document.querySelector('[data-testid="new-file-confirm"]') as HTMLButtonElement).click();
       await flushPromises();
 
@@ -972,7 +1011,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("");
     createFile.mockResolvedValue();
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -993,13 +1032,12 @@ describe("FileSearchEditor", () => {
       await flushPromises();
       await nextTick();
 
-      const pathInput = document.querySelector(
-        '[data-testid="new-file-path-input"]'
-      ) as HTMLInputElement;
-      expect(pathInput).toBeTruthy();
-      expect(pathInput.value).toBe("src/");
-      pathInput.value = "src/ctx-new.ts";
-      pathInput.dispatchEvent(new Event("input", { bubbles: true }));
+      const inputEl = document.querySelector(
+        '[data-testid="new-file-path-input"]',
+      ) as HTMLInputElement | null;
+      expect(inputEl).toBeTruthy();
+      expect(inputEl!.value).toBe("src/");
+      await new DOMWrapper(inputEl!).setValue("src/ctx-new.ts");
       (document.querySelector('[data-testid="new-file-confirm"]') as HTMLButtonElement).click();
       await flushPromises();
 
@@ -1015,7 +1053,7 @@ describe("FileSearchEditor", () => {
       .mockResolvedValueOnce([]);
     deleteFile.mockResolvedValue();
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -1057,7 +1095,7 @@ describe("FileSearchEditor", () => {
       ]);
     createFolder.mockResolvedValue();
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -1068,12 +1106,11 @@ describe("FileSearchEditor", () => {
       await flushPromises();
       await nextTick();
 
-      const pathInput = document.querySelector(
-        '[data-testid="new-folder-path-input"]'
-      ) as HTMLInputElement;
-      expect(pathInput).toBeTruthy();
-      pathInput.value = "src/new-dir";
-      pathInput.dispatchEvent(new Event("input", { bubbles: true }));
+      const inputEl = document.querySelector(
+        '[data-testid="new-folder-path-input"]',
+      ) as HTMLInputElement | null;
+      expect(inputEl).toBeTruthy();
+      await new DOMWrapper(inputEl!).setValue("src/new-dir");
 
       (document.querySelector('[data-testid="new-folder-confirm"]') as HTMLButtonElement).click();
       await flushPromises();
@@ -1094,7 +1131,7 @@ describe("FileSearchEditor", () => {
       .mockResolvedValueOnce([]);
     deleteFolder.mockResolvedValue();
 
-    const wrapper = mount(FileSearchEditor, {
+    const wrapper = mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });

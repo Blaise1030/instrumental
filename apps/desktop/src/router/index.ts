@@ -7,7 +7,8 @@ import GitPage from "@/modules/git/GitPage.vue";
 import SourceControlPanel from "@/components/SourceControlPanel.vue";
 import RemotePrPanel from "@/modules/git/RemotePrPanel.vue";
 import BrowserPage from "@/modules/browser/BrowserPage.vue";
-import ExplorerPage from "@/modules/explorer/ExplorerPage.vue";
+import ExplorerLayout from "@/modules/explorer/ExplorerLayout.vue";
+import FilePage from "@/modules/explorer/FilePage.vue";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { decodeBranch, encodeBranch } from "./branchParam";
 import { persistWorkspaceRouteFromNavigation } from "./workspaceRouteMemory";
@@ -70,13 +71,17 @@ export const router = createRouter({
             },
             {
               path: "files",
-              name: "filesPanel",
-              component: ExplorerPage,
+              component: ExplorerLayout,
               children: [
                 {
-                  path: ":filename+",
+                  path: "",
+                  name: "filesPanel",
+                  component: FilePage,
+                },
+                {
+                  path: ":filename(.*)",
                   name: "fileDetail",
-                  component: ExplorerPage,
+                  component: FilePage,
                 },
               ],
             },

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import ScmBranchCombobox from "@/components/ScmBranchCombobox.vue";
 import BranchSelector from "@/components/BranchSelector.vue";
 import {Button} from "@/components/ui/button";;
+import { CursorLoading } from "@/components/ui/cursor-loading";
 import { Input } from "@/components/ui/input";
 
 const props = withDefaults(
@@ -86,7 +87,7 @@ function handleCreate(): void {
       <Input
         v-model="branchInput"
         :disabled="loading"
-        :placeholder="loading ? 'Loading branches...' : 'Branch name'"
+        :placeholder="'Branch name'"
       />
     </div>
 
@@ -115,9 +116,9 @@ function handleCreate(): void {
       </p>
       <div
         v-else
-        class="flex h-8 items-center rounded-md border border-border/60 bg-muted/10 px-2 text-xs text-muted-foreground"
+        class="flex min-h-16 flex-col rounded-md border border-border/60 bg-muted/10 px-2 py-2"
       >
-        Loading branches…
+        <CursorLoading class="min-h-14 w-full" />
       </div>
     </div>
 

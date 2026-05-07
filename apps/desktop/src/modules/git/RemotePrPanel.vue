@@ -7,7 +7,6 @@ import {
   Filter,
   GitBranch,
   List,
-  Loader2,
   MessageSquare,
   RefreshCw,
   Settings2,
@@ -15,6 +14,7 @@ import {
 import { DiffView, DiffModeEnum } from "@git-diff-view/vue";
 import "@git-diff-view/vue/styles/diff-view.css";
 import { Button } from "@/components/ui/button";
+import { CursorLoading } from "@/components/ui/cursor-loading";
 import { Badge } from "@/components/ui/badge/index";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -273,7 +273,10 @@ const filteredFiles = computed(() =>
                         :disabled="store.loading"
                         @click="void store.fetchPrs()"
                       >
-                        <Loader2 v-if="store.loading" class="animate-spin" />
+                        <CursorLoading
+                          v-if="store.loading"
+                          class="inline-block size-4 min-h-0 shrink-0 overflow-hidden"
+                        />
                         <RefreshCw v-else />
                       </Button>
                     </TooltipTrigger>
@@ -386,10 +389,9 @@ const filteredFiles = computed(() =>
               <!-- Loading diff -->
               <div
                 v-else-if="store.diffLoading"
-                class="flex h-full items-center justify-center gap-2 text-xs text-muted-foreground"
+                class="flex min-h-0 flex-1 flex-col"
               >
-                <Loader2 class="h-4 w-4 animate-spin" />
-                Loading diff…
+                <CursorLoading class="min-h-0 flex-1" />
               </div>
 
               <template v-else-if="store.selectedPr">

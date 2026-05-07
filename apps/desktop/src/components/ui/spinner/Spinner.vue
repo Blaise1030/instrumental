@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
 
-import { Loader2Icon } from 'lucide-vue-next'
+import { CursorLoading } from '@/components/ui/cursor-loading'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{
@@ -10,5 +10,5 @@ const props = defineProps<{
 </script>
 
 <template>
-  <Loader2Icon role="status" aria-label="Loading" :class="cn('size-4 animate-spin', props.class)" />
+  <CursorLoading :class="cn('inline-block size-4 min-h-0 shrink-0 overflow-hidden', props.class)" />
 </template>

@@ -25,8 +25,14 @@ export async function createTestRouter(initialRoute: RouteLocationRaw = "/") {
             ],
           },
           { path: "preview", name: "previewPanel", component: Stub },
-          { path: "files", name: "filesPanel", component: Stub },
-          { path: "files/:filename+", name: "fileDetail", component: Stub },
+          {
+            path: "files",
+            component: Stub,
+            children: [
+              { path: "", name: "filesPanel", component: Stub },
+              { path: ":filename(.*)", name: "fileDetail", component: Stub },
+            ],
+          },
         ],
       },
     ]

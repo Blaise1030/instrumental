@@ -5,6 +5,7 @@ import { ChevronRight, FolderOpen } from "lucide-vue-next";
 import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useNavigateToProject } from "@/composables/useNavigateToProject";
 import { Button } from "@/components/ui/button";
+import { CursorLoading } from "@/components/ui/cursor-loading";
 
 const { navigateToProject } = useNavigateToProject();
 
@@ -35,12 +36,12 @@ const { data: welcomeProjects, isPending: welcomeProjectsPending } = useQuery({
 
       <div class="flex flex-col gap-2">
         <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Projects</p>
-        <p
+        <div
           v-if="welcomeProjectsPending"
-          class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground"
+          class="flex min-h-32 flex-col rounded-lg border border-dashed px-4 py-8"
         >
-          Loading workspaces…
-        </p>
+          <CursorLoading class="min-h-24 w-full" />
+        </div>
         <div v-else-if="(welcomeProjects ?? []).length > 0" class="flex flex-col gap-2">
           <Button
             v-for="p in welcomeProjects ?? []"

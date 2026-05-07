@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { ChevronDown, GitBranch, Loader2 } from "lucide-vue-next";
+import { ChevronDown, GitBranch } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import {
   Combobox,
@@ -12,6 +12,7 @@ import {
   ComboboxTrigger,
   ComboboxViewport
 } from "@/components/ui/combobox";
+import { CursorLoading } from "@/components/ui/cursor-loading";
 import { useToast } from "@/composables/useToast";
 import { useAppContext } from "@/app-context/useAppContext";
 import Button from "./ui/button/Button.vue";
@@ -134,7 +135,11 @@ async function onModelUpdate(value: unknown): Promise<void> {
         :disabled="checkoutBusy"
       >
         <Button variant="outline" size="sm" class="w-full">
-          <Loader2 v-if="checkoutBusy" class="size-3.5 shrink-0 animate-spin" aria-hidden="true" />
+          <CursorLoading
+            v-if="checkoutBusy"
+            class="inline-block size-3.5 min-h-0 shrink-0 overflow-hidden"
+            aria-hidden="true"
+          />
           <template v-else>
             <GitBranch class="size-3.5 shrink-0 opacity-80" aria-hidden="true" />
             <span
@@ -153,10 +158,9 @@ async function onModelUpdate(value: unknown): Promise<void> {
       <ComboboxViewport>
         <div
           v-if="branchesLoading"
-          class="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground"
+          class="min-h-16 px-3 py-2"
         >
-          <Loader2 class="size-3.5 shrink-0 animate-spin" aria-hidden="true" />
-          Loading branches…
+          <CursorLoading class="min-h-14 w-full" />
         </div>
         <template v-else>
           <ComboboxEmpty class="px-3 py-2 text-xs">No branch found.</ComboboxEmpty>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { BookMarked, Slash } from "lucide-vue-next";
 import { computed, nextTick, ref, watch } from "vue";
+import { CursorLoading } from "@/components/ui/cursor-loading";
 
 export type SlashSuggestionItem = {
   id: string;
@@ -70,8 +71,8 @@ watch(
       ref="listScrollRef"
       class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1 [scrollbar-width:thin]"
     >
-      <div v-if="loading" class="px-3 py-2 text-xs text-muted-foreground">
-        {{ variant === "slash" ? "Searching skills…" : "Searching files…" }}
+      <div v-if="loading" class="min-h-16 px-3 py-2">
+        <CursorLoading class="min-h-14 w-full" />
       </div>
       <template v-else-if="items.length === 0">
         <p class="px-3 py-2 text-xs text-muted-foreground">

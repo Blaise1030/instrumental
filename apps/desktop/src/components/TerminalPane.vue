@@ -2,7 +2,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "xterm";
 import "xterm/css/xterm.css";
-import { Loader2 } from "lucide-vue-next";
+import { CursorLoading } from "@/components/ui/cursor-loading";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
 
@@ -351,8 +351,7 @@ defineExpose({ focus: focusTerminal, refresh: refreshTerminal, injectPrompt });
       aria-live="polite"
       aria-busy="true"
     >
-      <Loader2 class="h-8 w-8 animate-spin text-muted-foreground" aria-hidden="true" />
-      <span class="text-sm text-muted-foreground">Starting terminal…</span>
+      <CursorLoading class="h-full min-h-0 w-full" />
     </div>
   </section>
 </template>
