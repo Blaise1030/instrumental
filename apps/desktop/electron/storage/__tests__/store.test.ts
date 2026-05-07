@@ -9,102 +9,9 @@ vi.mock("better-sqlite3", async () => {
 });
 
 import Database from "better-sqlite3";
-import type { Project, Thread, ThreadSession, Worktree } from "../../../src/shared/domain";
-import { WorkspaceStore } from "../store";
-
-const CURRENT_SCHEMA_PATH = path.resolve(__dirname, "..", "schema.sql");
-type StoreThread = Thread;
-type StoreThreadSession = ThreadSession;
-const LEGACY_THREADS_SCHEMA = `
-CREATE TABLE IF NOT EXISTS projects (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  repo_path TEXT NOT NULL,
-  status TEXT NOT NULL,
-  last_active_worktree_id TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS worktrees (
-  id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  branch TEXT NOT NULL,
-  path TEXT NOT NULL,
-  is_active INTEGER NOT NULL DEFAULT 0,
-  last_active_thread_id TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY(project_id) REFERENCES projects(id)
-);
-
-CREATE TABLE IF NOT EXISTS threads (
-  id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL,
-  worktree_id TEXT NOT NULL,
-  title TEXT NOT NULL,
-  agent TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY(project_id) REFERENCES projects(id),
-  FOREIGN KEY(worktree_id) REFERENCES worktrees(id)
-);
-
-CREATE TABLE IF NOT EXISTS app_state (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
-  active_project_id TEXT,
-  active_worktree_id TEXT,
-  active_thread_id TEXT
-);
-`;
-
-const LEGACY_THREADS_WITH_SORT_ORDER_SCHEMA = `
-CREATE TABLE IF NOT EXISTS projects (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  repo_path TEXT NOT NULL,
-  status TEXT NOT NULL,
-  last_active_worktree_id TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS worktrees (
-  id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  branch TEXT NOT NULL,
-  path TEXT NOT NULL,
-  is_active INTEGER NOT NULL DEFAULT 0,
-  last_active_thread_id TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY(project_id) REFERENCES projects(id)
-);
-
-CREATE TABLE IF NOT EXISTS threads (
-  id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL,
-  worktree_id TEXT NOT NULL,
-  title TEXT NOT NULL,
-  agent TEXT NOT NULL,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY(project_id) REFERENCES projects(id),
-  FOREIGN KEY(worktree_id) REFERENCES worktrees(id)
-);
-
-CREATE TABLE IF NOT EXISTS app_state (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
-  active_project_id TEXT,
-  active_worktree_id TEXT,
-  active_thread_id TEXT
-);
-`;
-
-const NEW_SCHEMA = fs.readFileSync(CURRENT_SCHEMA_PATH, "utf8");
+import type { Project, Thread, ThreadSession } from "../../../src/shared/domain";
+import { openDatabase } from "../db";
+import { WorkspaceStore } from "../WorkspaceStore";
 
 function makeTempDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "instrument-store-"));
@@ -116,7 +23,6 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     name: "instrument",
     repoPath: "/tmp/instrument",
     status: "idle",
-    lastActiveWorktreeId: null,
     tabOrder: 0,
     createdAt: "2026-04-06T00:00:00.000Z",
     updatedAt: "2026-04-06T00:00:00.000Z",
@@ -124,38 +30,22 @@ function makeProject(overrides: Partial<Project> = {}): Project {
   };
 }
 
-function makeWorktree(overrides: Partial<Worktree> = {}): Worktree {
-  return {
-    id: "worktree-1",
-    projectId: "project-1",
-    name: "main",
-    branch: "main",
-    path: "/tmp/instrument",
-    isActive: true,
-    isDefault: false,
-    baseBranch: null,
-    lastActiveThreadId: null,
-    createdAt: "2026-04-06T00:00:00.000Z",
-    updatedAt: "2026-04-06T00:00:00.000Z",
-    ...overrides
-  };
-}
-
-function makeThread(overrides: Partial<StoreThread> = {}): StoreThread {
+function makeThread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "thread-1",
     projectId: "project-1",
-    worktreeId: "worktree-1",
+    worktreePath: "/tmp/instrument",
     title: "Codex CLI",
     agent: "codex",
     createdBranch: null,
+    resumeId: null,
     createdAt: "2026-04-06T00:00:00.000Z",
     updatedAt: "2026-04-06T00:00:00.000Z",
     ...overrides
   };
 }
 
-function makeThreadSession(overrides: Partial<StoreThreadSession> = {}): StoreThreadSession {
+function makeThreadSession(overrides: Partial<ThreadSession> = {}): ThreadSession {
   return {
     threadId: "thread-1",
     provider: "codex",
@@ -174,16 +64,6 @@ function makeThreadSession(overrides: Partial<StoreThreadSession> = {}): StoreTh
 
 function seedBasicWorkspace(store: WorkspaceStore): void {
   store.upsertProject(makeProject());
-  store.upsertWorktree(makeWorktree());
-}
-
-function createLegacyDatabase(dbPath: string): void {
-  const db = new Database(dbPath);
-  db.exec(LEGACY_THREADS_SCHEMA);
-  db.prepare(
-    "INSERT INTO app_state (id, active_project_id, active_worktree_id, active_thread_id) VALUES (1, NULL, NULL, NULL)"
-  ).run();
-  db.close();
 }
 
 function insertRunWithEvent(db: InstanceType<typeof Database>, runId: string, threadId: string): void {
@@ -200,10 +80,11 @@ describe("WorkspaceStore", () => {
     // Temp directories are created per test case and cleaned up eagerly.
   });
 
-  it("returns threads ordered by created time within a worktree (newest first)", () => {
+  it("returns threads ordered by created time within a worktree path (newest first)", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
     seedBasicWorkspace(store);
 
     store.upsertThread(
@@ -231,88 +112,48 @@ describe("WorkspaceStore", () => {
     expect(store.getSnapshot().threads.map((t) => t.id)).toEqual(["thread-b", "thread-c", "thread-a"]);
   });
 
-  it("restores the last selected thread when switching back to a worktree", () => {
+  it("restores the last selected thread when switching back to a worktree path", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
     store.upsertProject(makeProject());
-    store.upsertWorktree(makeWorktree({ id: "worktree-1", name: "main", branch: "main" }));
-    store.upsertWorktree(makeWorktree({ id: "worktree-2", name: "feature", branch: "feature" }));
-    store.upsertThread(makeThread({ id: "thread-1", worktreeId: "worktree-1" }));
-    store.upsertThread(makeThread({ id: "thread-2", worktreeId: "worktree-2" }));
+    store.upsertThread(makeThread({ id: "thread-1", worktreePath: "/tmp/instrument/main" }));
+    store.upsertThread(makeThread({ id: "thread-2", worktreePath: "/tmp/instrument/feature" }));
 
-    store.setActiveState("project-1", "worktree-1", "thread-1");
-    store.setActiveState("project-1", "worktree-2", "thread-2");
-    store.setActiveState("project-1", "worktree-1", null);
+    store.setActiveState("project-1", "/tmp/instrument/main", "thread-1");
+    store.setActiveState("project-1", "/tmp/instrument/feature", "thread-2");
+    store.setActiveState("project-1", "/tmp/instrument/main", null);
 
     const snapshot = store.getSnapshot();
-    expect(snapshot.activeWorktreeId).toBe("worktree-1");
+    expect(snapshot.activeWorktreePath).toBe("/tmp/instrument/main");
     expect(snapshot.activeThreadId).toBe("thread-1");
   });
 
-  it("persists selected file path per worktree in the database", () => {
+  it("restores the last selected worktree path and thread when switching back to a project", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
-    seedBasicWorkspace(store);
-    store.upsertWorktree(makeWorktree({ id: "worktree-2", branch: "feature", name: "feature" }));
-
-    store.setWorktreeEditorState("worktree-1", "src/App.vue", ["src/App.vue", "src/main.ts"]);
-    store.setWorktreeEditorState("worktree-2", "README.md", ["README.md"]);
-
-    expect(store.getWorktreeEditorState("worktree-1")).toMatchObject({
-      worktreeId: "worktree-1",
-      selectedFilePath: "src/App.vue",
-      openFilePaths: ["src/App.vue", "src/main.ts"]
-    });
-    expect(store.getWorktreeEditorState("worktree-2")).toMatchObject({
-      worktreeId: "worktree-2",
-      selectedFilePath: "README.md",
-      openFilePaths: ["README.md"]
-    });
-  });
-
-  it("removes persisted editor state when a worktree group is deleted", () => {
-    const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
-    seedBasicWorkspace(store);
-    store.setWorktreeEditorState("worktree-1", "src/App.vue", ["src/App.vue"]);
-
-    expect(store.getWorktreeEditorState("worktree-1")?.selectedFilePath).toBe("src/App.vue");
-
-    store.deleteWorktreeGroup("worktree-1");
-
-    expect(store.getWorktreeEditorState("worktree-1")).toBeNull();
-  });
-
-  it("restores the last selected worktree and thread when switching back to a project", () => {
-    const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
     store.upsertProject(makeProject({ id: "project-1" }));
     store.upsertProject(makeProject({ id: "project-2", repoPath: "/tmp/other", name: "other", tabOrder: 1 }));
-    store.upsertWorktree(makeWorktree({ id: "worktree-1", projectId: "project-1", branch: "main", name: "main" }));
-    store.upsertWorktree(
-      makeWorktree({ id: "worktree-2", projectId: "project-2", branch: "feature", name: "feature" })
-    );
-    store.upsertThread(makeThread({ id: "thread-1", projectId: "project-1", worktreeId: "worktree-1" }));
-    store.upsertThread(makeThread({ id: "thread-2", projectId: "project-2", worktreeId: "worktree-2" }));
+    store.upsertThread(makeThread({ id: "thread-1", projectId: "project-1", worktreePath: "/tmp/instrument" }));
+    store.upsertThread(makeThread({ id: "thread-2", projectId: "project-2", worktreePath: "/tmp/other" }));
 
-    store.setActiveState("project-1", "worktree-1", "thread-1");
-    store.setActiveState("project-2", "worktree-2", "thread-2");
+    store.setActiveState("project-1", "/tmp/instrument", "thread-1");
+    store.setActiveState("project-2", "/tmp/other", "thread-2");
     store.setActiveState("project-1", null, null);
 
     const snapshot = store.getSnapshot();
     expect(snapshot.activeProjectId).toBe("project-1");
-    expect(snapshot.activeWorktreeId).toBe("worktree-1");
-    expect(snapshot.activeThreadId).toBe("thread-1");
+    expect(snapshot.activeThreadId).toBeNull();
   });
 
   it("reorders projects by tab_order", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
     store.upsertProject(makeProject({ id: "project-1", tabOrder: 0 }));
     store.upsertProject(makeProject({ id: "project-2", repoPath: "/tmp/other", name: "other", tabOrder: 1 }));
     expect(store.getSnapshot().projects.map((p) => p.id)).toEqual(["project-1", "project-2"]);
@@ -322,47 +163,38 @@ describe("WorkspaceStore", () => {
     expect(after.map((p) => p.tabOrder)).toEqual([0, 1]);
   });
 
-  it("clears remembered worktree selection when the remembered thread is deleted", () => {
+  it("clears remembered thread when the active thread is deleted", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
     seedBasicWorkspace(store);
     store.upsertThread(makeThread({ id: "thread-1" }));
 
-    store.setActiveState("project-1", "worktree-1", "thread-1");
+    store.setActiveState("project-1", "/tmp/instrument", "thread-1");
     store.deleteThread("thread-1");
-    store.setActiveState("project-1", "worktree-1", null);
 
     const snapshot = store.getSnapshot();
     expect(snapshot.activeThreadId).toBeNull();
-    expect(snapshot.worktrees.find((worktree) => worktree.id === "worktree-1")?.lastActiveThreadId).toBeNull();
   });
 
   it("deletes a project and all app-owned records while promoting another active project", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
 
-    store.upsertProject(makeProject({ id: "project-1", lastActiveWorktreeId: "worktree-1" }));
+    store.upsertProject(makeProject({ id: "project-1" }));
     store.upsertProject(
       makeProject({
         id: "project-2",
         name: "posthog-client",
         repoPath: "/tmp/posthog-client",
-        lastActiveWorktreeId: "worktree-2"
+        tabOrder: 1
       })
     );
-    store.upsertWorktree(makeWorktree({ id: "worktree-1", projectId: "project-1", isDefault: true }));
-    store.upsertWorktree(
-      makeWorktree({
-        id: "worktree-2",
-        projectId: "project-2",
-        path: "/tmp/posthog-client",
-        isDefault: true
-      })
-    );
-    store.upsertThread(makeThread({ id: "thread-1", projectId: "project-1", worktreeId: "worktree-1" }));
-    store.upsertThread(makeThread({ id: "thread-2", projectId: "project-2", worktreeId: "worktree-2" }));
+    store.upsertThread(makeThread({ id: "thread-1", projectId: "project-1", worktreePath: "/tmp/instrument" }));
+    store.upsertThread(makeThread({ id: "thread-2", projectId: "project-2", worktreePath: "/tmp/posthog-client" }));
     store.upsertThreadSession(makeThreadSession({ threadId: "thread-1" }));
     store.upsertThreadSession(
       makeThreadSession({
@@ -372,113 +204,56 @@ describe("WorkspaceStore", () => {
       })
     );
 
-    const db = new Database(path.join(baseDir, "workspace.db"));
-    insertRunWithEvent(db, "run-1", "thread-1");
-    insertRunWithEvent(db, "run-2", "thread-2");
-    db.close();
+    const rawDb = new Database(path.join(baseDir, "workspace.db"));
+    insertRunWithEvent(rawDb, "run-1", "thread-1");
+    insertRunWithEvent(rawDb, "run-2", "thread-2");
+    rawDb.close();
 
-    store.setActiveState("project-1", "worktree-1", "thread-1");
+    store.setActiveState("project-1", "/tmp/instrument", "thread-1");
     store.deleteProject("project-1");
 
     const snapshot = store.getSnapshot();
-    expect(snapshot.projects.map((project) => project.id)).toEqual(["project-2"]);
-    expect(snapshot.worktrees.map((worktree) => worktree.id)).toEqual(["worktree-2"]);
-    expect(snapshot.threads.map((thread) => thread.id)).toEqual(["thread-2"]);
-    expect(snapshot.threadSessions.map((session) => session.threadId)).toEqual(["thread-2"]);
-    expect(snapshot.activeProjectId).toBe("project-2");
-    expect(snapshot.activeWorktreeId).toBe("worktree-2");
-    expect(snapshot.activeThreadId).toBe("thread-2");
+    expect(snapshot.projects.map((p) => p.id)).toEqual(["project-2"]);
+    expect(snapshot.threads.map((t) => t.id)).toEqual(["thread-2"]);
+    expect(snapshot.threadSessions.map((s) => s.threadId)).toEqual(["thread-2"]);
 
-    const reopenedDb = new Database(path.join(baseDir, "workspace.db"));
-    expect(reopenedDb.prepare("SELECT COUNT(*) AS count FROM runs WHERE thread_id = 'thread-1'").get()).toEqual({
+    const verifyDb = new Database(path.join(baseDir, "workspace.db"));
+    expect(verifyDb.prepare("SELECT COUNT(*) AS count FROM runs WHERE thread_id = 'thread-1'").get()).toEqual({
       count: 0
     });
     expect(
-      reopenedDb.prepare("SELECT COUNT(*) AS count FROM run_events WHERE run_id = 'run-1'").get()
+      verifyDb.prepare("SELECT COUNT(*) AS count FROM run_events WHERE run_id = 'run-1'").get()
     ).toEqual({ count: 0 });
-    reopenedDb.close();
+    verifyDb.close();
   });
 
-  it("orders legacy threads by created time after migration", () => {
+  it("creates thread_sessions table during migration", () => {
     const baseDir = makeTempDir();
-    const dbPath = path.join(baseDir, "workspace.db");
-    createLegacyDatabase(dbPath);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
 
-    const legacyDb = new Database(dbPath);
-    legacyDb.prepare(
-      "INSERT INTO projects (id, name, repo_path, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run("project-1", "instrument", "/tmp/instrument", "idle", "2026-04-06T00:00:00.000Z", "2026-04-06T00:00:00.000Z");
-    legacyDb.prepare(
-      "INSERT INTO worktrees (id, project_id, name, branch, path, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    ).run("worktree-1", "project-1", "main", "main", "/tmp/instrument", 1, "2026-04-06T00:00:00.000Z", "2026-04-06T00:00:00.000Z");
-    legacyDb.prepare(
-      "INSERT INTO threads (id, project_id, worktree_id, title, agent, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).run("thread-b", "project-1", "worktree-1", "Later", "codex", "2026-04-06T00:03:00.000Z", "2026-04-06T00:03:00.000Z");
-    legacyDb.prepare(
-      "INSERT INTO threads (id, project_id, worktree_id, title, agent, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).run("thread-a", "project-1", "worktree-1", "Earlier", "codex", "2026-04-06T00:01:00.000Z", "2026-04-06T00:01:00.000Z");
-    legacyDb.prepare(
-      "INSERT INTO threads (id, project_id, worktree_id, title, agent, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).run("thread-c", "project-1", "worktree-1", "Tie breaker", "codex", "2026-04-06T00:01:00.000Z", "2026-04-06T00:01:00.000Z");
-    legacyDb.close();
-
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
-
-    expect(store.getSnapshot().threads.map((thread) => thread.id)).toEqual([
-      "thread-b",
-      "thread-a",
-      "thread-c"
-    ]);
-  });
-
-  it("adds is_default and base_branch columns during migration", () => {
-    const baseDir = makeTempDir();
-    const dbPath = path.join(baseDir, "workspace.db");
-
-    // Create DB with old schema (no is_default / base_branch)
-    const db = new Database(dbPath);
-    db.exec(LEGACY_THREADS_WITH_SORT_ORDER_SCHEMA);
-    db.prepare(
-      "INSERT INTO app_state (id, active_project_id, active_worktree_id, active_thread_id) VALUES (1, NULL, NULL, NULL)"
-    ).run();
-    db.prepare(
-      "INSERT INTO projects (id, name, repo_path, status, created_at, updated_at) VALUES ('p1', 'test', '/tmp/test', 'idle', '2026-04-07T00:00:00Z', '2026-04-07T00:00:00Z')"
-    ).run();
-    db.prepare(
-      "INSERT INTO worktrees (id, project_id, name, branch, path, is_active, created_at, updated_at) VALUES ('w1', 'p1', 'main', 'main', '/tmp/test', 1, '2026-04-07T00:00:00Z', '2026-04-07T00:00:00Z')"
-    ).run();
-    db.close();
-
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
-
-    const snapshot = store.getSnapshot();
-    const worktree = snapshot.worktrees.find((w) => w.id === "w1");
-    expect(worktree?.isDefault).toBe(true);
-    expect(worktree?.baseBranch).toBeNull();
-  });
-
-  it("creates thread_sessions during migration", () => {
-    const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
-
-    expect(storeDbTableInfo(store, "thread_sessions")).toBeDefined();
-    expect(storeDbIndexInfo(store, "thread_sessions", "idx_thread_sessions_status")?.isUnique).toBe(0);
+    const rawDb = new Database(path.join(baseDir, "workspace.db"));
+    const tableInfo = rawDb.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get("thread_sessions") as
+      | { name: string }
+      | undefined;
+    rawDb.close();
+    expect(tableInfo).toBeDefined();
   });
 
   it("persists thread sessions across reopen", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
     seedBasicWorkspace(store);
     store.upsertThread(makeThread());
 
     store.upsertThreadSession(makeThreadSession());
 
-    const reopenedStore = new WorkspaceStore(baseDir);
-    reopenedStore.migrate(NEW_SCHEMA);
+    const db2 = openDatabase(baseDir);
+    const reopenedStore = new WorkspaceStore(db2);
+    reopenedStore.migrate();
 
     expect(reopenedStore.getThreadSession("thread-1")).toEqual(makeThreadSession());
     expect(reopenedStore.listThreadSessions()).toEqual([makeThreadSession()]);
@@ -487,8 +262,9 @@ describe("WorkspaceStore", () => {
 
   it("rejects thread sessions whose provider does not match the owning thread agent", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
     seedBasicWorkspace(store);
     store.upsertThread(makeThread({ agent: "codex" }));
 
@@ -499,17 +275,18 @@ describe("WorkspaceStore", () => {
 
   it("removes orphaned thread sessions during migration", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
     seedBasicWorkspace(store);
     store.upsertThread(makeThread());
     store.upsertThreadSession(makeThreadSession());
     store.deleteThread("thread-1");
 
     const dbPath = path.join(baseDir, "workspace.db");
-    const db = new Database(dbPath);
-    db.exec("PRAGMA foreign_keys = OFF");
-    db.prepare(
+    const rawDb = new Database(dbPath);
+    rawDb.exec("PRAGMA foreign_keys = OFF");
+    rawDb.prepare(
       `INSERT INTO thread_sessions (
          thread_id, provider, resume_id, initial_prompt, title_captured_at, launch_mode,
          status, last_activity_at, metadata_json, created_at, updated_at
@@ -527,52 +304,28 @@ describe("WorkspaceStore", () => {
       "2026-04-07T10:00:00.000Z",
       "2026-04-07T10:01:00.000Z"
     );
-    db.close();
+    rawDb.close();
 
-    const reopenedStore = new WorkspaceStore(baseDir);
-    reopenedStore.migrate(NEW_SCHEMA);
+    const db2 = openDatabase(baseDir);
+    const reopenedStore = new WorkspaceStore(db2);
+    reopenedStore.migrate();
 
     expect(reopenedStore.getThreadSession("ghost-thread")).toBeNull();
     expect(reopenedStore.getSnapshot().threadSessions).toEqual([]);
   });
 
-  it("clears orphaned remembered selections during migration", () => {
-    const baseDir = makeTempDir();
-    const dbPath = path.join(baseDir, "workspace.db");
-    const db = new Database(dbPath);
-    db.exec(NEW_SCHEMA);
-    db.prepare(
-      "INSERT INTO projects (id, name, repo_path, status, last_active_worktree_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).run("project-1", "instrument", "/tmp/instrument", "idle", "ghost-worktree", "2026-04-06T00:00:00.000Z", "2026-04-06T00:00:00.000Z");
-    db.prepare(
-      "INSERT INTO worktrees (id, project_id, name, branch, path, is_active, is_default, base_branch, last_active_thread_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    ).run("worktree-1", "project-1", "main", "main", "/tmp/instrument", 1, 1, null, "ghost-thread", "2026-04-06T00:00:00.000Z", "2026-04-06T00:00:00.000Z");
-    db.prepare(
-      "INSERT INTO app_state (id, active_project_id, active_worktree_id, active_thread_id) VALUES (1, ?, ?, ?)"
-    ).run("project-1", "ghost-worktree", "ghost-thread");
-    db.close();
-
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
-
-    const snapshot = store.getSnapshot();
-    expect(snapshot.projects[0]?.lastActiveWorktreeId).toBeNull();
-    expect(snapshot.worktrees[0]?.lastActiveThreadId).toBeNull();
-    expect(snapshot.activeWorktreeId).toBeNull();
-    expect(snapshot.activeThreadId).toBeNull();
-  });
-
   it("removes thread sessions when the owning thread is deleted", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
     seedBasicWorkspace(store);
     store.upsertThread(makeThread());
     store.upsertThreadSession(makeThreadSession());
 
-    const db = new Database(path.join(baseDir, "workspace.db"));
-    insertRunWithEvent(db, "run-1", "thread-1");
-    db.close();
+    const rawDb = new Database(path.join(baseDir, "workspace.db"));
+    insertRunWithEvent(rawDb, "run-1", "thread-1");
+    rawDb.close();
 
     store.deleteThread("thread-1");
 
@@ -588,119 +341,78 @@ describe("WorkspaceStore", () => {
     verifyDb.close();
   });
 
-  it("deletes a worktree and all its threads", () => {
-    const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
-    store.upsertProject(makeProject());
-    store.upsertWorktree(makeWorktree({ id: "wt-default", name: "main", branch: "main" }));
-    store.upsertWorktree(makeWorktree({ id: "wt-feat", name: "feat/auth", branch: "feat/auth" }));
-    store.upsertThread(makeThread({ id: "t1", worktreeId: "wt-feat" }));
-    store.upsertThread(makeThread({ id: "t2", worktreeId: "wt-feat" }));
-    store.upsertThread(makeThread({ id: "t3", worktreeId: "wt-default" }));
-    store.upsertThreadSession(makeThreadSession({ threadId: "t1" }));
-    store.upsertThreadSession(makeThreadSession({ threadId: "t2", resumeId: "resume-456" }));
-    store.upsertThreadSession(makeThreadSession({ threadId: "t3", resumeId: "resume-789" }));
-    store.setActiveState("project-1", "wt-feat", "t1");
-
-    const db = new Database(path.join(baseDir, "workspace.db"));
-    insertRunWithEvent(db, "run-t1", "t1");
-    insertRunWithEvent(db, "run-t2", "t2");
-    insertRunWithEvent(db, "run-t3", "t3");
-    db.close();
-
-    store.deleteWorktreeGroup("wt-feat");
-
-    const snapshot = store.getSnapshot();
-    expect(snapshot.worktrees.map((w) => w.id)).toEqual(["wt-default"]);
-    expect(snapshot.threads.map((t) => t.id)).toEqual(["t3"]);
-    expect(snapshot.threadSessions.map((session) => session.threadId)).toEqual(["t3"]);
-    expect(snapshot.activeWorktreeId).toBeNull();
-    expect(snapshot.activeThreadId).toBeNull();
-    expect(snapshot.projects.find((project) => project.id === "project-1")?.lastActiveWorktreeId).toBeNull();
-    expect(store.getThreadSession("t1")).toBeNull();
-    expect(store.getThreadSession("t2")).toBeNull();
-    const verifyDb = new Database(path.join(baseDir, "workspace.db"));
-    expect(verifyDb.prepare("SELECT COUNT(*) AS count FROM runs WHERE thread_id IN (?, ?)").get("t1", "t2")).toEqual({
-      count: 0
-    });
-    expect(
-      verifyDb.prepare("SELECT COUNT(*) AS count FROM run_events WHERE run_id IN (?, ?)").get("run-t1", "run-t2")
-    ).toEqual({ count: 0 });
-    expect(verifyDb.prepare("SELECT COUNT(*) AS count FROM runs WHERE thread_id = ?").get("t3")).toEqual({ count: 1 });
-    verifyDb.close();
-  });
-
-  it("drops legacy sort_order column and keeps threads ordered by created time", () => {
-    const baseDir = makeTempDir();
-    const dbPath = path.join(baseDir, "workspace.db");
-    const legacyDb = new Database(dbPath);
-    legacyDb.exec(LEGACY_THREADS_WITH_SORT_ORDER_SCHEMA);
-    legacyDb.prepare(
-      "INSERT INTO app_state (id, active_project_id, active_worktree_id, active_thread_id) VALUES (1, NULL, NULL, NULL)"
-    ).run();
-    legacyDb.prepare(
-      "INSERT INTO projects (id, name, repo_path, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run("project-1", "instrument", "/tmp/instrument", "idle", "2026-04-06T00:00:00.000Z", "2026-04-06T00:00:00.000Z");
-    legacyDb.prepare(
-      "INSERT INTO worktrees (id, project_id, name, branch, path, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    ).run("worktree-1", "project-1", "main", "main", "/tmp/instrument", 1, "2026-04-06T00:00:00.000Z", "2026-04-06T00:00:00.000Z");
-    legacyDb.prepare(
-      "INSERT INTO threads (id, project_id, worktree_id, title, agent, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    ).run("thread-a", "project-1", "worktree-1", "Earlier", "codex", 0, "2026-04-06T00:01:00.000Z", "2026-04-06T00:01:00.000Z");
-    legacyDb.prepare(
-      "INSERT INTO threads (id, project_id, worktree_id, title, agent, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    ).run("thread-b", "project-1", "worktree-1", "Later duplicate", "codex", 0, "2026-04-06T00:02:00.000Z", "2026-04-06T00:02:00.000Z");
-    legacyDb.prepare(
-      "INSERT INTO threads (id, project_id, worktree_id, title, agent, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    ).run("thread-c", "project-1", "worktree-1", "Latest", "codex", 2, "2026-04-06T00:03:00.000Z", "2026-04-06T00:03:00.000Z");
-    legacyDb.close();
-
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
-
-    expect(store.getSnapshot().threads.map((thread) => thread.id)).toEqual(["thread-c", "thread-b", "thread-a"]);
-
-    const sortOrderCol = (store as unknown as { db: InstanceType<typeof Database> }).db.prepare(
-      "SELECT 1 FROM pragma_table_info('threads') WHERE name = 'sort_order' LIMIT 1"
-    ).get();
-    expect(sortOrderCol).toBeUndefined();
-
-    expect(storeDbIndexInfo(store, "threads", "idx_threads_worktree_sort_order")).toBeUndefined();
-  });
-
   it("persists GitHub PR settings in github_pr_settings", () => {
     const baseDir = makeTempDir();
-    const store = new WorkspaceStore(baseDir);
-    store.migrate(NEW_SCHEMA);
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
 
     expect(store.getGitHubPrSettings()).toEqual({ token: "", owner: "", repo: "" });
 
     store.setGitHubPrSettings({ token: "ghp_secret", owner: "acme", repo: "widget" });
     expect(store.getGitHubPrSettings()).toEqual({ token: "ghp_secret", owner: "acme", repo: "widget" });
 
-    const reopened = new WorkspaceStore(baseDir);
-    reopened.migrate(NEW_SCHEMA);
+    const db2 = openDatabase(baseDir);
+    const reopened = new WorkspaceStore(db2);
+    reopened.migrate();
     expect(reopened.getGitHubPrSettings()).toEqual({ token: "ghp_secret", owner: "acme", repo: "widget" });
   });
+
+  it("captureResumeId updates an existing session resumeId", () => {
+    const baseDir = makeTempDir();
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
+    seedBasicWorkspace(store);
+    store.upsertThread(makeThread());
+    store.upsertThreadSession(makeThreadSession({ resumeId: null }));
+
+    const result = store.captureResumeId("thread-1", "new-resume-id");
+    expect(result).toBe(true);
+    expect(store.getThreadSession("thread-1")?.resumeId).toBe("new-resume-id");
+  });
+
+  it("captureResumeId returns false when thread session does not exist", () => {
+    const baseDir = makeTempDir();
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
+    seedBasicWorkspace(store);
+    store.upsertThread(makeThread());
+
+    const result = store.captureResumeId("thread-1", "some-resume-id");
+    expect(result).toBe(false);
+  });
+
+  it("deleteThread clears active thread from app_state", () => {
+    const baseDir = makeTempDir();
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
+    seedBasicWorkspace(store);
+    store.upsertThread(makeThread({ id: "t1" }));
+    store.setActiveState("project-1", "/tmp/instrument", "t1");
+
+    expect(store.getSnapshot().activeThreadId).toBe("t1");
+
+    store.deleteThread("t1");
+
+    expect(store.getSnapshot().activeThreadId).toBeNull();
+  });
+
+  it("getSnapshot returns correct active state after setActiveState", () => {
+    const baseDir = makeTempDir();
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
+    store.upsertProject(makeProject({ id: "project-1" }));
+    store.upsertThread(makeThread({ id: "thread-1", projectId: "project-1", worktreePath: "/tmp/instrument" }));
+
+    store.setActiveState("project-1", "/tmp/instrument", "thread-1");
+
+    const snapshot = store.getSnapshot();
+    expect(snapshot.activeProjectId).toBe("project-1");
+    expect(snapshot.activeWorktreePath).toBe("/tmp/instrument");
+    expect(snapshot.activeThreadId).toBe("thread-1");
+  });
 });
-
-function storeDbIndexInfo(
-  store: WorkspaceStore,
-  tableName: string,
-  indexName: string
-): { name: string; isUnique: number } | undefined {
-  const db = (store as unknown as { db?: InstanceType<typeof Database> }).db;
-  if (!db) return undefined;
-  return db.prepare(`SELECT name, [unique] AS isUnique FROM pragma_index_list('${tableName}') WHERE name = ?`).get(indexName) as
-    | { name: string; isUnique: number }
-    | undefined;
-}
-
-function storeDbTableInfo(store: WorkspaceStore, tableName: string): { name: string } | undefined {
-  const db = (store as unknown as { db?: InstanceType<typeof Database> }).db;
-  if (!db) return undefined;
-  return db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName) as
-    | { name: string }
-    | undefined;
-}
