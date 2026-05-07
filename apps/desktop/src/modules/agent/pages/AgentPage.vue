@@ -47,7 +47,7 @@ onMounted(async () => {
     thread.agent,
     session.resumeId,
   );
-  terminalRef.value?.injectPrompt(resumeCmd);
+  pendingBootstrap.value = { threadId: tid, command: resumeCmd, mode: "resume" };
 });
 
 function onBootstrapConsumed(): void {
