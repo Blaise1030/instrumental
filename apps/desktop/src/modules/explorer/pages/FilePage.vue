@@ -40,7 +40,7 @@ function setMonacoRef(el: unknown): void {
     >
       <header
         data-testid="file-editor-header"
-        class="flex min-h-9 min-w-0 items-stretch border-b py-0 pl-3"
+        class="flex min-h-9 min-w-0 items-stretch border-b py-0"
       >
         <Button
           v-if="showThreadSidebarExpand"
@@ -58,7 +58,7 @@ function setMonacoRef(el: unknown): void {
         <div
           class="min-h-9 min-w-0 flex-1 overflow-x-auto overflow-y-hidden border-e py-1 [-webkit-overflow-scrolling:touch]"
         >
-          <div class="flex items-center h-full w-max min-w-0 gap-1 pe-2">
+          <div class="flex items-center h-full w-max min-w-0 gap-1 px-2">
             <template v-if="page.selectedPath">
               <span class="sr-only" data-testid="file-editor-active-path">{{
                 page.selectedPath
