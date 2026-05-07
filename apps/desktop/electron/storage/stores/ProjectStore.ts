@@ -95,7 +95,7 @@ export class ProjectStore {
   reorder(orderedIds: string[]): void {
     const existing = this.db.all<{ id: string }>(sql`SELECT id FROM projects`);
     const idSet = new Set(existing.map((r) => r.id));
-    if (orderedIds.length !== idSet.size) {
+    if (orderedIds.length !== idSet.size || new Set(orderedIds).size !== orderedIds.length) {
       throw new Error("reorderProjects: ordered list must include each project exactly once");
     }
     for (const id of orderedIds) {
