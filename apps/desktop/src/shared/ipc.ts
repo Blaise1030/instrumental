@@ -1,4 +1,4 @@
-import type { Project, Thread, ThreadSession, ThreadAgent, Worktree } from "./domain";
+import type { Project, Thread, ThreadSession, ThreadAgent } from "./domain";
 
 export type { AppNotification, AppNotificationKind } from "./domain";
 
@@ -10,24 +10,16 @@ export { IPC_CHANNELS } from "../../electron/ipcChannels.js";
 
 export interface WorkspaceSnapshot {
   projects: Project[];
-  worktrees: Worktree[];
   threads: Thread[];
   threadSessions: ThreadSession[];
   activeProjectId: string | null;
-  activeWorktreeId: string | null;
+  activeWorktreePath: string | null;
   activeThreadId: string | null;
-}
-
-export interface WorktreeEditorState {
-  worktreeId: string;
-  selectedFilePath: string | null;
-  openFilePaths: string[];
-  updatedAt: string;
 }
 
 export interface CreateThreadInput {
   projectId: string;
-  worktreeId: string;
+  worktreePath: string;
   title: string;
   agent: ThreadAgent;
 }
@@ -45,20 +37,6 @@ export interface RemoveProjectInput {
 export interface ReorderProjectsInput {
   /** Full project tab order, left to right. */
   orderedProjectIds: string[];
-}
-
-export interface CreateWorktreeGroupInput {
-  projectId: string;
-  /** Existing branch name, or new branch to create. */
-  branch: string;
-  /** When creating a new branch, the base to branch from. Null if using existing branch. */
-  baseBranch: string | null;
-}
-
-export interface AddWorktreeInput {
-  projectId: string;
-  branch: string;
-  worktreePath: string;
 }
 
 /** One row from `git worktree list --porcelain` (checked-out branch name). */

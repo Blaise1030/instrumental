@@ -1,14 +1,13 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createTestDb } from "./testDb";
 import { ProjectStore } from "../stores/ProjectStore";
-import { WorktreeStore } from "../stores/WorktreeStore";
 import { ThreadStore } from "../stores/ThreadStore";
 import type { AppDatabase } from "../db";
 import type { Thread, ThreadSession } from "../../../src/shared/domain";
 
 function makeThread(overrides: Partial<Thread> = {}): Thread {
   return {
-    id: "t-1", projectId: "proj-1", worktreeId: "wt-1",
+    id: "t-1", projectId: "proj-1", worktreePath: "/r",
     title: "My thread", agent: "claude",
     createdBranch: "main", resumeId: null,
     createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z",
@@ -35,9 +34,7 @@ describe("ThreadStore", () => {
   beforeEach(() => {
     db = createTestDb();
     const ps = new ProjectStore(db); ps.initialize();
-    ps.upsert({ id: "proj-1", name: "P", repoPath: "/r", status: "idle", lastActiveWorktreeId: null, tabOrder: 0, createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" });
-    const ws = new WorktreeStore(db); ws.initialize();
-    ws.upsert({ id: "wt-1", projectId: "proj-1", name: "main", branch: "main", path: "/r", isActive: false, isDefault: true, baseBranch: null, lastActiveThreadId: null, createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" });
+    ps.upsert({ id: "proj-1", name: "P", repoPath: "/r", status: "idle", tabOrder: 0, createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" });
     store = new ThreadStore(db);
     store.initialize();
   });
@@ -74,5 +71,17 @@ describe("ThreadStore", () => {
     store.upsertThread(makeThread());
     store.rename("t-1", "New Title");
     expect(store.getThread("t-1")?.title).toBe("New Title");
+  });
+
+  it("worktreePath stored and retrieved", () => {
+    store.upsertThread(makeThread({ worktreePath: "/home/user/myrepo" }));
+    expect(store.getThread("t-1")?.worktreePath).toBe("/home/user/myrepo");
+  });
+
+  it("listByWorktreePath filters correctly", () => {
+    store.upsertThread(makeThread({ id: "t-1", worktreePath: "/path/a" }));
+    store.upsertThread(makeThread({ id: "t-2", worktreePath: "/path/b" }));
+    expect(store.listByWorktreePath("/path/a")).toHaveLength(1);
+    expect(store.listByWorktreePath("/path/b")[0].id).toBe("t-2");
   });
 });

@@ -6,12 +6,11 @@ export class ThreadStore {
   constructor(private readonly db: AppDatabase) {}
 
   initialize(): void {
-    // threads table
     this.db.run(sql`
       CREATE TABLE IF NOT EXISTS threads (
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL,
-        worktree_id TEXT NOT NULL,
+        worktree_path TEXT NOT NULL,
         title TEXT NOT NULL,
         agent TEXT NOT NULL,
         created_branch TEXT,
@@ -21,7 +20,6 @@ export class ThreadStore {
       )
     `);
 
-    // Column migration guards for threads
     const hasCreatedBranch = this.db.get<{ v: number }>(sql`
       SELECT 1 AS v FROM pragma_table_info('threads') WHERE name = 'created_branch' LIMIT 1
     `);
@@ -36,18 +34,18 @@ export class ThreadStore {
       this.db.run(sql`ALTER TABLE threads ADD COLUMN resume_id TEXT`);
     }
 
-    // Drop sort_order if it exists (table rebuild)
+    // Migrate worktree_id → worktree_path for legacy rows
+    this.migrateWorktreeIdToPathIfNeeded();
+
     this.migrateDropSortOrderIfNeeded();
 
-    // Indexes for threads
     this.db.run(sql`
       CREATE INDEX IF NOT EXISTS threads_project_id_idx ON threads (project_id)
     `);
     this.db.run(sql`
-      CREATE INDEX IF NOT EXISTS threads_worktree_id_idx ON threads (worktree_id)
+      CREATE INDEX IF NOT EXISTS threads_worktree_path_idx ON threads (worktree_path)
     `);
 
-    // thread_sessions table
     this.db.run(sql`
       CREATE TABLE IF NOT EXISTS thread_sessions (
         thread_id TEXT PRIMARY KEY,
@@ -65,18 +63,23 @@ export class ThreadStore {
     `);
   }
 
-  private migrateDropSortOrderIfNeeded(): void {
-    const hasSortOrder = this.db.get<{ v: number }>(sql`
-      SELECT 1 AS v FROM pragma_table_info('threads') WHERE name = 'sort_order' LIMIT 1
+  private migrateWorktreeIdToPathIfNeeded(): void {
+    const hasWorktreeId = this.db.get<{ v: number }>(sql`
+      SELECT 1 AS v FROM pragma_table_info('threads') WHERE name = 'worktree_id' LIMIT 1
     `);
-    if (!hasSortOrder) return;
+    if (!hasWorktreeId) return;
 
-    // Rebuild table without sort_order
+    const hasWorktreePath = this.db.get<{ v: number }>(sql`
+      SELECT 1 AS v FROM pragma_table_info('threads') WHERE name = 'worktree_path' LIMIT 1
+    `);
+    if (hasWorktreePath) return;
+
+    // Rebuild: copy worktree_id → worktree_path (UUID becomes the path value for legacy rows)
     this.db.run(sql`
-      CREATE TABLE IF NOT EXISTS threads_new (
+      CREATE TABLE IF NOT EXISTS threads_v2 (
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL,
-        worktree_id TEXT NOT NULL,
+        worktree_path TEXT NOT NULL,
         title TEXT NOT NULL,
         agent TEXT NOT NULL,
         created_branch TEXT,
@@ -86,8 +89,39 @@ export class ThreadStore {
       )
     `);
     this.db.run(sql`
-      INSERT INTO threads_new (id, project_id, worktree_id, title, agent, created_branch, resume_id, created_at, updated_at)
-      SELECT id, project_id, worktree_id, title, agent, created_branch, resume_id, created_at, updated_at
+      INSERT INTO threads_v2 (id, project_id, worktree_path, title, agent, created_branch, resume_id, created_at, updated_at)
+      SELECT id, project_id, COALESCE(
+        (SELECT path FROM worktrees WHERE worktrees.id = threads.worktree_id),
+        worktree_id
+      ), title, agent, created_branch, resume_id, created_at, updated_at
+      FROM threads
+    `);
+    this.db.run(sql`DROP TABLE threads`);
+    this.db.run(sql`ALTER TABLE threads_v2 RENAME TO threads`);
+  }
+
+  private migrateDropSortOrderIfNeeded(): void {
+    const hasSortOrder = this.db.get<{ v: number }>(sql`
+      SELECT 1 AS v FROM pragma_table_info('threads') WHERE name = 'sort_order' LIMIT 1
+    `);
+    if (!hasSortOrder) return;
+
+    this.db.run(sql`
+      CREATE TABLE IF NOT EXISTS threads_new (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        worktree_path TEXT NOT NULL,
+        title TEXT NOT NULL,
+        agent TEXT NOT NULL,
+        created_branch TEXT,
+        resume_id TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+    this.db.run(sql`
+      INSERT INTO threads_new (id, project_id, worktree_path, title, agent, created_branch, resume_id, created_at, updated_at)
+      SELECT id, project_id, worktree_path, title, agent, created_branch, resume_id, created_at, updated_at
       FROM threads
     `);
     this.db.run(sql`DROP TABLE threads`);
@@ -97,13 +131,13 @@ export class ThreadStore {
   upsertThread(thread: Thread): void {
     this.db.run(sql`
       INSERT INTO threads (
-        id, project_id, worktree_id, title, agent,
+        id, project_id, worktree_path, title, agent,
         created_branch, resume_id, created_at, updated_at
       )
       VALUES (
         ${thread.id},
         ${thread.projectId},
-        ${thread.worktreeId},
+        ${thread.worktreePath},
         ${thread.title},
         ${thread.agent},
         ${thread.createdBranch ?? null},
@@ -113,7 +147,7 @@ export class ThreadStore {
       )
       ON CONFLICT(id) DO UPDATE SET
         project_id = excluded.project_id,
-        worktree_id = excluded.worktree_id,
+        worktree_path = excluded.worktree_path,
         title = excluded.title,
         agent = excluded.agent,
         created_branch = excluded.created_branch,
@@ -126,7 +160,7 @@ export class ThreadStore {
     const row = this.db.get<{
       id: string;
       projectId: string;
-      worktreeId: string;
+      worktreePath: string;
       title: string;
       agent: string;
       createdBranch: string | null;
@@ -137,7 +171,7 @@ export class ThreadStore {
       SELECT
         id,
         project_id AS projectId,
-        worktree_id AS worktreeId,
+        worktree_path AS worktreePath,
         title,
         agent,
         created_branch AS createdBranch,
@@ -151,7 +185,7 @@ export class ThreadStore {
     return {
       id: row.id,
       projectId: row.projectId,
-      worktreeId: row.worktreeId,
+      worktreePath: row.worktreePath,
       title: row.title,
       agent: row.agent as ThreadAgent,
       createdBranch: row.createdBranch,
@@ -165,7 +199,7 @@ export class ThreadStore {
     const rows = this.db.all<{
       id: string;
       projectId: string;
-      worktreeId: string;
+      worktreePath: string;
       title: string;
       agent: string;
       createdBranch: string | null;
@@ -176,7 +210,7 @@ export class ThreadStore {
       SELECT
         id,
         project_id AS projectId,
-        worktree_id AS worktreeId,
+        worktree_path AS worktreePath,
         title,
         agent,
         created_branch AS createdBranch,
@@ -189,7 +223,46 @@ export class ThreadStore {
     return rows.map((r) => ({
       id: r.id,
       projectId: r.projectId,
-      worktreeId: r.worktreeId,
+      worktreePath: r.worktreePath,
+      title: r.title,
+      agent: r.agent as ThreadAgent,
+      createdBranch: r.createdBranch,
+      resumeId: r.resumeId,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    }));
+  }
+
+  listByWorktreePath(worktreePath: string): Thread[] {
+    const rows = this.db.all<{
+      id: string;
+      projectId: string;
+      worktreePath: string;
+      title: string;
+      agent: string;
+      createdBranch: string | null;
+      resumeId: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }>(sql`
+      SELECT
+        id,
+        project_id AS projectId,
+        worktree_path AS worktreePath,
+        title,
+        agent,
+        created_branch AS createdBranch,
+        resume_id AS resumeId,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+      FROM threads
+      WHERE worktree_path = ${worktreePath}
+      ORDER BY created_at ASC, id ASC
+    `);
+    return rows.map((r) => ({
+      id: r.id,
+      projectId: r.projectId,
+      worktreePath: r.worktreePath,
       title: r.title,
       agent: r.agent as ThreadAgent,
       createdBranch: r.createdBranch,

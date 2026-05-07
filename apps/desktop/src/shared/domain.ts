@@ -31,23 +31,8 @@ export interface Project {
   name: string;
   repoPath: string;
   status: RunStatus | "idle";
-  lastActiveWorktreeId?: string | null;
   /** Lower values appear first (left) in the project tab strip. */
   tabOrder: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Worktree {
-  id: string;
-  projectId: string;
-  name: string;
-  branch: string;
-  path: string;
-  isActive: boolean;
-  isDefault: boolean;
-  baseBranch: string | null;
-  lastActiveThreadId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -55,11 +40,14 @@ export interface Worktree {
 export interface Thread {
   id: string;
   projectId: string;
-  worktreeId: string;
+  /** Absolute path to the git worktree directory this thread runs in. */
+  worktreePath: string;
   title: string;
   agent: ThreadAgent;
   /** Git branch checked out on the thread's worktree when the thread was created (null for legacy rows). */
   createdBranch: string | null;
+  /** Claude/agent session ID used with `--resume` to continue an interrupted session. */
+  resumeId: string | null;
   createdAt: string;
   updatedAt: string;
 }

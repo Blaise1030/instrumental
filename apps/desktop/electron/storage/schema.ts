@@ -5,22 +5,7 @@ export const projects = sqliteTable("projects", {
   name: text("name").notNull(),
   repoPath: text("repo_path").notNull(),
   status: text("status").notNull(),
-  lastActiveWorktreeId: text("last_active_worktree_id"),
   tabOrder: integer("tab_order").notNull().default(0),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
-
-export const worktrees = sqliteTable("worktrees", {
-  id: text("id").primaryKey(),
-  projectId: text("project_id").notNull(),
-  name: text("name").notNull(),
-  branch: text("branch").notNull(),
-  path: text("path").notNull(),
-  isActive: integer("is_active").notNull().default(0),
-  isDefault: integer("is_default").notNull().default(0),
-  baseBranch: text("base_branch"),
-  lastActiveThreadId: text("last_active_thread_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -28,7 +13,7 @@ export const worktrees = sqliteTable("worktrees", {
 export const threads = sqliteTable("threads", {
   id: text("id").primaryKey(),
   projectId: text("project_id").notNull(),
-  worktreeId: text("worktree_id").notNull(),
+  worktreePath: text("worktree_path").notNull(),
   title: text("title").notNull(),
   agent: text("agent").notNull(),
   createdBranch: text("created_branch"),
@@ -70,15 +55,8 @@ export const runEvents = sqliteTable("run_events", {
 export const appState = sqliteTable("app_state", {
   id: integer("id").primaryKey(),
   activeProjectId: text("active_project_id"),
-  activeWorktreeId: text("active_worktree_id"),
+  activeWorktreePath: text("active_worktree_path"),
   activeThreadId: text("active_thread_id"),
-});
-
-export const worktreeEditorState = sqliteTable("worktree_editor_state", {
-  worktreeId: text("worktree_id").primaryKey(),
-  selectedFilePath: text("selected_file_path"),
-  openFilePathsJson: text("open_file_paths_json").notNull().default("[]"),
-  updatedAt: text("updated_at").notNull(),
 });
 
 export const notifications = sqliteTable("notifications", {

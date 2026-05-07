@@ -1,0 +1,20 @@
+Object.defineProperty(__vite_ssr_exports__, "createTestDb", { enumerable: true, configurable: true, get(){ try { return createTestDb } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/@fs/Users/blaisetiong/Developer/instrument/node_modules/.pnpm/vitest@3.2.4_@types+node@22.19.17_jsdom@26.1.0_tsx@4.21.0/node_modules/vitest/dist/index.js", {"importedNames":["vi"]});__vite_ssr_import_0__.vi.mock("better-sqlite3", async () => {
+  const module = await __vite_ssr_dynamic_import__("/electron/storage/__tests__/betterSqlite3Compat.ts");
+  return { default: module.default };
+});
+const __vi_import_0__ = await __vite_ssr_dynamic_import__("/@fs/Users/blaisetiong/Developer/instrument/node_modules/.pnpm/better-sqlite3@12.9.0/node_modules/better-sqlite3/lib/index.js");
+const __vi_import_1__ = await __vite_ssr_dynamic_import__("/@fs/Users/blaisetiong/Developer/instrument/node_modules/.pnpm/drizzle-orm@0.45.2_@types+better-sqlite3@7.6.13_better-sqlite3@12.9.0/node_modules/drizzle-orm/better-sqlite3/index.js");
+const __vi_import_2__ = await __vite_ssr_dynamic_import__("/electron/storage/schema.ts");
+
+
+
+
+function createTestDb() {
+  const sqlite = new __vi_import_0__.default(":memory:");
+  sqlite.exec("PRAGMA foreign_keys = ON");
+  return __vi_import_1__.drizzle(sqlite, { schema: __vi_import_2__ });
+}
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IjtBQUFBLGdQQUVBLHlCQUFHLEtBQUssa0JBQWtCLFlBQVk7QUFDcEMsUUFBTSxTQUFTLE1BQU0sNEJBQU8sNEJBQXVCO0FBQ25ELFNBQU8sRUFBRSxTQUFTLE9BQU8sUUFBUTtBQUNuQyxDQUFDO0FBRUQ7QUFDQTtBQUNBOzs7OztBQUdPLFNBQVMsZUFBNEI7QUFDMUMsUUFBTSxTQUFTLElBQUksd0JBQVMsVUFBVTtBQUN0QyxTQUFPLEtBQUssMEJBQTBCO0FBQ3RDLFNBQU8sd0JBQVEsUUFBUSxFQUFFLHdCQUFPLENBQUM7QUFDbkMiLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbInRlc3REYi50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyB2aSB9IGZyb20gXCJ2aXRlc3RcIjtcblxudmkubW9jayhcImJldHRlci1zcWxpdGUzXCIsIGFzeW5jICgpID0+IHtcbiAgY29uc3QgbW9kdWxlID0gYXdhaXQgaW1wb3J0KFwiLi9iZXR0ZXJTcWxpdGUzQ29tcGF0XCIpO1xuICByZXR1cm4geyBkZWZhdWx0OiBtb2R1bGUuZGVmYXVsdCB9O1xufSk7XG5cbmltcG9ydCBEYXRhYmFzZSBmcm9tIFwiYmV0dGVyLXNxbGl0ZTNcIjtcbmltcG9ydCB7IGRyaXp6bGUgfSBmcm9tIFwiZHJpenpsZS1vcm0vYmV0dGVyLXNxbGl0ZTNcIjtcbmltcG9ydCAqIGFzIHNjaGVtYSBmcm9tIFwiLi4vc2NoZW1hXCI7XG5pbXBvcnQgdHlwZSB7IEFwcERhdGFiYXNlIH0gZnJvbSBcIi4uL2RiXCI7XG5cbmV4cG9ydCBmdW5jdGlvbiBjcmVhdGVUZXN0RGIoKTogQXBwRGF0YWJhc2Uge1xuICBjb25zdCBzcWxpdGUgPSBuZXcgRGF0YWJhc2UoXCI6bWVtb3J5OlwiKTtcbiAgc3FsaXRlLmV4ZWMoXCJQUkFHTUEgZm9yZWlnbl9rZXlzID0gT05cIik7XG4gIHJldHVybiBkcml6emxlKHNxbGl0ZSwgeyBzY2hlbWEgfSkgYXMgQXBwRGF0YWJhc2U7XG59XG4iXSwiZmlsZSI6Ii9lbGVjdHJvbi9zdG9yYWdlL19fdGVzdHNfXy90ZXN0RGIudHMifQ==

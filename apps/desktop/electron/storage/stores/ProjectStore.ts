@@ -12,18 +12,11 @@ export class ProjectStore {
         name TEXT NOT NULL,
         repo_path TEXT NOT NULL,
         status TEXT NOT NULL,
-        last_active_worktree_id TEXT,
         tab_order INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
     `);
-    const hasLastActive = this.db.get<{ v: number }>(sql`
-      SELECT 1 AS v FROM pragma_table_info('projects') WHERE name = 'last_active_worktree_id' LIMIT 1
-    `);
-    if (!hasLastActive) {
-      this.db.run(sql`ALTER TABLE projects ADD COLUMN last_active_worktree_id TEXT`);
-    }
     const hasTabOrder = this.db.get<{ v: number }>(sql`
       SELECT 1 AS v FROM pragma_table_info('projects') WHERE name = 'tab_order' LIMIT 1
     `);
@@ -40,13 +33,12 @@ export class ProjectStore {
 
   upsert(project: Project): void {
     this.db.run(sql`
-      INSERT INTO projects (id, name, repo_path, status, last_active_worktree_id, tab_order, created_at, updated_at)
+      INSERT INTO projects (id, name, repo_path, status, tab_order, created_at, updated_at)
       VALUES (
         ${project.id},
         ${project.name},
         ${project.repoPath},
         ${project.status},
-        ${project.lastActiveWorktreeId ?? null},
         ${project.tabOrder},
         ${project.createdAt},
         ${project.updatedAt}
@@ -55,7 +47,6 @@ export class ProjectStore {
         name = excluded.name,
         repo_path = excluded.repo_path,
         status = excluded.status,
-        last_active_worktree_id = excluded.last_active_worktree_id,
         tab_order = excluded.tab_order,
         updated_at = excluded.updated_at
     `);
@@ -67,7 +58,6 @@ export class ProjectStore {
       name: string;
       repoPath: string;
       status: string;
-      lastActiveWorktreeId: string | null;
       tabOrder: number;
       createdAt: string;
       updatedAt: string;
@@ -77,7 +67,6 @@ export class ProjectStore {
         name,
         repo_path AS repoPath,
         status,
-        last_active_worktree_id AS lastActiveWorktreeId,
         tab_order AS tabOrder,
         created_at AS createdAt,
         updated_at AS updatedAt
@@ -113,9 +102,4 @@ export class ProjectStore {
     }
   }
 
-  setLastActiveWorktree(projectId: string, worktreeId: string | null): void {
-    this.db.run(sql`
-      UPDATE projects SET last_active_worktree_id = ${worktreeId} WHERE id = ${projectId}
-    `);
-  }
 }
