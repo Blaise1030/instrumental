@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useQueryClient } from "@tanstack/vue-query";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   ArrowDownToLine,
@@ -13,12 +14,10 @@ import {
   PanelLeftOpen,
   Plus,
   RotateCcw,
-  Trash2,
-  Undo2
+  Trash2
 } from "lucide-vue-next";
-import {Button} from "@/components/ui/button";;
+import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
-import { Badge } from "@/components/ui/badge/index";
 import ScmBranchCombobox from "@/components/ScmBranchCombobox.vue";
 import {
   DropdownMenu,
@@ -28,9 +27,19 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import MonacoDiffEditor from "@/components/MonacoDiffEditor.vue";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
 import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
-import { useScmStore } from "@/modules/git/stores/scmStore";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useToast } from "@/composables/useToast";
+import { useScm } from "@/modules/git/hooks/useScm";
+import { LruMap } from "@/lib/lruMap";
+import type { FileDiffScope, FileMergeSidesResult } from "@shared/ipc";
 
 const SCM_DIFF_LAYOUT_KEY = "instrument.scmDiffLayout";
 type ScmDiffLayout = "split" | "unified";
@@ -57,16 +66,117 @@ watch(scmDiffLayout, (v) => {
   }
 });
 
-const scm = useScmStore();
-const workspace = useWorkspaceStore();
-const { activeWorktree } = useActiveWorkspace();
+const DIFF_MERGE_CACHE_MAX = 24;
 
-const scmFetchAvailable = computed(() => !!window.workspaceApi?.gitFetch);
-const scmPushAvailable = computed(() => !!window.workspaceApi?.gitPush);
-const scmCommitAvailable = computed(() => !!window.workspaceApi?.commitStaged);
+const { activeWorktree } = useActiveWorkspace();
+const toast = useToast();
+const queryClient = useQueryClient();
+
+const cwd = computed(() => activeWorktree.value?.path ?? "");
+const scm = useScm(cwd);
+
+/** Template must use these — nested mutation refs are not auto-unwrapped on `scm.fetch.isPending`. */
+const scmFetchPending = computed(() => scm.fetch.isPending.value);
+const scmPushPending = computed(() => scm.push.isPending.value);
+const scmCommitPending = computed(() => scm.commit.isPending.value);
+
+const selectedScmPath = ref<string | null>(null);
+const selectedScmScope = ref<"staged" | "unstaged" | null>(null);
+const commitMessage = ref("");
+
+const selectedMergeResult = ref<FileMergeSidesResult | null>(null);
+const selectedDiffLoading = ref(false);
+const diffCache = new LruMap<string, FileMergeSidesResult>(DIFF_MERGE_CACHE_MAX);
+
+let selectedDiffSeq = 0;
+
+function cacheKey(worktreePath: string, path: string, scope: FileDiffScope): string {
+  return `${worktreePath}\0${scope}\0${path}`;
+}
+
+function mergeSidesEqual(a: FileMergeSidesResult | null, b: FileMergeSidesResult): boolean {
+  if (!a || a.kind !== b.kind) return false;
+  if (a.kind === "ok" && b.kind === "ok") return a.original === b.original && a.modified === b.modified;
+  if (a.kind === "error" && b.kind === "error") return a.message === b.message;
+  return a.kind === "binary";
+}
+
+async function loadSelectedMerge(): Promise<void> {
+  const api = window.workspaceApi ?? null;
+  const path = selectedScmPath.value;
+  const scope = selectedScmScope.value;
+  if (!api || !activeWorktree.value || !path || !scope) {
+    selectedMergeResult.value = null;
+    selectedDiffLoading.value = false;
+    return;
+  }
+  const seq = ++selectedDiffSeq;
+  const worktreePath = activeWorktree.value.path;
+  const key = cacheKey(worktreePath, path, scope);
+  const cached = diffCache.get(key);
+  if (cached != null) {
+    if (!mergeSidesEqual(selectedMergeResult.value, cached)) selectedMergeResult.value = cached;
+    selectedDiffLoading.value = false;
+    return;
+  }
+  if (!api.fileMergeSides) {
+    selectedMergeResult.value = { kind: "error", message: "Update the desktop app to show merge diff in source control." };
+    selectedDiffLoading.value = false;
+    return;
+  }
+  const hasExisting = selectedMergeResult.value !== null;
+  if (!hasExisting) selectedDiffLoading.value = true;
+  try {
+    const result = await api.fileMergeSides(worktreePath, path, scope);
+    if (seq !== selectedDiffSeq || activeWorktree.value?.path !== worktreePath) return;
+    diffCache.set(key, result);
+    if (!mergeSidesEqual(selectedMergeResult.value, result)) selectedMergeResult.value = result;
+  } catch (error) {
+    if (seq !== selectedDiffSeq || activeWorktree.value?.path !== worktreePath) return;
+    selectedMergeResult.value = { kind: "error", message: error instanceof Error ? error.message : "Could not load diff." };
+  } finally {
+    if (seq === selectedDiffSeq) selectedDiffLoading.value = false;
+  }
+}
+
+watch(
+  scm.repoStatus,
+  (status) => {
+    const hasCurrentSelection =
+      selectedScmPath.value &&
+      selectedScmScope.value &&
+      status.some((entry) => {
+        if (entry.path !== selectedScmPath.value) return false;
+        return selectedScmScope.value === "staged"
+          ? Boolean(entry.stagedKind)
+          : Boolean(entry.unstagedKind || entry.isUntracked);
+      });
+    if (!hasCurrentSelection) {
+      const firstStaged = status.find((e) => e.stagedKind);
+      if (firstStaged) {
+        selectedScmPath.value = firstStaged.path;
+        selectedScmScope.value = "staged";
+      } else {
+        const firstUnstaged = status.find((e) => e.unstagedKind || e.isUntracked);
+        selectedScmPath.value = firstUnstaged?.path ?? null;
+        selectedScmScope.value = firstUnstaged ? "unstaged" : null;
+      }
+    }
+    const worktreePath = activeWorktree.value?.path;
+    if (worktreePath && selectedScmPath.value && selectedScmScope.value) {
+      diffCache.delete(cacheKey(worktreePath, selectedScmPath.value, selectedScmScope.value));
+    }
+    void loadSelectedMerge();
+  },
+  { flush: "post" }
+);
+
+function refreshScmQuery(): void {
+  void queryClient.invalidateQueries({ queryKey: ["git", "scm", cwd.value] });
+}
 
 const mergeResultOk = computed(() =>
-  scm.selectedMergeResult?.kind === "ok" ? scm.selectedMergeResult : null
+  selectedMergeResult.value?.kind === "ok" ? selectedMergeResult.value : null
 );
 
 type SectionId = "staged" | "unstaged" | "untracked";
@@ -165,7 +275,7 @@ let sidebarResizeObserver: ResizeObserver | null = null;
 
 function sectionEntries(section: SectionId): FlatItem[] {
   if (section === "staged") {
-    return scm.repoStatus
+    return scm.repoStatus.value
       .filter((entry) => entry.stagedKind && !entry.isUntracked)
       .map((entry) => ({
         kind: "entry" as const,
@@ -178,7 +288,7 @@ function sectionEntries(section: SectionId): FlatItem[] {
       }));
   }
   if (section === "unstaged") {
-    return scm.repoStatus
+    return scm.repoStatus.value
       .filter((entry) => entry.unstagedKind && !entry.isUntracked)
       .map((entry) => ({
         kind: "entry" as const,
@@ -191,7 +301,7 @@ function sectionEntries(section: SectionId): FlatItem[] {
         muted: entry.originalPath ?? undefined
       }));
   }
-  return scm.repoStatus
+  return scm.repoStatus.value
     .filter((entry) => entry.isUntracked)
     .map((entry) => ({
       kind: "entry" as const,
@@ -208,15 +318,14 @@ const unstagedEntries = computed(() => sectionEntries("unstaged"));
 const untrackedEntries = computed(() => sectionEntries("untracked"));
 
 const hasStagedChanges = computed(() =>
-  scm.repoStatus.some((e) => Boolean(e.stagedKind) && !e.isUntracked)
+  scm.repoStatus.value.some((e) => Boolean(e.stagedKind) && !e.isUntracked)
 );
 
 const canCommit = computed(
   () =>
-    scmCommitAvailable.value &&
-    !scm.scmCommitBusy &&
+    !scmCommitPending.value &&
     hasStagedChanges.value &&
-    Boolean(scm.scmCommitMessage.trim())
+    Boolean(commitMessage.value.trim())
 );
 
 const suggestCommitDisabled = computed(() => {
@@ -246,11 +355,6 @@ function toggleSection(id: SectionId): void {
   if (next.has(id)) next.delete(id);
   else next.add(id);
   collapsedSections.value = next;
-}
-
-function applyLastCommitSubject(): void {
-  const s = scm.scmMeta.lastCommitSubject;
-  if (s) scm.scmCommitMessage = s;
 }
 
 const flatItems = computed<FlatItem[]>(() => {
@@ -285,12 +389,19 @@ const totalChanges = computed(
 );
 
 const selectedEntry = computed(() => {
-  if (!scm.selectedScmPath || !scm.selectedScmScope) return null;
-  return flatItems.value.find(
+  if (!selectedScmPath.value || !selectedScmScope.value) return null;
+  const found = flatItems.value.find(
     (item) =>
-      item.kind === "entry" && item.path === scm.selectedScmPath && item.scope === scm.selectedScmScope
+      item.kind === "entry" &&
+      item.path === selectedScmPath.value &&
+      item.scope === selectedScmScope.value
   );
+  return found?.kind === "entry" ? found : null;
 });
+
+/** Branch chrome for combobox (Vue Query SCM meta). */
+const scmBranchLine = computed(() => scm.scmMeta.value.shortLabel);
+const scmCurrentBranch = computed(() => scm.scmMeta.value.branch);
 
 /** Path line: full basename + shortened parent path; `title` carries the full relative path. */
 const scmPathHeader = computed(() => {
@@ -507,37 +618,108 @@ function entryRowClasses(sectionId: SectionId): string {
 }
 
 function selectEntry(path: string, scope: EntryScope): void {
-  scm.selectScmEntry({ path, scope });
+  selectedScmPath.value = path;
+  selectedScmScope.value = scope;
+  void loadSelectedMerge();
 }
 
-function actionStageSelected(): void {
+async function actionStageSelected(): Promise<void> {
   const bulk = checkedWorktreePaths.value;
-  if (bulk.length > 0) {
-    void scm.stageSelected(bulk);
-    return;
+  try {
+    if (bulk.length > 0) {
+      await scm.stagePaths.mutateAsync(bulk);
+      return;
+    }
+    if (!selectedEntry.value || selectedEntry.value.scope !== "unstaged") return;
+    await scm.stagePaths.mutateAsync([selectedEntry.value.path]);
+  } catch (e) {
+    toast.error("Stage failed", e instanceof Error ? e.message : "Something went wrong.");
   }
-  if (!selectedEntry.value || selectedEntry.value.scope !== "unstaged") return;
-  void scm.stageSelected([selectedEntry.value.path]);
 }
 
-function actionUnstageSelected(): void {
+async function actionUnstageSelected(): Promise<void> {
   const bulk = checkedStagedPaths.value;
-  if (bulk.length > 0) {
-    void scm.unstageSelected(bulk);
-    return;
+  try {
+    if (bulk.length > 0) {
+      await scm.unstagePaths.mutateAsync(bulk);
+      return;
+    }
+    if (!selectedEntry.value || selectedEntry.value.scope !== "staged") return;
+    await scm.unstagePaths.mutateAsync([selectedEntry.value.path]);
+  } catch (e) {
+    toast.error("Unstage failed", e instanceof Error ? e.message : "Something went wrong.");
   }
-  if (!selectedEntry.value || selectedEntry.value.scope !== "staged") return;
-  void scm.unstageSelected([selectedEntry.value.path]);
 }
 
-function actionDiscardSelected(): void {
+async function actionDiscardSelected(): Promise<void> {
   const bulk = checkedWorktreePaths.value;
+  const run = async (paths: string[]): Promise<void> => {
+    const label = paths.length === 1 ? paths[0]! : `${paths.length} files`;
+    const confirmed = window.confirm(`Discard changes to ${label}?`);
+    if (!confirmed) return;
+    try {
+      await scm.discardPaths.mutateAsync(paths);
+    } catch (e) {
+      toast.error("Discard failed", e instanceof Error ? e.message : "Something went wrong.");
+    }
+  };
   if (bulk.length > 0) {
-    void scm.discardSelected(bulk);
+    await run(bulk);
     return;
   }
   if (!selectedEntry.value || selectedEntry.value.scope !== "unstaged") return;
-  void scm.discardSelected([selectedEntry.value.path]);
+  await run([selectedEntry.value.path]);
+}
+
+async function handleCommit(): Promise<void> {
+  const message = commitMessage.value.trim();
+  if (!message) return;
+  try {
+    await scm.commit.mutateAsync(message);
+    commitMessage.value = "";
+  } catch (e) {
+    toast.error("Commit failed", e instanceof Error ? e.message : "Something went wrong.");
+  }
+}
+
+async function handleFetch(): Promise<void> {
+  try {
+    await scm.fetch.mutateAsync();
+  } catch (e) {
+    toast.error("Fetch failed", e instanceof Error ? e.message : "Something went wrong.");
+  }
+}
+
+async function handlePush(): Promise<void> {
+  try {
+    await scm.push.mutateAsync();
+    toast.success("Push succeeded", `Branch \`${scm.scmMeta.value.branch}\` was pushed to the remote.`);
+  } catch (e) {
+    toast.error("Push failed", e instanceof Error ? e.message : "Something went wrong.");
+  }
+}
+
+function handleStageAll(): void {
+  scm.stageAll.mutate(undefined, {
+    onError: (e) =>
+      toast.error("Stage all failed", e instanceof Error ? e.message : "Something went wrong."),
+  });
+}
+
+function handleUnstageAll(): void {
+  scm.unstageAll.mutate(undefined, {
+    onError: (e) =>
+      toast.error("Unstage all failed", e instanceof Error ? e.message : "Something went wrong."),
+  });
+}
+
+function handleDiscardAll(): void {
+  const confirmed = window.confirm("Discard all working tree changes?");
+  if (!confirmed) return;
+  scm.discardAll.mutate(undefined, {
+    onError: (e) =>
+      toast.error("Discard all failed", e instanceof Error ? e.message : "Something went wrong."),
+  });
 }
 
 watch(
@@ -576,7 +758,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 bg-background text-[11px] text-foreground">    
+  <SidebarProvider
+    class="flex h-full border-t min-h-0 w-full flex-1 flex-row overflow-hidden bg-background text-[11px] text-foreground"
+    :keyboard-shortcut="false"
+    :persist-cookie="false"
+  >
+    <SidebarInset class="min-h-0 min-w-0 flex-1 overflow-hidden">
     <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header class="flex h-9 min-w-0 items-center gap-2 overflow-x-auto border-b border-border px-2 whitespace-nowrap">
         <Button
@@ -618,7 +805,7 @@ onBeforeUnmount(() => {
           </p>
         </div>
         <div
-          v-if="selectedEntry && scm.selectedMergeResult?.kind === 'ok'"
+          v-if="selectedEntry && selectedMergeResult?.kind === 'ok'"
           class="flex shrink-0 items-center gap-px rounded-md border border-border p-px"
           role="group"
           aria-label="Diff layout"
@@ -662,7 +849,7 @@ onBeforeUnmount(() => {
       </header>
 
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div v-if="scm.selectedDiffLoading" class="flex min-h-0 flex-1 flex-col">
+        <div v-if="selectedDiffLoading" class="flex min-h-0 flex-1 flex-col">
           <CursorLoading class="min-h-0 flex-1" />
         </div>
         <div
@@ -675,20 +862,20 @@ onBeforeUnmount(() => {
           <p class="max-w-xs text-xs text-muted-foreground">{{ emptyMessage.replace('✨ ', '') }}</p>
         </div>
         <div
-          v-else-if="scm.selectedMergeResult?.kind === 'error'"
+          v-else-if="selectedMergeResult?.kind === 'error'"
           class="flex h-full items-center justify-center px-4 text-center text-[11px] text-destructive"
           role="alert"
         >
-          {{ scm.selectedMergeResult?.kind === 'error' ? scm.selectedMergeResult.message : '' }}
+          {{ selectedMergeResult?.kind === 'error' ? selectedMergeResult.message : '' }}
         </div>
         <div
-          v-else-if="scm.selectedMergeResult?.kind === 'binary'"
+          v-else-if="selectedMergeResult?.kind === 'binary'"
           class="flex h-full items-center justify-center px-4 text-center text-[11px] text-muted-foreground"
           role="status"
         >
           Binary file — side-by-side text diff is not shown.
         </div>
-        <div v-else-if="scm.selectedMergeResult?.kind === 'ok'" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div v-else-if="selectedMergeResult?.kind === 'ok'" class="flex min-h-0 flex-1 flex-col overflow-hidden">
           <p
             class="shrink-0 border-b border-border bg-muted/15 px-2 py-1 font-mono text-[10px] leading-tight text-muted-foreground"
           >
@@ -717,15 +904,20 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
-    <div class="p-2 h-full">
-      <aside class="flex h-full min-h-0 w-[270px] rounded overflow-hidden shrink-0 flex-col border rounded-lg border-border sidebar-glass">
-      <header
-        class="flex h-9 items-center border-b border-border px-2"
+    </SidebarInset>
+
+    <Sidebar
+      side="right"
+      collapsible="none"
+      class="h-full min-h-0 w-[270px] shrink-0 border-s border-sidebar-border"
+    >
+      <SidebarHeader
+        class="flex h-9 flex-row items-center border-b border-sidebar-border px-2 py-0"
         aria-label="Source control"
       >
         <div class="flex w-full items-center justify-between gap-1.5">
           <div class="flex min-w-0 items-center gap-1.5">
-            <p class="text-[10px] font-medium leading-none text-foreground">
+            <p class="text-[10px] font-medium leading-none text-sidebar-foreground">
               {{ totalChanges.toLocaleString() }} changes
             </p>            
           </div>
@@ -768,22 +960,24 @@ onBeforeUnmount(() => {
                 Discard Selected
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem class="text-xs" @select="void scm.stageAll()">
+              <DropdownMenuItem class="text-xs" @select="handleStageAll">
                 <ChevronsUp class="h-3 w-3 shrink-0" />
                 Stage All
               </DropdownMenuItem>
-              <DropdownMenuItem class="text-xs" @select="void scm.unstageAll()">
+              <DropdownMenuItem class="text-xs" @select="handleUnstageAll">
                 <ChevronsDown class="h-3 w-3 shrink-0" />
                 Unstage All
               </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" class="text-xs" @select="void scm.discardAll()">
+              <DropdownMenuItem variant="destructive" class="text-xs" @select="handleDiscardAll">
                 <Trash2 class="h-3 w-3 shrink-0" />
                 Discard All
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </header>
+      </SidebarHeader>
+
+      <SidebarContent class="min-h-0 flex-1 overflow-hidden px-0 py-0">
       <div
         ref="sidebarScrollRef"
         class="min-h-0 flex-1 overflow-y-auto"
@@ -845,7 +1039,7 @@ onBeforeUnmount(() => {
               v-else
               class="absolute inset-x-0 flex items-center"
               :class="[
-                scm.selectedScmPath === metric.item.path && scm.selectedScmScope === metric.item.scope
+                selectedScmPath === metric.item.path && selectedScmScope === metric.item.scope
                   ? 'z-[1] border-b border-primary/25 bg-primary/18 text-foreground ring-1 ring-inset ring-primary/30 dark:bg-primary/22'
                   : entryRowClasses(metric.item.sectionId)
               ]"
@@ -857,7 +1051,7 @@ onBeforeUnmount(() => {
                 size="xs"
                 class="flex min-w-0 flex-1 items-center gap-1 px-2 py-1 text-left transition-colors"
                 :class="
-                  scm.selectedScmPath === metric.item.path && scm.selectedScmScope === metric.item.scope
+                  selectedScmPath === metric.item.path && selectedScmScope === metric.item.scope
                     ? 'text-foreground'
                     : 'text-muted-foreground'
                 "
@@ -893,32 +1087,30 @@ onBeforeUnmount(() => {
           </template>
         </div>
       </div>
-      <footer class="flex shrink-0 flex-col border-t border-border bg-muted/10">
-        <div class="flex items-center justify-between gap-2 px-2 py-1">
+      </SidebarContent>
+
+      <SidebarFooter class="shrink-0 gap-0 border-t border-sidebar-border bg-sidebar p-0">
+        <div class="flex items-center justify-between gap-2 border-b border-sidebar-border px-2 py-1">
           <ScmBranchCombobox
-            :branch-line="scm.scmMeta.shortLabel"
-            :current-branch="scm.scmMeta.branch"
+            :branch-line="scmBranchLine"
+            :current-branch="scmCurrentBranch"
             :project-id="props.projectId ?? ''"
             :cwd="activeWorktree?.path ?? ''"
             :switcher-enabled="props.allowScmBranchSwitcher"
-            @branch-changed="void scm.refreshRepoStatus()"
+            @branch-changed="refreshScmQuery"
           />
-          <div
-            v-if="scmFetchAvailable || scmPushAvailable"
-            class="flex shrink-0 items-center gap-1"
-          >
+          <div class="flex shrink-0 items-center gap-1">
             <Button
-              v-if="scmFetchAvailable"
               type="button"
               size="xs"
               variant="outline"
               class="h-6 shrink-0 gap-1 px-2 text-[10px]"
-              :disabled="scm.scmFetchBusy || scm.scmPushBusy"
+              :disabled="scmFetchPending || scmPushPending"
               aria-label="Fetch from remote"
-              @click="void scm.scmFetch()"
+              @click="handleFetch()"
             >
               <CursorLoading
-                v-if="scm.scmFetchBusy"
+                v-if="scmFetchPending"
                 class="inline-block h-2.5 w-2.5 min-h-0 shrink-0 overflow-hidden"
                 aria-hidden="true"
               />
@@ -931,18 +1123,17 @@ onBeforeUnmount(() => {
               Fetch
             </Button>
             <Button
-              v-if="scmPushAvailable"
               type="button"
               size="xs"
               variant="outline"
               class="h-6 shrink-0 gap-1 px-2 text-[10px]"
-              :disabled="scm.scmPushBusy || scm.scmFetchBusy"
+              :disabled="scmPushPending || scmFetchPending"
               aria-label="Push current branch to remote"
               title="Push current branch (upstream must be set)"
-              @click="void scm.scmPush()"
+              @click="handlePush()"
             >
               <CursorLoading
-                v-if="scm.scmPushBusy"
+                v-if="scmPushPending"
                 class="inline-block h-2.5 w-2.5 min-h-0 shrink-0 overflow-hidden"
                 aria-hidden="true"
               />
@@ -957,13 +1148,13 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="relative border-t border-border bg-background">
+        <div class="relative border-b border-sidebar-border bg-sidebar">
           <textarea
-            v-model="scm.scmCommitMessage"
+            v-model="commitMessage"
             rows="4"
             placeholder="Enter commit message"
             aria-label="Commit message draft"
-            class="w-full resize-none rounded-none border-0 bg-background py-1.5 pl-2 pr-7 font-mono text-[10px] leading-snug text-foreground placeholder:text-muted-foreground focus:outline-none"
+            class="w-full resize-none rounded-none border-0 bg-sidebar py-1.5 pl-2 pr-7 font-mono text-[10px] leading-snug text-sidebar-foreground placeholder:text-muted-foreground focus:outline-none"
             :class="commitExpanded ? 'min-h-[11rem]' : 'min-h-[4.5rem]'"
           />
           <Button
@@ -979,7 +1170,7 @@ onBeforeUnmount(() => {
             <Maximize2 v-else class="h-3 w-3" aria-hidden="true" />
           </Button>
         </div>
-        <div class="flex items-center justify-between px-2 py-1.5 bg-background">
+        <div class="flex items-center justify-between bg-sidebar px-2 py-1.5">
           <div class="flex items-center overflow-hidden">            
             <Button
               v-if="SHOW_SUGGEST_COMMIT_BUTTON && suggestCommitAvailable"
@@ -1014,20 +1205,19 @@ onBeforeUnmount(() => {
             class="h-7 shrink-0 px-3 text-[10px]"
             :disabled="!canCommit"
             aria-label="Commit staged changes"
-            @click="void scm.scmCommit()"
+            @click="handleCommit()"
           >
             <CursorLoading
-              v-if="scm.scmCommitBusy"
+              v-if="scmCommitPending"
               class="mr-1 inline-block h-3 w-3 min-h-0 shrink-0 overflow-hidden"
               aria-hidden="true"
             />
             Commit
           </Button>
         </div>
-      </footer>
-    </aside>
-    </div>    
-  </section>
+      </SidebarFooter>
+    </Sidebar>
+  </SidebarProvider>
 </template>
 
 <style scoped>
