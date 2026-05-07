@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronsDown,
   ChevronsUp,
-  FileText,
   Maximize2,
   Minimize2,
   Minus,
@@ -26,45 +25,42 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import MonacoDiffEditor from "@/components/MonacoDiffEditor.vue";
+import GitDiffView from "@/modules/git/components/GitDiffView.vue";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
   SidebarHeader,
   SidebarInset,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarProvider,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
 import { useToast } from "@/composables/useToast";
 import { useScm } from "@/modules/git/hooks/useScm";
 import { LruMap } from "@/lib/lruMap";
-import type { FileDiffScope, FileMergeSidesResult } from "@shared/ipc";
+import { fileEmojiForPath } from "@/lib/fileEmojiForPath";
+import type {
+  FileDiffScope,
+  FileMergeSidesResult,
+  RepoChangeKind,
+  RepoStatusEntry,
+} from "@shared/ipc";
 
-const SCM_DIFF_LAYOUT_KEY = "instrument.scmDiffLayout";
-type ScmDiffLayout = "split" | "unified";
 /** Temporary product toggle: hide only local-LLM commit suggestion control. */
 const SHOW_SUGGEST_COMMIT_BUTTON = false;
-
-function readScmDiffLayout(): ScmDiffLayout {
-  try {
-    return typeof localStorage !== "undefined" && localStorage.getItem(SCM_DIFF_LAYOUT_KEY) === "unified"
-      ? "unified"
-      : "split";
-  } catch {
-    return "split";
-  }
-}
-
-const scmDiffLayout = ref<ScmDiffLayout>(readScmDiffLayout());
-
-watch(scmDiffLayout, (v) => {
-  try {
-    localStorage.setItem(SCM_DIFF_LAYOUT_KEY, v);
-  } catch {
-    /* ignore quota / private mode */
-  }
-});
 
 const DIFF_MERGE_CACHE_MAX = 24;
 
@@ -175,23 +171,72 @@ function refreshScmQuery(): void {
   void queryClient.invalidateQueries({ queryKey: ["git", "scm", cwd.value] });
 }
 
-const mergeResultOk = computed(() =>
-  selectedMergeResult.value?.kind === "ok" ? selectedMergeResult.value : null
-);
+/** Refetch SCM when the window regains focus (e.g. after terminal / external editor changes). */
+function onWindowFocus(): void {
+  if (!cwd.value) return;
+  refreshScmQuery();
+}
 
 type SectionId = "staged" | "unstaged" | "untracked";
+type PanelSectionId = "staged" | "changes";
 type EntryScope = "staged" | "unstaged";
-type FlatItem =
-  | { kind: "section"; id: SectionId; label: string; count: number; majorDividerAbove?: boolean }
-  | {
-      kind: "entry";
-      id: string;
-      path: string;
-      scope: EntryScope;
-      badge: string;
-      muted?: string;
-      sectionId: SectionId;
-    };
+
+type ListEntry = {
+  id: string;
+  path: string;
+  scope: EntryScope;
+  statusLabel: string;
+  muted?: string;
+  sectionId: SectionId;
+  pathBase: string;
+  pathDir: string | null;
+  pathDirShort: string | null;
+};
+
+function kindLetter(k: RepoChangeKind | null): string {
+  if (!k) return "";
+  switch (k) {
+    case "modified":
+      return "M";
+    case "added":
+    case "untracked":
+      return "A";
+    case "deleted":
+      return "D";
+    case "renamed":
+      return "R";
+    case "copied":
+      return "C";
+    case "unmerged":
+      return "U";
+    default:
+      return "?";
+  }
+}
+
+function statusLabelForStaged(entry: RepoStatusEntry): string {
+  return kindLetter(entry.stagedKind);
+}
+
+/** Working-tree row: index vs worktree when both differ (reference-style `↓M, M`). */
+function statusLabelForChanges(entry: RepoStatusEntry): string {
+  if (entry.isUntracked) return "A";
+  const u = entry.unstagedKind;
+  if (!u) return "";
+  if (entry.stagedKind) {
+    return `↓${kindLetter(entry.stagedKind)}, ${kindLetter(u)}`;
+  }
+  return kindLetter(u);
+}
+
+function statusColumnClass(entry: ListEntry): string {
+  const base =
+    "max-w-[min(8rem,28vw)] shrink-0 truncate text-end align-middle text-[10px] tabular-nums leading-none";
+  if (entry.sectionId === "untracked" || entry.statusLabel === "A") {
+    return `${base} text-emerald-800 dark:text-emerald-400`;
+  }
+  return `${base} text-muted-foreground`;
+}
 
 const props = withDefaults(
   defineProps<{
@@ -209,8 +254,6 @@ const props = withDefaults(
     suggestCommitGpuOk?: boolean | null;
     suggestCommitTruncated?: boolean;
     showThreadSidebarExpand?: boolean;
-    /** Thread id for context-queue capture in the diff viewer. */
-    activeThreadId?: string | null;
   }>(),
   {
     projectId: null,
@@ -222,7 +265,6 @@ const props = withDefaults(
     suggestCommitGpuOk: null,
     suggestCommitTruncated: false,
     showThreadSidebarExpand: false,
-    activeThreadId: null
   }
 );
 
@@ -234,6 +276,8 @@ const emit = defineEmits<{
 
 /** Max characters for the directory prefix before we collapse with `…/` (filename stays full). */
 const SCM_PATH_DIR_MAX_CHARS = 44;
+/** Truncated directory line in the file list (reference UI). */
+const SCM_LIST_DIR_MAX_CHARS = 36;
 
 function splitRepoPath(path: string): { dir: string; base: string } {
   const norm = path.replace(/\\/g, "/").trim();
@@ -263,54 +307,61 @@ function shortenDirPrefix(dir: string, maxLen: number): string {
   return `…/${picked.join("/")}`;
 }
 
-/** Fixed row heights for virtualized sidebar (must match template layout). */
-const SECTION_ROW_PX = 22;
-const ENTRY_ROW_PX = 32;
-/** Extra top padding + border lane after staged block, before working tree. */
-const SECTION_MAJOR_GAP_PX = 10;
-const sidebarScrollRef = ref<HTMLElement | null>(null);
-const sidebarViewportHeight = ref(320);
-const sidebarScrollTop = ref(0);
-let sidebarResizeObserver: ResizeObserver | null = null;
-
-function sectionEntries(section: SectionId): FlatItem[] {
+function sectionEntries(section: SectionId): ListEntry[] {
   if (section === "staged") {
     return scm.repoStatus.value
       .filter((entry) => entry.stagedKind && !entry.isUntracked)
-      .map((entry) => ({
-        kind: "entry" as const,
-        id: `staged:${entry.path}`,
-        path: entry.path,
-        scope: "staged" as const,
-        sectionId: "staged" as const,
-        badge: entry.stagedKind === "renamed" ? "R" : entry.stagedKind?.slice(0, 1).toUpperCase() ?? "M",
-        muted: entry.originalPath ?? undefined
-      }));
+      .map((entry) => {
+        const { dir, base } = splitRepoPath(entry.path);
+        const dirShort = dir ? shortenDirPrefix(dir, SCM_LIST_DIR_MAX_CHARS) : null;
+        return {
+          id: `staged:${entry.path}`,
+          path: entry.path,
+          scope: "staged" as const,
+          sectionId: "staged" as const,
+          statusLabel: statusLabelForStaged(entry),
+          muted: entry.originalPath ?? undefined,
+          pathBase: base,
+          pathDir: dir || null,
+          pathDirShort: dirShort,
+        };
+      });
   }
   if (section === "unstaged") {
     return scm.repoStatus.value
       .filter((entry) => entry.unstagedKind && !entry.isUntracked)
-      .map((entry) => ({
-        kind: "entry" as const,
-        id: `unstaged:${entry.path}`,
-        path: entry.path,
-        scope: "unstaged" as const,
-        sectionId: "unstaged" as const,
-        badge:
-          entry.unstagedKind === "renamed" ? "R" : entry.unstagedKind?.slice(0, 1).toUpperCase() ?? "M",
-        muted: entry.originalPath ?? undefined
-      }));
+      .map((entry) => {
+        const { dir, base } = splitRepoPath(entry.path);
+        const dirShort = dir ? shortenDirPrefix(dir, SCM_LIST_DIR_MAX_CHARS) : null;
+        return {
+          id: `unstaged:${entry.path}`,
+          path: entry.path,
+          scope: "unstaged" as const,
+          sectionId: "unstaged" as const,
+          statusLabel: statusLabelForChanges(entry),
+          muted: entry.originalPath ?? undefined,
+          pathBase: base,
+          pathDir: dir || null,
+          pathDirShort: dirShort,
+        };
+      });
   }
   return scm.repoStatus.value
     .filter((entry) => entry.isUntracked)
-    .map((entry) => ({
-      kind: "entry" as const,
-      id: `untracked:${entry.path}`,
-      path: entry.path,
-      scope: "unstaged" as const,
-      sectionId: "untracked" as const,
-      badge: "U"
-    }));
+    .map((entry) => {
+      const { dir, base } = splitRepoPath(entry.path);
+      const dirShort = dir ? shortenDirPrefix(dir, SCM_LIST_DIR_MAX_CHARS) : null;
+      return {
+        id: `untracked:${entry.path}`,
+        path: entry.path,
+        scope: "unstaged" as const,
+        sectionId: "untracked" as const,
+        statusLabel: statusLabelForChanges(entry),
+        pathBase: base,
+        pathDir: dir || null,
+        pathDirShort: dirShort,
+      };
+    });
 }
 
 const stagedEntries = computed(() => sectionEntries("staged"));
@@ -348,55 +399,72 @@ const suggestCommitTitle = computed(() => {
 
 const commitExpanded = ref(false);
 const actionsOpen = ref(false);
-const collapsedSections = ref<Set<SectionId>>(new Set());
+const collapsedSections = ref<Set<PanelSectionId>>(new Set());
 
-function toggleSection(id: SectionId): void {
+function setSectionOpen(id: PanelSectionId, open: boolean): void {
   const next = new Set(collapsedSections.value);
-  if (next.has(id)) next.delete(id);
+  if (open) next.delete(id);
   else next.add(id);
   collapsedSections.value = next;
 }
 
-const flatItems = computed<FlatItem[]>(() => {
-  const out: FlatItem[] = [];
-  const sections: [SectionId, string, FlatItem[]][] = [
-    ["staged", "Staged", stagedEntries.value],
-    ["unstaged", "Unstaged", unstagedEntries.value],
-    ["untracked", "Untracked", untrackedEntries.value]
-  ];
-  let placedStagedBlock = false;
-  let needMajorDividerBeforeNextSection = false;
-  for (const [id, label, entries] of sections) {
-    if (entries.length === 0) continue;
-    const collapsed = collapsedSections.value.has(id);
-    if (id === "staged") {
-      out.push({ kind: "section", id, label, count: entries.length });
-      if (!collapsed) out.push(...entries);
-      placedStagedBlock = true;
-      needMajorDividerBeforeNextSection = true;
-      continue;
-    }
-    const majorDividerAbove = needMajorDividerBeforeNextSection && placedStagedBlock;
-    needMajorDividerBeforeNextSection = false;
-    out.push({ kind: "section", id, label, count: entries.length, majorDividerAbove });
-    if (!collapsed) out.push(...entries);
+function onSectionCollapsibleOpen(id: PanelSectionId, open: boolean): void {
+  setSectionOpen(id, open);
+}
+
+const allEntries = computed(() => [
+  ...stagedEntries.value,
+  ...unstagedEntries.value,
+  ...untrackedEntries.value
+]);
+
+type ScmSectionRow = {
+  id: PanelSectionId;
+  label: string;
+  entries: ListEntry[];
+  showSeparatorAbove: boolean;
+  showSectionCheckbox: boolean;
+};
+
+const scmSections = computed((): ScmSectionRow[] => {
+  const rows: ScmSectionRow[] = [];
+  const staged = stagedEntries.value;
+  const unstaged = unstagedEntries.value;
+  const untracked = untrackedEntries.value;
+  const changeEntries = [...unstaged, ...untracked];
+
+  if (staged.length > 0) {
+    rows.push({
+      id: "staged",
+      label: "Staged Changes",
+      entries: staged,
+      showSeparatorAbove: false,
+      showSectionCheckbox: true,
+    });
   }
-  return out;
+  if (changeEntries.length > 0) {
+    rows.push({
+      id: "changes",
+      label: "Changes",
+      entries: changeEntries,
+      showSeparatorAbove: staged.length > 0,
+      showSectionCheckbox: true,
+    });
+  }
+  return rows;
 });
 
 const totalChanges = computed(
   () => stagedEntries.value.length + unstagedEntries.value.length + untrackedEntries.value.length
 );
 
-const selectedEntry = computed(() => {
+const selectedEntry = computed((): ListEntry | null => {
   if (!selectedScmPath.value || !selectedScmScope.value) return null;
-  const found = flatItems.value.find(
-    (item) =>
-      item.kind === "entry" &&
-      item.path === selectedScmPath.value &&
-      item.scope === selectedScmScope.value
+  return (
+    allEntries.value.find(
+      (item) => item.path === selectedScmPath.value && item.scope === selectedScmScope.value
+    ) ?? null
   );
-  return found?.kind === "entry" ? found : null;
 });
 
 /** Branch chrome for combobox (Vue Query SCM meta). */
@@ -419,16 +487,11 @@ function isEntryChecked(id: string): boolean {
   return checkedEntryIds.value.includes(id);
 }
 
-function toggleEntryChecked(id: string): void {
-  const cur = checkedEntryIds.value;
-  checkedEntryIds.value = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
-}
-
 const checkedStagedPaths = computed(() => {
   const ids = new Set(checkedEntryIds.value);
   const paths: string[] = [];
-  for (const item of flatItems.value) {
-    if (item.kind !== "entry" || !ids.has(item.id) || item.sectionId !== "staged") continue;
+  for (const item of allEntries.value) {
+    if (!ids.has(item.id) || item.sectionId !== "staged") continue;
     paths.push(item.path);
   }
   return paths;
@@ -437,8 +500,8 @@ const checkedStagedPaths = computed(() => {
 const checkedWorktreePaths = computed(() => {
   const ids = new Set(checkedEntryIds.value);
   const paths: string[] = [];
-  for (const item of flatItems.value) {
-    if (item.kind !== "entry" || !ids.has(item.id)) continue;
+  for (const item of allEntries.value) {
+    if (!ids.has(item.id)) continue;
     if (item.sectionId === "unstaged" || item.sectionId === "untracked") paths.push(item.path);
   }
   return paths;
@@ -463,25 +526,22 @@ const canDiscardFromSelection = computed(
 );
 
 watch(
-  () => flatItems.value,
+  () => allEntries.value,
   (items) => {
-    const valid = new Set(
-      items.filter((i): i is Extract<FlatItem, { kind: "entry" }> => i.kind === "entry").map((i) => i.id)
-    );
+    const valid = new Set(items.map((i) => i.id));
     const next = checkedEntryIds.value.filter((id) => valid.has(id));
     if (next.length !== checkedEntryIds.value.length) checkedEntryIds.value = next;
   },
   { flush: "post" }
 );
 
-function entryIdsForSection(sectionId: SectionId): string[] {
-  if (sectionId === "staged") return stagedEntries.value.map((e) => e.id);
-  if (sectionId === "unstaged") return unstagedEntries.value.map((e) => e.id);
-  return untrackedEntries.value.map((e) => e.id);
+function entryIdsForPanelSection(panelId: PanelSectionId): string[] {
+  if (panelId === "staged") return stagedEntries.value.map((e) => e.id);
+  return [...unstagedEntries.value, ...untrackedEntries.value].map((e) => e.id);
 }
 
-function sectionSelectAllState(sectionId: SectionId): { checked: boolean; indeterminate: boolean } {
-  const ids = entryIdsForSection(sectionId);
+function sectionSelectAllState(panelId: PanelSectionId): { checked: boolean; indeterminate: boolean } {
+  const ids = entryIdsForPanelSection(panelId);
   if (ids.length === 0) return { checked: false, indeterminate: false };
   const selected = new Set(checkedEntryIds.value);
   const n = ids.filter((id) => selected.has(id)).length;
@@ -490,10 +550,10 @@ function sectionSelectAllState(sectionId: SectionId): { checked: boolean; indete
   return { checked: false, indeterminate: true };
 }
 
-function toggleSectionSelectAll(sectionId: SectionId): void {
-  const ids = entryIdsForSection(sectionId);
+function toggleSectionSelectAll(panelId: PanelSectionId): void {
+  const ids = entryIdsForPanelSection(panelId);
   if (ids.length === 0) return;
-  const { checked } = sectionSelectAllState(sectionId);
+  const { checked } = sectionSelectAllState(panelId);
   const next = new Set(checkedEntryIds.value);
   if (checked) {
     for (const id of ids) next.delete(id);
@@ -503,119 +563,24 @@ function toggleSectionSelectAll(sectionId: SectionId): void {
   checkedEntryIds.value = [...next];
 }
 
-/** Section-header “select all” inputs (virtualized); sync `indeterminate` after selection changes. */
-const sectionSelectAllInputs = new Map<SectionId, HTMLInputElement>();
-
-/**
- * Stable ref callbacks per section — inline `(el) => bind(...)` creates a new function every render and
- * makes Vue unbind/rebind refs each patch, which can throw `Cannot set properties of null (setting '__vnode')`.
- */
-const sectionSelectAllInputBinders = new Map<SectionId, (el: unknown) => void>();
-
-function getSectionSelectAllInputRef(sectionId: SectionId): (el: unknown) => void {
-  let binder = sectionSelectAllInputBinders.get(sectionId);
-  if (!binder) {
-    binder = (el: unknown) => bindSectionSelectAllInput(sectionId, el);
-    sectionSelectAllInputBinders.set(sectionId, binder);
-  }
-  return binder;
+function sectionCheckboxModel(panelId: PanelSectionId): boolean | "indeterminate" {
+  const st = sectionSelectAllState(panelId);
+  if (st.indeterminate) return "indeterminate";
+  return st.checked;
 }
 
-function bindSectionSelectAllInput(sectionId: SectionId, el: unknown): void {
-  const input = el instanceof HTMLInputElement ? el : null;
-  if (input) {
-    sectionSelectAllInputs.set(sectionId, input);
-    void nextTick(() => {
-      const cur = sectionSelectAllInputs.get(sectionId);
-      if (!cur?.isConnected) return;
-      const st = sectionSelectAllState(sectionId);
-      cur.checked = st.checked;
-      cur.indeterminate = st.indeterminate;
-    });
-  } else {
-    sectionSelectAllInputs.delete(sectionId);
-  }
+function setEntryChecked(id: string, checked: boolean): void {
+  const next = new Set(checkedEntryIds.value);
+  if (checked) next.add(id);
+  else next.delete(id);
+  checkedEntryIds.value = [...next];
 }
-
-function syncAllSectionSelectAllInputs(): void {
-  for (const [sectionId, el] of [...sectionSelectAllInputs.entries()]) {
-    if (!el.isConnected) {
-      sectionSelectAllInputs.delete(sectionId);
-      continue;
-    }
-    const st = sectionSelectAllState(sectionId);
-    el.checked = st.checked;
-    el.indeterminate = st.indeterminate;
-  }
-}
-
-watch(
-  () => [checkedEntryIds.value.join("\0"), stagedEntries.value.length, unstagedEntries.value.length, untrackedEntries.value.length] as const,
-  () => {
-    void nextTick(() => syncAllSectionSelectAllInputs());
-  }
-);
-
-const sidebarMetrics = computed(() => {
-  let offset = 0;
-  return flatItems.value.map((item) => {
-    const height =
-      item.kind === "section"
-        ? SECTION_ROW_PX + (item.majorDividerAbove ? SECTION_MAJOR_GAP_PX : 0)
-        : ENTRY_ROW_PX;
-    const metric = { item, top: offset, height };
-    offset += height;
-    return metric;
-  });
-});
-
-const sidebarContentHeight = computed(() => {
-  const last = sidebarMetrics.value[sidebarMetrics.value.length - 1];
-  return last ? last.top + last.height : 0;
-});
-
-const visibleSidebarItems = computed(() => {
-  const scrollTop = sidebarScrollTop.value;
-  const viewBottom = scrollTop + sidebarViewportHeight.value;
-  return sidebarMetrics.value.filter((metric) => {
-    const itemBottom = metric.top + metric.height;
-    return itemBottom >= scrollTop - 240 && metric.top <= viewBottom + 240;
-  });
-});
 
 const emptyMessage = computed(() => {
   if (totalChanges.value === 0) return "✨ Working tree is clean.";
   if (!selectedEntry.value) return "Select a changed file to inspect it.";
   return null;
 });
-
-function onSidebarScroll(): void {
-  sidebarScrollTop.value = sidebarScrollRef.value?.scrollTop ?? 0;
-}
-
-function sectionHeaderClasses(item: Extract<FlatItem, { kind: "section" }>): string {
-  const base =
-    "absolute inset-x-0 flex flex-col border-b bg-background/95 backdrop-blur";
-  const staged =
-    "border-amber-500/25 bg-amber-500/10 text-amber-950 dark:border-amber-500/20 dark:bg-amber-500/15 dark:text-amber-50/95";
-  const unstaged =
-    "border-sky-500/20 bg-sky-500/[0.07] text-sky-950/90 dark:border-sky-500/15 dark:bg-sky-500/10 dark:text-sky-50/90";
-  const untracked =
-    "border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-950 dark:border-emerald-500/20 dark:bg-emerald-500/12 dark:text-emerald-50/90";
-  if (item.id === "staged") return `${base} ${staged}`;
-  if (item.id === "unstaged") return `${base} ${unstaged}`;
-  return `${base} ${untracked}`;
-}
-
-function entryRowClasses(sectionId: SectionId): string {
-  if (sectionId === "staged") {
-    return "border-b border-amber-500/15 bg-amber-500/[0.05] hover:bg-amber-500/12 dark:border-amber-500/10";
-  }
-  if (sectionId === "unstaged") {
-    return "border-b border-sky-500/10 bg-sky-500/[0.04] hover:bg-sky-500/10 dark:border-sky-500/10 dark:bg-sky-500/[0.06]";
-  }
-  return "border-b border-emerald-500/15 bg-emerald-500/[0.05] hover:bg-emerald-500/12 dark:border-emerald-500/10";
-}
 
 function selectEntry(path: string, scope: EntryScope): void {
   selectedScmPath.value = path;
@@ -723,12 +688,12 @@ function handleDiscardAll(): void {
 }
 
 watch(
-  () => flatItems.value,
+  () => allEntries.value,
   async (items) => {
     if (items.length === 0) return;
     if (selectedEntry.value) return;
-    const firstEntry = items.find((item) => item.kind === "entry");
-    if (!firstEntry || firstEntry.kind !== "entry") return;
+    const firstEntry = items[0];
+    if (!firstEntry) return;
     await nextTick();
     // Parent may apply selection in the same flush as repoStatus; avoid duplicate emits.
     if (selectedEntry.value) return;
@@ -738,34 +703,31 @@ watch(
 );
 
 onMounted(() => {
-  if (sidebarScrollRef.value) {
-    sidebarViewportHeight.value = sidebarScrollRef.value.clientHeight;
-    if (typeof ResizeObserver !== "undefined") {
-      sidebarResizeObserver = new ResizeObserver((entries) => {
-        const entry = entries[0];
-        if (!entry) return;
-        sidebarViewportHeight.value = entry.contentRect.height;
-      });
-      sidebarResizeObserver.observe(sidebarScrollRef.value);
-    }
-  }
+  window.addEventListener("focus", onWindowFocus);
 });
 
 onBeforeUnmount(() => {
-  sidebarResizeObserver?.disconnect();
-  sidebarResizeObserver = null;
+  window.removeEventListener("focus", onWindowFocus);
 });
 </script>
 
 <template>
   <SidebarProvider
-    class="flex h-full border-t min-h-0 w-full flex-1 flex-row overflow-hidden bg-background text-[11px] text-foreground"
+    class="flex h-full border-t min-h-0 w-full flex-1 flex-row overflow-hidden text-[11px] text-foreground"
     :keyboard-shortcut="false"
     :persist-cookie="false"
   >
     <SidebarInset class="min-h-0 min-w-0 flex-1 overflow-hidden">
-    <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <header class="flex h-9 min-w-0 items-center gap-2 overflow-x-auto border-b border-border px-2 whitespace-nowrap">
+    <GitDiffView
+      :path-header="scmPathHeader"
+      :file-path="selectedEntry?.path ?? ''"
+      :file-scope="selectedEntry?.scope ?? null"
+      :loading="selectedDiffLoading"
+      :empty-message="emptyMessage"
+      :merge-result="selectedMergeResult"
+      @open-file-in-editor="emit('openFileInEditor', $event)"
+    >
+      <template #header-leading>
         <Button
           v-if="showThreadSidebarExpand"
           data-testid="scm-thread-sidebar-expand"
@@ -779,137 +741,14 @@ onBeforeUnmount(() => {
           <PanelLeftOpen class="h-4 w-4" aria-hidden="true" />
           <span class="sr-only">Show thread sidebar</span>
         </Button>
-        <div
-          class="min-w-0 flex-1 font-mono text-[10px] leading-tight"
-          :title="scmPathHeader.full || undefined"
-        >
-          <template v-if="scmPathHeader.full">
-            <p class="flex min-w-0 items-baseline justify-start gap-0">
-              <span
-                v-if="scmPathHeader.hasDir"
-                class="min-w-0 shrink truncate text-muted-foreground"
-              >{{ scmPathHeader.dirLine }}/</span>
-              <span class="shrink-0 font-medium text-foreground">{{ scmPathHeader.base }}</span>
-            </p>
-          </template>
-          <p v-else class="text-muted-foreground">No file selected</p>
-          <p class="sr-only">
-            File path: {{ scmPathHeader.full || "none" }}.
-            {{
-              selectedEntry?.scope === "staged"
-                ? "Staged changes."
-                : selectedEntry?.scope === "unstaged"
-                  ? "Working tree changes."
-                  : "Diff."
-            }}
-          </p>
-        </div>
-        <div
-          v-if="selectedEntry && selectedMergeResult?.kind === 'ok'"
-          class="flex shrink-0 items-center gap-px rounded-md border border-border p-px"
-          role="group"
-          aria-label="Diff layout"
-        >
-          <Button
-            type="button"
-            size="xs"
-            :variant="scmDiffLayout === 'split' ? 'default' : 'ghost'"
-            class="h-6 rounded-sm px-2 text-[10px]"
-            title="Two columns: original on the left, working copy on the right"
-            :aria-pressed="scmDiffLayout === 'split'"
-            @click="scmDiffLayout = 'split'"
-          >
-            Split
-          </Button>
-          <Button
-            type="button"
-            size="xs"
-            :variant="scmDiffLayout === 'unified' ? 'default' : 'ghost'"
-            class="h-6 rounded-sm px-2 text-[10px]"
-            title="Single column: removed lines appear above the current file"
-            :aria-pressed="scmDiffLayout === 'unified'"
-            @click="scmDiffLayout = 'unified'"
-          >
-            Unified
-          </Button>
-        </div>
-        <Button
-          v-if="selectedEntry"
-          type="button"
-          size="xs"
-          variant="outline"
-          class="h-6 shrink-0 gap-1 px-2 text-[10px]"
-          title="Open this file in the Files tab (current worktree)"
-          aria-label="Go to file in editor"
-          @click="emit('openFileInEditor', selectedEntry.path)"
-        >
-          <FileText class="h-3 w-3 shrink-0" aria-hidden="true" />
-          Go to file
-        </Button>
-      </header>
-
-      <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div v-if="selectedDiffLoading" class="flex min-h-0 flex-1 flex-col">
-          <CursorLoading class="min-h-0 flex-1" />
-        </div>
-        <div
-          v-else-if="emptyMessage"
-          class="flex h-full flex-col items-center justify-center gap-3 px-6 text-center"
-          role="status"
-          aria-live="polite"
-        >
-          <span class="select-none text-4xl leading-none" aria-hidden="true">✨</span>
-          <p class="max-w-xs text-xs text-muted-foreground">{{ emptyMessage.replace('✨ ', '') }}</p>
-        </div>
-        <div
-          v-else-if="selectedMergeResult?.kind === 'error'"
-          class="flex h-full items-center justify-center px-4 text-center text-[11px] text-destructive"
-          role="alert"
-        >
-          {{ selectedMergeResult?.kind === 'error' ? selectedMergeResult.message : '' }}
-        </div>
-        <div
-          v-else-if="selectedMergeResult?.kind === 'binary'"
-          class="flex h-full items-center justify-center px-4 text-center text-[11px] text-muted-foreground"
-          role="status"
-        >
-          Binary file — side-by-side text diff is not shown.
-        </div>
-        <div v-else-if="selectedMergeResult?.kind === 'ok'" class="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <p
-            class="shrink-0 border-b border-border bg-muted/15 px-2 py-1 font-mono text-[10px] leading-tight text-muted-foreground"
-          >
-            <template v-if="scmDiffLayout === 'split'">
-              <span class="font-medium text-foreground">{{ mergeResultOk?.originalLabel }}</span>
-              · left —
-              <span class="font-medium text-foreground">{{ mergeResultOk?.modifiedLabel }}</span>
-              · right
-            </template>
-            <template v-else>
-              Unified —
-              <span class="font-medium text-foreground">{{ mergeResultOk?.originalLabel }}</span>
-              vs
-              <span class="font-medium text-foreground">{{ mergeResultOk?.modifiedLabel }}</span>
-            </template>
-          </p>
-          <MonacoDiffEditor
-            class="min-h-0 flex-1"
-            :layout="scmDiffLayout"
-            :original="mergeResultOk?.original ?? ''"
-            :modified="mergeResultOk?.modified ?? ''"
-            :file-path="selectedEntry?.path ?? ''"
-            :worktree-path="activeWorktree?.path ?? null"
-            :active-thread-id="props.activeThreadId"
-          />
-        </div>
-      </div>
-    </div>
+      </template>
+    </GitDiffView>
     </SidebarInset>
 
     <Sidebar
       side="right"
       collapsible="none"
-      class="h-full min-h-0 w-[270px] shrink-0 border-s border-sidebar-border"
+      class="h-full min-h-0 w-[280px] shrink-0 border-l border-border/50 dark:border-sidebar-border"
     >
       <SidebarHeader
         class="flex h-9 flex-row items-center border-b border-sidebar-border px-2 py-0"
@@ -977,119 +816,96 @@ onBeforeUnmount(() => {
         </div>
       </SidebarHeader>
 
-      <SidebarContent class="min-h-0 flex-1 overflow-hidden px-0 py-0">
-      <div
-        ref="sidebarScrollRef"
-        class="min-h-0 flex-1 overflow-y-auto"
-        @scroll="onSidebarScroll"
-      >
-        <div :style="{ height: `${sidebarContentHeight}px`, position: 'relative' }">
-          <template v-for="metric in visibleSidebarItems" :key="metric.item.kind === 'section' ? metric.item.id : metric.item.id">
-            <div
-              v-if="metric.item.kind === 'section'"
-              :class="sectionHeaderClasses(metric.item)"
-              :style="{ top: `${metric.top}px`, height: `${metric.height}px` }"
+      <SidebarContent>
+        <template v-if="totalChanges === 0">
+          <div class="px-3 py-6 text-center text-xs text-muted-foreground">
+            ✨ Working tree is clean.
+          </div>
+        </template>
+        <template v-else>
+          <template v-for="section in scmSections" :key="section.id">
+            <SidebarSeparator v-if="section.showSeparatorAbove" />
+            <Collapsible
+              :open="!collapsedSections.has(section.id)"
+              @update:open="(open) => onSectionCollapsibleOpen(section.id, open)"
             >
-              <div
-                v-if="metric.item.majorDividerAbove"
-                class="shrink-0 border-t-2 border-amber-500/50 dark:border-amber-400/40"
-              />
-              <div
-                v-if="metric.item.majorDividerAbove"
-                class="shrink-0 bg-gradient-to-b from-muted/60 to-transparent dark:from-muted/40"
-                :style="{ height: `${SECTION_MAJOR_GAP_PX - 2}px` }"
-              />
-              <div
-                class="flex flex-1 cursor-pointer items-center justify-between gap-1 px-2 text-[9px] font-semibold tracking-[0.12em] uppercase"
-                @click="toggleSection(metric.item.id)"
-              >
-                <span class="flex min-w-0 shrink items-center gap-1">
-                  <ChevronDown
-                    class="h-3 w-3 shrink-0 transition-transform duration-150"
-                    :class="collapsedSections.has(metric.item.id) ? '-rotate-90' : ''"
-                  />
-                  <p>
-                    {{ metric.item.label }}    
-                  </p>                  
-                </span>
-                <div class="flex shrink-0 items-center gap-1.5">
-                  <span class="tabular-nums opacity-90">{{ metric.item.count }}</span>
-                  <label
-                    v-if="metric.item.id === 'staged' || metric.item.id === 'unstaged'"
-                    class="flex cursor-pointer items-center border-l border-border/40 pl-1.5"
+              <SidebarGroup class="px-1 py-0.5">
+                <div class="flex items-center gap-2 pe-1 ps-1">
+                  <CollapsibleTrigger as-child class="min-w-0 flex-1">
+                    <SidebarMenuButton size="sm" class="gap-1.5">
+                      <ChevronDown
+                        class="size-3 shrink-0 transition-transform duration-150"
+                        :class="collapsedSections.has(section.id) ? '-rotate-90' : ''"
+                      />
+                      <span class="truncate text-[11px] font-medium text-sidebar-foreground">{{
+                        section.label
+                      }}</span>
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <span
+                    class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border px-1.5 text-[10px] font-semibold tabular-nums text-muted-foreground"
+                  >{{ section.entries.length }}</span>
+                  <Checkbox
+                    v-if="section.showSectionCheckbox"
+                    :model-value="sectionCheckboxModel(section.id)"
+                    :aria-label="
+                      section.id === 'staged'
+                        ? 'Select all staged files'
+                        : 'Select all files in Changes'
+                    "
+                    @update:model-value="() => toggleSectionSelectAll(section.id)"
                     @click.stop
-                  >
-                    <input
-                      :ref="getSectionSelectAllInputRef(metric.item.id)"
-                      type="checkbox"
-                      class="size-3.5 rounded border-border accent-primary"
-                      :aria-label="
-                        metric.item.id === 'staged'
-                          ? 'Select all staged files'
-                          : 'Select all unstaged files'
-                      "
-                      @change="toggleSectionSelectAll(metric.item.id)"
-                      @click.stop
-                    />
-                  </label>
+                  />
                 </div>
-              </div>
-            </div>
-            <div
-              v-else
-              class="absolute inset-x-0 flex items-center"
-              :class="[
-                selectedScmPath === metric.item.path && selectedScmScope === metric.item.scope
-                  ? 'z-[1] border-b border-primary/25 bg-primary/18 text-foreground ring-1 ring-inset ring-primary/30 dark:bg-primary/22'
-                  : entryRowClasses(metric.item.sectionId)
-              ]"
-              :style="{ top: `${metric.top}px`, height: `${metric.height}px` }"
-            >
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                class="flex min-w-0 flex-1 items-center gap-1 px-2 py-1 text-left transition-colors"
-                :class="
-                  selectedScmPath === metric.item.path && selectedScmScope === metric.item.scope
-                    ? 'text-foreground'
-                    : 'text-muted-foreground'
-                "
-                @click="selectEntry(metric.item.path, metric.item.scope)"
-              >
-                <span
-                  class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-background font-mono text-[8px] font-semibold leading-none"
-                >
-                  {{ metric.item.badge }}
-                </span>
-                <span
-                  class="min-w-0 flex-1 overflow-hidden font-mono text-[10px] leading-tight"
-                  :title="metric.item.path"
-                >
-                  <span class="block truncate font-semibold">{{ splitRepoPath(metric.item.path).base }}</span>
-                  <span v-if="splitRepoPath(metric.item.path).dir" class="block truncate text-muted-foreground/70">{{ splitRepoPath(metric.item.path).dir }}</span>
-                </span>
-              </Button>
-              <label
-                class="flex self-stretch shrink-0 cursor-pointer items-center border-l border-border/40 bg-background/30 px-1.5 dark:bg-background/15"
-                @click.stop
-              >
-                <input
-                  type="checkbox"
-                  class="size-3.5 rounded border-border accent-primary"
-                  :checked="isEntryChecked(metric.item.id)"
-                  :aria-label="`Select ${metric.item.path} for bulk actions`"
-                  @change="toggleEntryChecked(metric.item.id)"
-                  @click.stop
-                />
-              </label>
-            </div>
+                <CollapsibleContent>
+                  <SidebarGroupContent class="px-0">
+                    <SidebarMenu>
+                      <SidebarMenuItem v-for="entry in section.entries" :key="entry.id">
+                        <SidebarMenuButton
+                          class="min-w-0 cursor-pointer gap-2"
+                          :title="entry.path"
+                          @click.stop="selectEntry(entry.path, entry.scope)"
+                          :is-active="
+                            selectedScmPath === entry.path && selectedScmScope === entry.scope
+                          "
+                        >
+                          <span
+                            class="inline-flex size-3.5 shrink-0 items-center justify-center text-[12px] leading-none"
+                            aria-hidden="true"
+                          >{{ fileEmojiForPath(entry.path) }}</span>
+                          <div class="grid min-w-0 flex-1 gap-0 leading-tight">
+                            <span class="truncate text-[11px] font-medium text-foreground">{{
+                              entry.pathBase
+                            }}</span>
+                            <span
+                              v-if="entry.pathDirShort"
+                              class="truncate text-[10px] text-muted-foreground"
+                            >{{ entry.pathDirShort }}</span>
+                          </div>
+                          <span :class="statusColumnClass(entry)">{{ entry.statusLabel }}</span>
+                        </SidebarMenuButton>
+                        <SidebarMenuAction :show-on-hover="false" as-child>
+                          <div @click.stop>
+                            <Checkbox
+                              :model-value="isEntryChecked(entry.id)"
+                              :aria-label="`Select ${entry.path} for bulk actions`"
+                              @update:model-value="
+                                (v) => setEntryChecked(entry.id, v === true)
+                              "
+                            />
+                          </div>
+                        </SidebarMenuAction>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
           </template>
-        </div>
-      </div>
+        </template>
       </SidebarContent>
 
-      <SidebarFooter class="shrink-0 gap-0 border-t border-sidebar-border bg-sidebar p-0">
+      <SidebarFooter class="shrink-0 gap-0 border-t border-sidebar-border p-0">
         <div class="flex items-center justify-between gap-2 border-b border-sidebar-border px-2 py-1">
           <ScmBranchCombobox
             :branch-line="scmBranchLine"
@@ -1148,13 +964,13 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="relative border-b border-sidebar-border bg-sidebar">
+        <div class="relative border-b border-sidebar-border">
           <textarea
             v-model="commitMessage"
             rows="4"
             placeholder="Enter commit message"
             aria-label="Commit message draft"
-            class="w-full resize-none rounded-none border-0 bg-sidebar py-1.5 pl-2 pr-7 font-mono text-[10px] leading-snug text-sidebar-foreground placeholder:text-muted-foreground focus:outline-none"
+            class="w-full resize-none rounded-none border-0 bg-transparent py-1.5 pl-2 pr-7 font-mono text-[10px] leading-snug text-sidebar-foreground placeholder:text-muted-foreground focus:outline-none"
             :class="commitExpanded ? 'min-h-[11rem]' : 'min-h-[4.5rem]'"
           />
           <Button
@@ -1170,7 +986,7 @@ onBeforeUnmount(() => {
             <Maximize2 v-else class="h-3 w-3" aria-hidden="true" />
           </Button>
         </div>
-        <div class="flex items-center justify-between bg-sidebar px-2 py-1.5">
+        <div class="flex items-center justify-between px-2 py-1.5">
           <div class="flex items-center overflow-hidden">            
             <Button
               v-if="SHOW_SUGGEST_COMMIT_BUTTON && suggestCommitAvailable"

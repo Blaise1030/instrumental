@@ -7,8 +7,9 @@ vi.mock("@/components/MonacoDiffEditor.vue", () => ({
   default: { name: "MonacoDiffEditorStub", template: "<div />" }
 }));
 
-const { appContextRef } = vi.hoisted(() => {
+const { appContextRef, activeWorktreeRef } = vi.hoisted(() => {
   const { ref: vueRef } = require("vue") as typeof import("vue");
+  const activeWorktreeRef = vueRef<{ path: string } | undefined>(undefined);
   const mockGitService = {
     listWorktrees: vi.fn().mockResolvedValue([]),
     listBranchesExcludingWorktrees: vi.fn().mockResolvedValue([]),
@@ -30,7 +31,7 @@ const { appContextRef } = vi.hoisted(() => {
     threadManagementService: {},
     gitService: mockGitService,
   });
-  return { appContextRef };
+  return { appContextRef, activeWorktreeRef };
 });
 
 vi.mock("@/app-context/useAppContext", () => ({
@@ -50,7 +51,7 @@ vi.mock("@/composables/useActiveWorkspace", () => {
   const { computed } = require("vue") as typeof import("vue");
   return {
     useActiveWorkspace: () => ({
-      activeWorktree: computed(() => undefined),
+      activeWorktree: computed(() => activeWorktreeRef.value),
     }),
   };
 });
@@ -67,6 +68,7 @@ const scmSidebarStubs = {
   SidebarHeader: { template: "<header><slot /></header>" },
   SidebarContent: { template: "<div><slot /></div>" },
   SidebarFooter: { template: "<footer><slot /></footer>" },
+  GitDiffView: { template: "<div><slot name=\"header-leading\" /></div>" },
 };
 
 function mountPanel(props: Record<string, unknown> = {}) {
@@ -114,5 +116,48 @@ describe("SourceControlPanel local LLM controls", () => {
     });
     await wrapper.get('[data-testid="scm-thread-sidebar-expand"]').trigger("click");
     expect(wrapper.emitted("expandThreadSidebar")).toEqual([[]]);
+  });
+});
+
+describe("SourceControlPanel window focus", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    activeWorktreeRef.value = undefined;
+  });
+
+  it("invalidates SCM Vue Query when the window focuses and a worktree path is active", async () => {
+    activeWorktreeRef.value = { path: "/my/repo" };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const wrapper = mount(SourceControlPanel, {
+      shallow: true,
+      props: { ...baseProps },
+      global: {
+        plugins: [[VueQueryPlugin, { queryClient }]],
+        stubs: scmSidebarStubs,
+      },
+    });
+    invalidateSpy.mockClear();
+    window.dispatchEvent(new Event("focus"));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["git", "scm", "/my/repo"] });
+    wrapper.unmount();
+    activeWorktreeRef.value = undefined;
+  });
+
+  it("does not invalidate SCM when no worktree is active", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const wrapper = mount(SourceControlPanel, {
+      shallow: true,
+      props: { ...baseProps },
+      global: {
+        plugins: [[VueQueryPlugin, { queryClient }]],
+        stubs: scmSidebarStubs,
+      },
+    });
+    invalidateSpy.mockClear();
+    window.dispatchEvent(new Event("focus"));
+    expect(invalidateSpy).not.toHaveBeenCalled();
+    wrapper.unmount();
   });
 });

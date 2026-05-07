@@ -19,6 +19,7 @@ import {
 import type { QueueCapture, QueueItem } from "@/contextQueue/types";
 import type { Rect } from "@/lib/contextQueueAnchor";
 import { resolveSelectionFilePath } from "@/lib/selectionFilePath";
+import { fileEmojiForPath } from "@/lib/fileEmojiForPath";
 import { useToast } from "@/composables/useToast";
 import { type PillTabItem } from "@/components/ui/pill-tabs";
 import { monacoLanguageIdFromPath } from "@/lib/monacoLanguage";
@@ -53,54 +54,6 @@ export function useExplorerFilePage(
 function basenameFromPath(absPath: string): string {
   const parts = absPath.split(/[/\\]/).filter(Boolean);
   return parts[parts.length - 1] ?? absPath;
-}
-
-/** Small emoji hint for file kind (shown in the file tab badge). */
-function fileEmojiForPath(relativePath: string): string {
-  const lower = relativePath.toLowerCase();
-  const dot = lower.lastIndexOf(".");
-  const ext = dot >= 0 ? lower.slice(dot + 1) : "";
-  const map: Record<string, string> = {
-    ts: "📘",
-    tsx: "⚛️",
-    vue: "💚",
-    js: "📜",
-    jsx: "⚛️",
-    md: "📝",
-    markdown: "📝",
-    json: "📋",
-    css: "🎨",
-    scss: "🎨",
-    sass: "🎨",
-    less: "🎨",
-    html: "🌐",
-    htm: "🌐",
-    py: "🐍",
-    rs: "🦀",
-    go: "🐹",
-    java: "☕",
-    kt: "🟣",
-    swift: "🐦",
-    rb: "💎",
-    php: "🐘",
-    sh: "⌨️",
-    bash: "⌨️",
-    zsh: "⌨️",
-    yml: "⚙️",
-    yaml: "⚙️",
-    toml: "⚙️",
-    sql: "🗃️",
-    png: "🖼️",
-    jpg: "🖼️",
-    jpeg: "🖼️",
-    webp: "🖼️",
-    gif: "🖼️",
-    svg: "🖼️",
-    avif: "🖼️",
-    bmp: "🖼️",
-    ico: "🖼️",
-  };
-  return map[ext] ?? "📄";
 }
 
 /** Lowercase extension without dot (e.g. `docs/a.PNG` → `png`). */
