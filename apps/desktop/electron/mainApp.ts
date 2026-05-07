@@ -15,10 +15,8 @@ import {
 import {
   IPC_CHANNELS,
   type AddProjectInput,
-  type AddWorktreeInput,
   type AppUpdateAvailability,
   type CreateThreadInput,
-  type CreateWorktreeGroupInput,
   type DeleteThreadInput,
   type GitHubPrSettings,
   type FileAbsolutePathInput,
@@ -43,7 +41,8 @@ import { buildCloseConfirmationDetail } from "./lifecycle/closeConfirmation.js";
 import { collectResumeIdsFromActiveTerminals } from "./lifecycle/quitResumeCapture.js";
 import { GitHeadWatcher } from "./services/gitHeadWatcher.js";
 import { WorkspaceService } from "./services/workspaceService.js";
-import { WorkspaceStore } from "./storage/store.js";
+import { openDatabase } from "./storage/db.js";
+import { WorkspaceStore } from "./storage/WorkspaceStore.js";
 import { HookServer } from "./services/hookServer.js";
 import { registerAllAgentHooks } from "./services/hookRegistrationService.js";
 import { handleHookEvent } from "./adapters/hookHandler.js";
@@ -272,19 +271,6 @@ function createMainWindow(): BrowserWindow {
   return win;
 }
 
-function readWorkspaceSchemaSql(): string {
-  const candidates = [
-    path.join(__dirname, "..", "..", "electron", "storage", "schema.sql"),
-    path.join(process.cwd(), "electron", "storage", "schema.sql")
-  ];
-  for (const schemaPath of candidates) {
-    if (fs.existsSync(schemaPath)) {
-      return fs.readFileSync(schemaPath, "utf8");
-    }
-  }
-  throw new Error(`workspace schema not found. Tried:\n${candidates.join("\n")}`);
-}
-
 /** Absolute paths from renderer (Settings → Agent skill directories); allows `files:search` when not under a worktree. */
 let agentSkillSearchRootsAbs: string[] = [];
 
@@ -304,13 +290,13 @@ function isResolvedPathUnderAnyRoot(resolvedPath: string, roots: string[]): bool
 }
 
 /**
- * `files:search` / `files:searchContent` may target agent skill dirs (~/.claude/skills, …) as well as worktrees.
- * Other file IPC handlers still require a registered worktree.
+ * `files:search` / `files:searchContent` may target agent skill dirs (~/.claude/skills, …) as well as project repos.
+ * Other file IPC handlers still require a registered project repo.
  */
 function assertCwdAllowedForFileSearch(cwd: string): void {
   const snapshot = workspaceService.getSnapshot();
-  const registered = snapshot.worktrees.some(
-    (wt) => cwd === wt.path || cwd.startsWith(wt.path + path.sep)
+  const registered = snapshot.projects.some(
+    (p) => cwd === p.repoPath || cwd.startsWith(p.repoPath + path.sep)
   );
   if (registered) return;
 
@@ -320,21 +306,21 @@ function assertCwdAllowedForFileSearch(cwd: string): void {
   if (isResolvedPathUnderAnyRoot(resolved, agentSkillSearchRootsAbs)) return;
 
   throw new Error(
-    `Operation refused: cwd is not allowed for file search (not a worktree or agent skill directory): "${cwd}"`
+    `Operation refused: cwd is not allowed for file search (not a registered project or agent skill directory): "${cwd}"`
   );
 }
 
 /**
- * Asserts that `cwd` is a registered worktree path or a sub-path of one.
+ * Asserts that `cwd` is under a registered project repoPath.
  * Exempt handlers: diffIsGitRepository, diffInitGitRepository (used before project is registered).
  */
 function assertCwdIsRegistered(cwd: string): void {
   const snapshot = workspaceService.getSnapshot();
-  const registered = snapshot.worktrees.some(
-    (wt) => cwd === wt.path || cwd.startsWith(wt.path + path.sep)
+  const registered = snapshot.projects.some(
+    (p) => cwd === p.repoPath || cwd.startsWith(p.repoPath + path.sep)
   );
   if (!registered) {
-    throw new Error(`Operation refused: cwd is not a registered worktree path: "${cwd}"`);
+    throw new Error(`Operation refused: cwd is not under a registered project path: "${cwd}"`);
   }
 }
 
@@ -355,28 +341,10 @@ function registerIpc(workspaceService: WorkspaceService): void {
     workspaceService.reorderProjects(payload.orderedProjectIds);
     emitWorkspaceDidChange();
   });
-  ipcMain.handle(IPC_CHANNELS.workspaceAddWorktree, (_, payload: AddWorktreeInput) => {
-    workspaceService.addWorktree(payload.projectId, payload.branch, payload.worktreePath);
-    emitWorkspaceDidChange();
-    return workspaceService.getSnapshot();
-  });
   ipcMain.handle(IPC_CHANNELS.workspaceSetActive, (_, payload: { projectId: string | null; worktreeId: string | null; threadId: string | null }) => {
     workspaceService.setActive(payload.projectId, payload.worktreeId, payload.threadId);
     emitWorkspaceDidChange();
   });
-  ipcMain.handle(IPC_CHANNELS.workspaceGetWorktreeEditorState, (_, payload: { worktreeId: string }) => {
-    return workspaceService.getWorktreeEditorState(payload.worktreeId);
-  });
-  ipcMain.handle(
-    IPC_CHANNELS.workspaceSetWorktreeEditorState,
-    (_, payload: { worktreeId: string; selectedFilePath: string | null; openFilePaths: string[] }) => {
-      workspaceService.setWorktreeEditorState(
-        payload.worktreeId,
-        payload.selectedFilePath,
-        payload.openFilePaths
-      );
-    }
-  );
   ipcMain.handle(IPC_CHANNELS.workspaceGetGitHubPrSettings, () => workspaceService.getGitHubPrSettings());
   ipcMain.handle(IPC_CHANNELS.workspaceSetGitHubPrSettings, (_, payload: GitHubPrSettings) => {
     workspaceService.setGitHubPrSettings(payload);
@@ -398,10 +366,9 @@ function registerIpc(workspaceService: WorkspaceService): void {
     }
   );
   ipcMain.handle(IPC_CHANNELS.workspaceCreateThread, async (_, payload: CreateThreadInput) => {
-    const snapshot = workspaceService.getSnapshot();
-    const wt = snapshot.worktrees.find((w) => w.id === payload.worktreeId);
-    const createdBranchOverride =
-      wt == null ? undefined : (await diffService.readAbbrevRefHead(wt.path)) ?? wt.branch ?? null;
+    const createdBranchOverride = payload.worktreePath
+      ? (await diffService.readAbbrevRefHead(payload.worktreePath)) ?? null
+      : null;
     const thread = workspaceService.createThread(payload, createdBranchOverride);
     emitWorkspaceDidChange();
     return thread;
@@ -409,8 +376,8 @@ function registerIpc(workspaceService: WorkspaceService): void {
   ipcMain.handle(IPC_CHANNELS.workspaceSetActiveThread, (_, threadId: string) => {
     const snapshot = workspaceService.getSnapshot();
     const thread = snapshot.threads.find((t) => t.id === threadId);
-    const worktreeId = thread?.worktreeId ?? snapshot.activeWorktreeId;
-    workspaceService.setActive(snapshot.activeProjectId, worktreeId, threadId);
+    const worktreePath = thread?.worktreePath ?? snapshot.activeWorktreePath;
+    workspaceService.setActive(snapshot.activeProjectId, worktreePath, threadId);
     emitWorkspaceDidChange();
     return workspaceService.getSnapshot();
   });
@@ -426,25 +393,8 @@ function registerIpc(workspaceService: WorkspaceService): void {
     workspaceService.updateThread(payload.threadId, payload);
     emitWorkspaceDidChange();
   });
-  ipcMain.handle(IPC_CHANNELS.workspaceCreateWorktreeGroup, async (_, payload: CreateWorktreeGroupInput) => {
-    const worktree = await workspaceService.createWorktreeGroup(payload);
-    emitWorkspaceDidChange();
-    return worktree;
-  });
-  ipcMain.handle(IPC_CHANNELS.workspaceDeleteWorktreeGroup, async (_, payload: { worktreeId: string }) => {
-    await workspaceService.deleteWorktreeGroup(payload.worktreeId);
-    emitWorkspaceDidChange();
-  });
   ipcMain.handle(IPC_CHANNELS.workspaceListBranches, async (_, payload: { projectId: string }) => {
     return workspaceService.listBranches(payload.projectId);
-  });
-  ipcMain.handle(IPC_CHANNELS.workspaceWorktreeHealth, async (_, payload: { worktreeId: string }) => {
-    return workspaceService.checkWorktreeHealth(payload.worktreeId);
-  });
-  ipcMain.handle(IPC_CHANNELS.workspaceSyncWorktrees, async (_, payload: { projectId: string }) => {
-    const imported = await workspaceService.syncWorktrees(payload.projectId);
-    if (imported) emitWorkspaceDidChange();
-    return workspaceService.getSnapshot();
   });
   ipcMain.handle(IPC_CHANNELS.workspaceSetAgentSkillSearchRoots, (_, roots: unknown) => {
     if (!Array.isArray(roots)) {
@@ -683,10 +633,10 @@ function registerIpc(workspaceService: WorkspaceService): void {
 }
 
 const dataDir = app.getPath("userData");
-const schemaSql = readWorkspaceSchemaSql();
-const store = new WorkspaceStore(dataDir);
-store.migrate(schemaSql);
-const notificationStore = new NotificationStore(store.getDatabase());
+const db = openDatabase(dataDir);
+const store = new WorkspaceStore(db);
+store.migrate();
+const notificationStore = new NotificationStore((db.$client as import("better-sqlite3").Database));
 const gitAdapter = createGitAdapter();
 const workspaceService = new WorkspaceService(store, gitAdapter);
 
@@ -717,7 +667,7 @@ void hookServer.start().then(() => {
           // Bring app to front and navigate to the thread
           const win = BrowserWindow.getAllWindows()[0];
           if (win) { win.show(); win.focus(); }
-          workspaceService.setActive(thread.projectId, thread.worktreeId, thread.id);
+          workspaceService.setActive(thread.projectId, thread.worktreePath, thread.id);
           emitWorkspaceDidChange();
         });
       },
