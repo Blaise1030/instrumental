@@ -1,30 +1,22 @@
-import type { GitWorktreeListEntry } from "@shared/ipc";
+import type { GitWorktreeListEntry, RepoScmSnapshot } from "@shared/ipc";
 
 /** Git operations abstracted from Electron IPC (see `ipcGitService.ts`). */
 export interface GitService {
-  /**
-   * All Git worktrees for the repository that contains `cwd`.
-   * `cwd` must be a registered worktree root (same rule as other workspace Git IPC).
-   */
   listWorktrees(cwd: string): Promise<GitWorktreeListEntry[]>;
-
-  /**
-   * Local branch names for the repo containing `cwd`, excluding branches that are already
-   * checked out on another linked worktree (Git does not allow the same branch in two
-   * worktrees). The branch checked out at `cwd` remains listed.
-   *
-   * `cwd` must be a registered worktree root (same rule as other workspace Git IPC).
-   */
   listBranchesExcludingWorktrees(cwd: string): Promise<string[]>;
-
-  /**
-   * Current checked-out branch short name for `cwd` (from repo status), or `HEAD` when
-   * detached, or empty when unknown.
-   *
-   * `cwd` must be a registered worktree root (same rule as other workspace Git IPC).
-   */
   getCurrentBranch(cwd: string): Promise<string>;
-
-  /** Checkout an existing local branch in the worktree at `cwd` (updates persisted worktree branch when known). */
   checkoutBranch(cwd: string, branch: string): Promise<void>;
+
+  /** Full repo status snapshot. Returns `null` when `cwd` is not inside a git repository. */
+  getStatus(cwd: string): Promise<RepoScmSnapshot | null>;
+
+  stagePaths(cwd: string, paths: string[]): Promise<void>;
+  stageAll(cwd: string): Promise<void>;
+  unstagePaths(cwd: string, paths: string[]): Promise<void>;
+  unstageAll(cwd: string): Promise<void>;
+  discardPaths(cwd: string, paths: string[]): Promise<void>;
+  discardAll(cwd: string): Promise<void>;
+  commit(cwd: string, message: string): Promise<void>;
+  fetch(cwd: string): Promise<void>;
+  push(cwd: string): Promise<void>;
 }
