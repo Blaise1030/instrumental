@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { ChevronRight, FolderOpen } from "lucide-vue-next";
 import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useNavigateToProject } from "@/composables/useNavigateToProject";
 import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
+import WorkbenchLogoMark from "@/modules/agent/components/WorkbenchLogoMark.vue";
 
 const { navigateToProject } = useNavigateToProject();
 
@@ -21,43 +21,36 @@ const { data: welcomeProjects, isPending: welcomeProjectsPending } = useQuery({
 
 <template>
   <div
-    class="min-h-svh flex flex-col items-center justify-start bg-background px-6 py-16 text-foreground"
+    class="h-screen flex flex-col items-center justify-start bg-background text-foreground"
   >
-    <div class="w-full max-w-lg flex flex-col gap-8">
-      <div class="flex flex-col items-center gap-2 text-center">
-        <div class="rounded-xl border bg-card px-4 py-3 shadow-sm">
-          <FolderOpen class="size-10 text-muted-foreground" aria-hidden="true" />
-        </div>
-        <h1 class="text-xl font-semibold tracking-tight">Workspaces</h1>
-        <p class="text-sm text-muted-foreground max-w-sm">
-          Open a recent repository or pick from the list below.
-        </p>
+    <div class="w-full max-w-sm h-full justify-center flex flex-col gap-8">      
+      <div class="flex gap-1 items-center">
+        <WorkbenchLogoMark /> 
+        <p class="font-app-brand-title text-2xl">workbench</p>    
       </div>
-
-      <div class="flex flex-col gap-2">
-        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Projects</p>
+      <div class="flex flex-col gap-1">        
+        <p class="text-xs text-muted-foreground px-2">Recent Projects</p>        
         <div
           v-if="welcomeProjectsPending"
-          class="flex min-h-32 flex-col rounded-lg border border-dashed px-4 py-8"
+          class="flex h-full flex-col rounded-lg border border-dashed px-4 py-8"
         >
           <CursorLoading class="min-h-24 w-full" />
-        </div>
-        <div v-else-if="(welcomeProjects ?? []).length > 0" class="flex flex-col gap-2">
+        </div>        
+        <div v-else-if="(welcomeProjects ?? []).length > 0" class="flex flex-col gap-1">
           <Button
             v-for="p in welcomeProjects ?? []"
             :key="p.id"
             type="button"
-            variant="outline"
-            class="h-auto w-full justify-between gap-4 px-4 py-3 text-start font-normal"
+            variant="ghost"
+            class="w-full justify-between gap-4 text-start font-normal"
             @click="navigateToProject(p.id)"
           >
-            <span class="min-w-0 flex flex-col gap-0.5">
+            <span class="min-w-0 flex w-full justify-between items-center gap-0.5">
               <span class="truncate font-medium text-foreground">{{ p.name }}</span>
               <span class="truncate text-xs text-muted-foreground" :title="p.repoPath">{{
                 p.repoPath
               }}</span>
-            </span>
-            <ChevronRight class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </span>            
           </Button>
         </div>
         <p
