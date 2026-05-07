@@ -6,7 +6,7 @@
 import { onMounted, provide, ref } from 'vue';
 import type { AppContext, AppMode } from './type';
 import { IpcGitService } from "@/modules/git/services/ipcGitService";
-import { IpcThreadManagementService } from "@/services/thread-management/ipcThreadManagementService";
+import { IpcThreadManagementService } from "@/modules/agent/services/ipcThreadManagementService";
 
 const props = defineProps<{ mode: AppMode }>();
 const services = ref<AppContext>();

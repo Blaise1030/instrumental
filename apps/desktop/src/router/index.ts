@@ -1,68 +1,34 @@
 import { createMemoryHistory, createRouter } from "vue-router";
 import Layout from "@/layouts/Layout.vue";
-import WelcomePage from "@/modules/welcome/WelcomePage.vue";
-import CreateNewThread from "@/modules/agent/CreateNewThread.vue";
-import AgentPage from "@/modules/agent/AgentPage.vue";
+import { welcomeRoutes } from "@/modules/welcome/welcomeRoute";
+import { agentRoutes } from "@/modules/agent/agentRoute";
 import { gitRoutes } from "@/modules/git/gitRoute";
-import BrowserPage from "@/modules/browser/BrowserPage.vue";
-import ExplorerLayout from "@/modules/explorer/ExplorerLayout.vue";
-import FilePage from "@/modules/explorer/FilePage.vue";
+import { explorerRoutes } from "@/modules/explorer/explorerRoute";
+import { browserRoutes } from "@/modules/browser/browserRoute";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { decodeBranch, encodeBranch } from "./branchParam";
 import { persistWorkspaceRouteFromNavigation } from "./workspaceRouteMemory";
 
+const [agentThreadNewRoute, agentThreadParamShell] = agentRoutes;
+
+/** App router: `welcomeRoutes` plus workspace layout. Git, preview, and files nest under `thread/:threadId` (see `agentRoute`). */
 export const router = createRouter({
   history: createMemoryHistory(),
   routes: [
-    {
-      path: "/",
-      name: "welcome",
-      component: WelcomePage,
-    },
+    welcomeRoutes,
     {
       path: "/:projectId/:branch",
       name: "workspace",
       component: Layout,
       children: [
+        agentThreadNewRoute,
         {
-          path: "thread/new",
-          name: "threadNew",
-          component: CreateNewThread,
-        },
-        {
-          path: "thread/:threadId",
+          path: agentThreadParamShell.path,
           children: [
-            {
-              path: "",
-              redirect: { name: "agent" },
-            },
-            {
-              path: "agent",
-              name: "agent",
-              component: AgentPage,
-            },
+            ...(agentThreadParamShell.children ?? []),
             gitRoutes,
-            {
-              path: "preview",
-              name: "previewPanel",
-              component: BrowserPage,
-            },
-            {
-              path: "files",
-              component: ExplorerLayout,
-              children: [
-                {
-                  path: "",
-                  name: "filesPanel",
-                  component: FilePage,
-                },
-                {
-                  path: ":filename(.*)",
-                  name: "fileDetail",
-                  component: FilePage,
-                },
-              ],
-            },
+            browserRoutes,
+            explorerRoutes,
           ],
         },
       ],

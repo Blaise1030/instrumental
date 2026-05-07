@@ -6,7 +6,7 @@ import { PluginKey } from "@tiptap/pm/state";
 import { findSuggestionMatch as defaultFindSuggestionMatch } from "@tiptap/suggestion";
 import type { SuggestionMatch } from "@tiptap/suggestion";
 import { VueRenderer } from "@tiptap/vue-3";
-import ThreadCreateSuggestionList from "@/components/threadCreate/ThreadCreateSuggestionList.vue";
+import ThreadCreateSuggestionList from "@/modules/agent/components/threadCreate/ThreadCreateSuggestionList.vue";
 import { absolutePathInWorktree, isSkillLikePath, parseMentionAtCursor } from "@/composables/useThreadCreateMentions";
 import {
   parseSlashCommandAtCursor,

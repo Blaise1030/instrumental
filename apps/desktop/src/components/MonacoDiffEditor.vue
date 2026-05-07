@@ -3,7 +3,7 @@ import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { monaco } from "@/lib/monacoApi";
 import { applyMonacoGithubTheme } from "@/lib/monacoGithubTheme";
 import { monacoLanguageIdFromPath } from "@/lib/monacoLanguage";
-import ContextQueueSelectionPopup from "@/components/contextQueue/ContextQueueSelectionPopup.vue";
+import ContextQueueSelectionPopup from "@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue";
 import { buildPasteText } from "@/contextQueue/formatters";
 import {
   injectContextToAgentKey,

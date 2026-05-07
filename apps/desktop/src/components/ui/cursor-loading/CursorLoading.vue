@@ -12,11 +12,11 @@ const props = defineProps<{
   <div
     role="status"
     aria-label="Loading"
-    :class="cn('relative h-full min-h-16 w-full bg-background', props.class)"
+    :class="cn('relative h-full min-h-16 p-2', props.class)"
   >
     <span
       aria-hidden="true"
-      class="cursor-loading-blink pointer-events-none absolute left-0 top-0 block h-4 w-0.5 bg-foreground"
+      class="cursor-loading-blink pointer-events-none absolute left-2 top-2 block h-5 w-2 bg-foreground"
     />
   </div>
 </template>

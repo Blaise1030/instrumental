@@ -37,7 +37,7 @@ vi.mock("@/lib/monacoApi", () => ({
   },
 }));
 
-vi.mock("@/components/contextQueue/ContextQueueSelectionPopup.vue", () => ({
+vi.mock("@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue", () => ({
   default: { template: "<div />" },
 }));
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,18 @@
+import os from "node:os";
 import { fileURLToPath, URL } from "node:url";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vitest/config";
+
+/** Cap parallel workers — full Vue SFC suite + Monaco mocks can starve the machine and feel hung. */
+const maxWorkers = Math.min(
+  4,
+  Math.max(
+    1,
+    typeof os.availableParallelism === "function"
+      ? os.availableParallelism()
+      : os.cpus().length,
+  ),
+);
 
 export default defineConfig({
   plugins: [vue()],
@@ -19,6 +31,13 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: [fileURLToPath(new URL("./src/test/setup.ts", import.meta.url))],
-    include: ["src/**/*.test.ts", "electron/**/*.test.ts"]
+    include: ["src/**/*.test.ts", "electron/**/*.test.ts"],
+    maxWorkers,
+    minWorkers: 1,
+    testTimeout: 60_000,
+    hookTimeout: 30_000,
+    teardownTimeout: 10_000,
+    isolate: true,
+    reporter: process.env.CI ? "dot" : "default",
   }
 });

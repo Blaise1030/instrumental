@@ -1,5 +1,5 @@
 import type { GitService } from "@/modules/git/services/gitService";
-import type { ThreadManagementService } from "@/services/thread-management/threadManagementService";
+import type { ThreadManagementService } from "@/modules/agent/services/threadManagementService";
 
 export type AppMode = "desktop" | "mobile" | "cloud";
 
