@@ -85,9 +85,9 @@ const canAddProject = computed(() => {
 
 const panelTabs = [
   { value: "agent", label: "🤖 Agent" },
-  { value: "gitPanel", label: "🔧 Git" },
+  { value: "gitPanel", label: "🌳 Git" },
   { value: "previewPanel", label: "🌐 Browser" },
-  { value: "filesPanel", label: "🗂️ Files" },
+  { value: "filesPanel", label: "📁 Files" },
 ] as const;
 
 const activeTab = computed<string>(() => {

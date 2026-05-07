@@ -7,7 +7,7 @@ import { queueContextBadgeLabel, queueSnippetPreview } from "@/contextQueue/revi
 import { Badge } from "@/components/ui/badge/index";
 import {Button} from "@/components/ui/button";;
 import ContextQueueDiffPasteComposer from "./ContextQueueDiffPasteComposer.vue";
-import PromptWithFileAttachments from "@/components/PromptWithFileAttachments.vue";
+import PromptWithFileAttachments from "@/modules/agent/components/PromptWithFileAttachments.vue";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 
 /** Optional per-item note (@mentions, attachments) merged into paste on send — off until re-enabled. */

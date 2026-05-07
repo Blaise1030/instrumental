@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ThreadAgent, ThreadCreateWithAgentPayload } from "@shared/domain";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import PromptWithFileAttachments from "@/components/PromptWithFileAttachments.vue";
+import PromptWithFileAttachments from "@/modules/agent/components/PromptWithFileAttachments.vue";
 import { Button } from "@/components/ui/button";
 import {
   Select,

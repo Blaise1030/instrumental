@@ -1,39 +1,13 @@
 import { createMemoryHistory, createRouter } from "vue-router";
-import Layout from "@/layouts/Layout.vue";
 import { welcomeRoutes } from "@/modules/welcome/welcomeRoute";
-import { agentRoutes } from "@/modules/agent/agentRoute";
-import { gitRoutes } from "@/modules/git/gitRoute";
-import { explorerRoutes } from "@/modules/explorer/explorerRoute";
-import { browserRoutes } from "@/modules/browser/browserRoute";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { decodeBranch, encodeBranch } from "./branchParam";
 import { persistWorkspaceRouteFromNavigation } from "./workspaceRouteMemory";
+import { workspaceRoute } from "./workspaceRoute";
 
-const [agentThreadNewRoute, agentThreadParamShell] = agentRoutes;
-
-/** App router: `welcomeRoutes` plus workspace layout. Git, preview, and files nest under `thread/:threadId` (see `agentRoute`). */
 export const router = createRouter({
   history: createMemoryHistory(),
-  routes: [
-    welcomeRoutes,
-    {
-      path: "/:projectId/:branch",
-      name: "workspace",
-      component: Layout,
-      children: [
-        agentThreadNewRoute,
-        {
-          path: agentThreadParamShell.path,
-          children: [
-            ...(agentThreadParamShell.children ?? []),
-            gitRoutes,
-            browserRoutes,
-            explorerRoutes,
-          ],
-        },
-      ],
-    },
-  ]
+  routes: [welcomeRoutes, workspaceRoute],
 });
 
 router.beforeEach((to) => {
@@ -51,7 +25,7 @@ router.beforeEach((to) => {
   if (branch) {
     const decodedBranch = decodeBranch(branch);
     const worktree = workspace.worktrees.find(
-      (w) => w.projectId === projectId && w.branch === decodedBranch
+      (w) => w.projectId === projectId && w.branch === decodedBranch,
     );
     if (!worktree) {
       const primary = workspace.worktrees.find((w) => w.projectId === projectId && w.isDefault);
@@ -61,7 +35,7 @@ router.beforeEach((to) => {
       if (fallbackThread) {
         return {
           name: "agent",
-          params: { projectId, branch: eb, threadId: fallbackThread.id }
+          params: { projectId, branch: eb, threadId: fallbackThread.id },
         };
       }
       return { name: "threadNew", params: { projectId, branch: eb } };

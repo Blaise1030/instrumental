@@ -29,7 +29,7 @@ import type { QueueItem } from "@/contextQueue/types";
 import type { KeybindingId } from "@/keybindings/registry";
 import { shortcutForModDigitSlot } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
-import ThreadSidebarNodes, { type ThreadSidebarNodeData } from "@/components/ThreadSidebarNodes.vue";
+import ThreadSidebarNodes, { type ThreadSidebarNodeData } from "@/modules/agent/components/ThreadSidebarNodes.vue";
 
 const keybindings = useKeybindingsStore();
 const { isFullscreen } = useIsFullscreen();
