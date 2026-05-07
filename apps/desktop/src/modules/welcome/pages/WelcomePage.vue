@@ -6,6 +6,7 @@ import { useNavigateToProject } from "@/composables/useNavigateToProject";
 import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import WorkbenchLogoMark from "@/modules/agent/components/WorkbenchLogoMark.vue";
+import { useAddProjectFromDirectoryPick } from "@/composables/useAddProjectFromDirectoryPick";
 
 const { navigateToProject } = useNavigateToProject();
 
@@ -16,6 +17,10 @@ const { data: welcomeProjects, isPending: welcomeProjectsPending } = useQuery({
     const res = (await window.workspaceApi!.getSnapshot()) as WorkspaceSnapshot;
     return [...(res.projects ?? [])].sort((a, b) => a.tabOrder - b.tabOrder);
   },
+});
+
+const { pickAndAddProject } = useAddProjectFromDirectoryPick({
+  navigateToProject: navigateToProject,
 });
 </script>
 
@@ -51,7 +56,7 @@ const { data: welcomeProjects, isPending: welcomeProjectsPending } = useQuery({
                 p.repoPath
               }}</span>
             </span>            
-          </Button>
+          </Button>        
         </div>
         <p
           v-else
@@ -60,6 +65,9 @@ const { data: welcomeProjects, isPending: welcomeProjectsPending } = useQuery({
           No projects in this workspace yet. Add a folder from the app menu once you are inside a
           project, or reopen a repo you have added before.
         </p>
+        <Button @click="void pickAndAddProject()" size="sm" class="mt-4 w-fit" variant="outline">
+          📁 New project
+        </Button>
       </div>
     </div>
   </div>
