@@ -15,7 +15,7 @@ import {
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import { useToast } from "@/composables/useToast";
 import { useAppContext } from "@/app-context/useAppContext";
-import Button from "./ui/button/Button.vue";
+import Button from "@/components/ui/button/Button.vue";
 
 defineOptions({ name: "BranchSelector" });
 

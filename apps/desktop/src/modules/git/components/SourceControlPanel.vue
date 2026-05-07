@@ -1031,5 +1031,5 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-@reference "../styles/globals.css";
+/* @reference "../styles/globals.css"; */
 </style>

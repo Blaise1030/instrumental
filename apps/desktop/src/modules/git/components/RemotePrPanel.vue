@@ -718,7 +718,7 @@ const filteredFiles = computed(() =>
 </template>
 
 <style scoped>
-@reference "../../styles/globals.css";
+/* @reference "../../styles/globals.css"; */
 
 :deep(.diff-view-wrapper) {
   font-size: 11px;

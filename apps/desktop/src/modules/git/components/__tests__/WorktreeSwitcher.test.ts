@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
-import WorktreeSwitcher from "@/components/WorktreeSwitcher.vue";
+import WorktreeSwitcher from "@/modules/git/components/WorktreeSwitcher.vue";
 import type { Worktree } from "@shared/domain";
 
 if (!HTMLElement.prototype.hasPointerCapture) {

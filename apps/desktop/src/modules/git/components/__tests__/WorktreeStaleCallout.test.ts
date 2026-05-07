@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import WorktreeStaleCallout from "@/components/WorktreeStaleCallout.vue";
+import WorktreeStaleCallout from "@/modules/git/components/WorktreeStaleCallout.vue";
 
 describe("WorktreeStaleCallout", () => {
   it("renders smaller text with only the delete action", async () => {

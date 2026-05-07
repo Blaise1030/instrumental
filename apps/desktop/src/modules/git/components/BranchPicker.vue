@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { cn } from "@/lib/utils";
 import ScmBranchCombobox from "@/components/ScmBranchCombobox.vue";
-import BranchSelector from "@/components/BranchSelector.vue";
+import BranchSelector from "@/modules/git/components/BranchSelector.vue";
 import {Button} from "@/components/ui/button";;
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import { Input } from "@/components/ui/input";

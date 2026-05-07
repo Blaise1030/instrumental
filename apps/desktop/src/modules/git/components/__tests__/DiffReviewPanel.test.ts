@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
-import DiffReviewPanel from "@/components/DiffReviewPanel.vue";
+import DiffReviewPanel from "@/modules/git/components/DiffReviewPanel.vue";
 
 function mountPanel(overrides: Record<string, unknown> = {}) {
   return mount(DiffReviewPanel, {

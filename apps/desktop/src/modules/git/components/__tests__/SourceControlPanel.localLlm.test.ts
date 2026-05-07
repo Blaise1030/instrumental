@@ -6,7 +6,7 @@ vi.mock("@/components/MonacoDiffEditor.vue", () => ({
   default: { name: "MonacoDiffEditorStub", template: "<div />" }
 }));
 
-import SourceControlPanel from "@/components/SourceControlPanel.vue";
+import SourceControlPanel from "@/modules/git/components/SourceControlPanel.vue";
 
 const baseProps = {};
 
