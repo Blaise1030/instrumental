@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { Bell, Check, Eye, X } from "lucide-vue-next";
+import { Bell, CheckCircle2, Eye, XCircle } from "lucide-vue-next";
 import { useNotifications } from "../composables/useNotifications";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { encodeBranch } from "@/router/branchParam";
@@ -15,7 +15,6 @@ import {
   Item,
   ItemContent,
   ItemDescription,
-  ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
 import type { AppNotificationKind } from "@/shared/domain";
@@ -27,17 +26,31 @@ const open = ref(false);
 
 const hasUnread = computed(() => unreadCount.value > 0);
 
-const kindIcon: Record<AppNotificationKind, typeof Check> = {
-  done: Check,
+const kindStatusIcon: Record<AppNotificationKind, typeof CheckCircle2> = {
+  done: CheckCircle2,
   needsReview: Eye,
-  failed: X,
+  failed: XCircle,
 };
 
-const kindClass: Record<AppNotificationKind, string> = {
+const kindStatusClass: Record<AppNotificationKind, string> = {
   done: "text-green-500",
   needsReview: "text-yellow-500",
   failed: "text-red-500",
 };
+
+const kindLabel: Record<AppNotificationKind, string> = {
+  done: "Thread completed",
+  needsReview: "Needs your review",
+  failed: "Thread failed",
+};
+
+function initials(title: string): string {
+  return title
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -108,23 +121,35 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
             :key="n.id"
             as="button"
             size="sm"
-            :class="{ 'bg-accent/40': !n.read }"
             class="w-full cursor-pointer"
             @click="handleClick(n.id, n.threadId, n.projectId)"
           >
-            <ItemMedia variant="icon">
+            <!-- Avatar with unread dot -->
+            <div class="relative shrink-0">
+              <div class="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                {{ initials(n.threadTitle) }}
+              </div>
+              <span
+                v-if="!n.read"
+                class="absolute -left-0.5 -top-0.5 size-2.5 rounded-full border-2 border-popover bg-primary"
+              />
+            </div>
+
+            <!-- Title + description -->
+            <ItemContent>
+              <ItemTitle class="truncate">{{ n.threadTitle }}</ItemTitle>
+              <ItemDescription class="truncate">{{ kindLabel[n.kind] }} · {{ n.projectName }}</ItemDescription>
+            </ItemContent>
+
+            <!-- Status icon + timestamp -->
+            <ItemContent class="flex-none items-end">
               <component
-                :is="kindIcon[n.kind]"
-                :class="kindClass[n.kind]"
+                :is="kindStatusIcon[n.kind]"
+                class="size-4 shrink-0"
+                :class="kindStatusClass[n.kind]"
                 aria-hidden="true"
               />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>{{ n.threadTitle }}</ItemTitle>
-              <ItemDescription>{{ n.projectName }}</ItemDescription>
-            </ItemContent>
-            <ItemContent class="flex-none text-right">
-              <span class="text-xs text-muted-foreground">{{ relativeTime(n.createdAt) }}</span>
+              <ItemDescription>{{ relativeTime(n.createdAt) }}</ItemDescription>
             </ItemContent>
           </Item>
         </template>
