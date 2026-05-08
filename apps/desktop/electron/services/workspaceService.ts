@@ -1,19 +1,14 @@
 import { randomUUID } from "node:crypto";
-import path from "node:path";
-import type { Project, Thread, ThreadAgent, Worktree } from "../../src/shared/domain.js";
+import type { Project, Thread, ThreadAgent } from "../../src/shared/domain.js";
 import { isValidPersistedResumeId } from "../../src/shared/resumeSessionId.js";
 import type {
   CreateThreadInput,
-  CreateWorktreeGroupInput,
   GitHubPrSettings,
   WorkspaceSnapshot,
-  WorktreeEditorState
 } from "../../src/shared/ipc.js";
-import { WorkspaceStore } from "../storage/store.js";
+import { WorkspaceStore } from "../storage/WorkspaceStore.js";
 
 export interface GitAdapter {
-  worktreeAdd(repoPath: string, worktreePath: string, branch: string, baseBranch: string | null): Promise<void>;
-  worktreeRemove(worktreePath: string): Promise<void>;
   worktreeList(repoPath: string): Promise<Array<{ path: string; branch: string }>>;
   branchList(repoPath: string): Promise<string[]>;
   pathExists(fsPath: string): Promise<boolean>;
@@ -88,7 +83,6 @@ export class WorkspaceService {
       name,
       repoPath,
       status: "idle",
-      lastActiveWorktreeId: null,
       tabOrder: this.store.nextProjectTabOrder(),
       createdAt: now,
       updatedAt: now
@@ -106,49 +100,26 @@ export class WorkspaceService {
     this.store.deleteProject(projectId);
   }
 
-  addWorktree(projectId: string, branch: string, worktreePath: string, isDefault = false): Worktree {
-    const now = new Date().toISOString();
-    const worktree: Worktree = {
-      id: randomUUID(),
-      projectId,
-      name: branch,
-      branch,
-      path: worktreePath,
-      isActive: true,
-      isDefault,
-      baseBranch: null,
-      lastActiveThreadId: null,
-      createdAt: now,
-      updatedAt: now
-    };
-    this.store.upsertWorktree(worktree);
-    this.store.setActiveState(projectId, worktree.id, null);
-    return worktree;
-  }
-
   /**
-   * @param createdBranchOverride When set (including `null`), persisted as `createdBranch` instead of the
-   *   worktree row's `branch` (used by main process after reading `HEAD` from disk so it matches SCM state).
+   * @param createdBranchOverride When set (including `null`), persisted as `createdBranch` instead of null
+   *   (used by main process after reading `HEAD` from disk so it matches SCM state).
    */
   createThread(input: CreateThreadInput, createdBranchOverride?: string | null): Thread {
-    const snapshot = this.store.getSnapshot();
-
     const now = new Date().toISOString();
-    const worktree = snapshot.worktrees.find((w) => w.id === input.worktreeId);
-    const createdBranch =
-      createdBranchOverride !== undefined ? createdBranchOverride : (worktree?.branch ?? null);
+    const createdBranch = createdBranchOverride !== undefined ? createdBranchOverride : null;
     const thread: Thread = {
       id: randomUUID(),
       projectId: input.projectId,
-      worktreeId: input.worktreeId,
+      worktreePath: input.worktreePath,
       title: input.title,
       agent: input.agent,
       createdBranch,
+      resumeId: null,
       createdAt: now,
       updatedAt: now
     };
     this.store.upsertThread(thread);
-    this.store.setActiveState(input.projectId, input.worktreeId, thread.id);
+    this.store.setActiveState(input.projectId, input.worktreePath, thread.id);
     return thread;
   }
 
@@ -269,73 +240,8 @@ export class WorkspaceService {
     return true;
   }
 
-  setActive(projectId: string | null, worktreeId: string | null, threadId: string | null): void {
-    this.store.setActiveState(projectId, worktreeId, threadId);
-  }
-
-  getWorktreeEditorState(worktreeId: string): WorktreeEditorState | null {
-    return this.store.getWorktreeEditorState(worktreeId);
-  }
-
-  setWorktreeEditorState(
-    worktreeId: string,
-    selectedFilePath: string | null,
-    openFilePaths: string[]
-  ): void {
-    this.store.setWorktreeEditorState(worktreeId, selectedFilePath, openFilePaths);
-  }
-
-  async createWorktreeGroup(input: CreateWorktreeGroupInput): Promise<Worktree> {
-    if (!this.git) throw new Error("Git adapter required for worktree operations");
-
-    const snapshot = this.store.getSnapshot();
-    const project = snapshot.projects.find((p) => p.id === input.projectId);
-    if (!project) throw new Error(`Project ${input.projectId} not found`);
-
-    const sanitized = input.branch.replace(/\//g, "-");
-    const worktreePath = path.join(project.repoPath, ".worktrees", sanitized);
-
-    await this.git.worktreeAdd(project.repoPath, worktreePath, input.branch, input.baseBranch);
-
-    const now = new Date().toISOString();
-    const worktree: Worktree = {
-      id: randomUUID(),
-      projectId: input.projectId,
-      name: input.branch,
-      branch: input.branch,
-      path: worktreePath,
-      isActive: true,
-      isDefault: false,
-      baseBranch: input.baseBranch,
-      lastActiveThreadId: null,
-      createdAt: now,
-      updatedAt: now
-    };
-    this.store.upsertWorktree(worktree);
-    return worktree;
-  }
-
-  async deleteWorktreeGroup(worktreeId: string): Promise<void> {
-    if (!this.git) throw new Error("Git adapter required for worktree operations");
-
-    const snapshot = this.store.getSnapshot();
-    const worktree = snapshot.worktrees.find((w) => w.id === worktreeId);
-    if (!worktree) throw new Error(`Worktree ${worktreeId} not found`);
-    if (worktree.isDefault) throw new Error("Cannot delete the default worktree");
-
-    const exists = await this.git.pathExists(worktree.path);
-    if (exists) {
-      await this.git.worktreeRemove(worktree.path);
-    }
-
-    this.store.deleteWorktreeGroup(worktreeId);
-
-    if (snapshot.activeWorktreeId === worktreeId) {
-      const defaultWt = snapshot.worktrees.find((w) => w.projectId === worktree.projectId && w.isDefault);
-      if (defaultWt) {
-        this.store.setActiveState(worktree.projectId, defaultWt.id, null);
-      }
-    }
+  setActive(projectId: string | null, worktreePath: string | null, threadId: string | null): void {
+    this.store.setActiveState(projectId, worktreePath, threadId);
   }
 
   async listBranches(projectId: string): Promise<string[]> {
@@ -348,71 +254,4 @@ export class WorkspaceService {
     return this.git.branchList(project.repoPath);
   }
 
-  /**
-   * Keeps persisted worktree `branch` aligned with `git checkout` performed in that path
-   * (or with the branch read from disk after an external HEAD change).
-   *
-   * @returns whether the persisted worktree row was updated.
-   */
-  updateWorktreeBranchAtPath(worktreePath: string, branch: string): boolean {
-    const normalized = path.normalize(worktreePath);
-    const snapshot = this.store.getSnapshot();
-    const worktree = snapshot.worktrees.find((w) => path.normalize(w.path) === normalized);
-    if (!worktree || worktree.branch === branch) return false;
-    const now = new Date().toISOString();
-    this.store.upsertWorktree({ ...worktree, branch, updatedAt: now });
-    return true;
-  }
-
-  async checkWorktreeHealth(worktreeId: string): Promise<{ exists: boolean }> {
-    if (!this.git) throw new Error("Git adapter required");
-    const snapshot = this.store.getSnapshot();
-    const worktree = snapshot.worktrees.find((w) => w.id === worktreeId);
-    if (!worktree) return { exists: false };
-    const exists = await this.git.pathExists(worktree.path);
-    return { exists };
-  }
-
-  /**
-   * Discovers git worktrees on disk that are not tracked in the DB
-   * and imports them as non-default worktree groups.
-   */
-  async syncWorktrees(projectId: string): Promise<boolean> {
-    if (!this.git) return false;
-
-    const snapshot = this.store.getSnapshot();
-    const project = snapshot.projects.find((p) => p.id === projectId);
-    if (!project) return false;
-
-    const gitWorktrees = await this.git.worktreeList(project.repoPath);
-    const knownPaths = new Set(
-      snapshot.worktrees
-        .filter((w) => w.projectId === projectId)
-        .map((w) => w.path)
-    );
-
-    let imported = false;
-    const now = new Date().toISOString();
-    for (const entry of gitWorktrees) {
-      // Skip the main worktree (same as repoPath) and already-tracked worktrees
-      if (entry.path === project.repoPath || knownPaths.has(entry.path)) continue;
-
-      const worktree: Worktree = {
-        id: randomUUID(),
-        projectId,
-        name: entry.branch,
-        branch: entry.branch,
-        path: entry.path,
-        isActive: true,
-        isDefault: false,
-        baseBranch: null,
-        lastActiveThreadId: null,
-        createdAt: now,
-        updatedAt: now
-      };
-      this.store.upsertWorktree(worktree);
-      imported = true;
-    }
-    return imported;
-  }
 }

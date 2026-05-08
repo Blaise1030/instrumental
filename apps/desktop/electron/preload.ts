@@ -1,11 +1,9 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 import type {
   AddProjectInput,
-  AddWorktreeInput,
   AppNotification,
   AppUpdateAvailability,
   CreateThreadInput,
-  CreateWorktreeGroupInput,
   DeleteThreadInput,
   MarkNotificationReadInput,
   PreviewBounds,
@@ -154,22 +152,13 @@ contextBridge.exposeInMainWorld("workspaceApi", {
   addProject: (payload: AddProjectInput) => ipcRenderer.invoke(IPC_CHANNELS.workspaceAddProject, payload),
   removeProject: (payload: RemoveProjectInput) => ipcRenderer.invoke(IPC_CHANNELS.workspaceRemoveProject, payload),
   reorderProjects: (payload: ReorderProjectsInput) => ipcRenderer.invoke(IPC_CHANNELS.workspaceReorderProjects, payload),
-  addWorktree: (payload: AddWorktreeInput) => ipcRenderer.invoke(IPC_CHANNELS.workspaceAddWorktree, payload),
-  setActive: (payload: { projectId: string | null; worktreeId: string | null; threadId: string | null }) => ipcRenderer.invoke(IPC_CHANNELS.workspaceSetActive, payload),
-  getWorktreeEditorState: (worktreeId: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.workspaceGetWorktreeEditorState, { worktreeId }),
-  setWorktreeEditorState: (payload: { worktreeId: string; selectedFilePath: string | null; openFilePaths: string[] }) =>
-    ipcRenderer.invoke(IPC_CHANNELS.workspaceSetWorktreeEditorState, payload),
+  setActive: (payload: { projectId: string | null; worktreePath: string | null; threadId: string | null }) => ipcRenderer.invoke(IPC_CHANNELS.workspaceSetActive, payload),
   createThread: (payload: CreateThreadInput) => ipcRenderer.invoke(IPC_CHANNELS.workspaceCreateThread, payload),
   setActiveThread: (threadId: string) => ipcRenderer.invoke(IPC_CHANNELS.workspaceSetActiveThread, threadId),
   deleteThread: (payload: DeleteThreadInput) => ipcRenderer.invoke(IPC_CHANNELS.workspaceDeleteThread, payload),
   renameThread: (payload: RenameThreadInput) => ipcRenderer.invoke(IPC_CHANNELS.workspaceRenameThread, payload),
   updateThread: (payload: UpdateThreadInput) => ipcRenderer.invoke(IPC_CHANNELS.workspaceUpdateThread, payload),
-  createWorktreeGroup: (payload: CreateWorktreeGroupInput) => ipcRenderer.invoke(IPC_CHANNELS.workspaceCreateWorktreeGroup, payload),
-  deleteWorktreeGroup: (payload: { worktreeId: string }) => ipcRenderer.invoke(IPC_CHANNELS.workspaceDeleteWorktreeGroup, payload),
   listBranches: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.workspaceListBranches, { projectId }),
-  worktreeHealth: (worktreeId: string) => ipcRenderer.invoke(IPC_CHANNELS.workspaceWorktreeHealth, { worktreeId }),
-  syncWorktrees: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.workspaceSyncWorktrees, { projectId }),
   setAgentSkillSearchRoots: (roots: string[]) =>
     ipcRenderer.invoke(IPC_CHANNELS.workspaceSetAgentSkillSearchRoots, roots),
   getGitHubPrSettings: () => ipcRenderer.invoke(IPC_CHANNELS.workspaceGetGitHubPrSettings) as Promise<GitHubPrSettings>,

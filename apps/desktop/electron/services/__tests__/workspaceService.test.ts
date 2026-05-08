@@ -6,10 +6,11 @@ function buildThread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "thread-1",
     projectId: "project-1",
-    worktreeId: "worktree-1",
+    worktreePath: "/tmp/wt",
     title: "Codex CLI",
     agent: "codex",
     createdBranch: null,
+    resumeId: null,
     createdAt: "2026-04-06T00:00:00.000Z",
     updatedAt: "2026-04-06T00:00:00.000Z",
     ...overrides
@@ -367,50 +368,6 @@ describe("WorkspaceService.captureInitialPrompt", () => {
   });
 });
 
-describe("WorkspaceService worktree editor state", () => {
-  it("proxies get/set worktree editor state to the store", () => {
-    const getWorktreeEditorState = vi.fn(() => ({
-      worktreeId: "worktree-1",
-      selectedFilePath: "src/App.vue",
-      openFilePaths: ["src/App.vue", "README.md"],
-      updatedAt: "2026-04-18T00:00:00.000Z"
-    }));
-    const setWorktreeEditorState = vi.fn();
-    const store = {
-      getSnapshot: vi.fn(),
-      upsertProject: vi.fn(),
-      setActiveState: vi.fn(),
-      upsertWorktree: vi.fn(),
-      upsertThread: vi.fn(),
-      upsertThreadSession: vi.fn(),
-      deleteThread: vi.fn(),
-      renameThread: vi.fn(),
-      getThread: vi.fn(),
-      getThreadSession: vi.fn(),
-      getWorktreeEditorState,
-      setWorktreeEditorState
-    };
-    const service = new WorkspaceService(store as never);
-
-    expect(service.getWorktreeEditorState("worktree-1")).toEqual({
-      worktreeId: "worktree-1",
-      selectedFilePath: "src/App.vue",
-      openFilePaths: ["src/App.vue", "README.md"],
-      updatedAt: "2026-04-18T00:00:00.000Z"
-    });
-
-    service.setWorktreeEditorState("worktree-1", "src/Other.vue", [
-      "src/Other.vue",
-      "README.md"
-    ]);
-
-    expect(getWorktreeEditorState).toHaveBeenCalledWith("worktree-1");
-    expect(setWorktreeEditorState).toHaveBeenCalledWith("worktree-1", "src/Other.vue", [
-      "src/Other.vue",
-      "README.md"
-    ]);
-  });
-});
 
 describe("WorkspaceService.captureResumeId", () => {
   it("persists resumeId and returns true on first call", () => {
@@ -582,121 +539,28 @@ describe("WorkspaceService.captureResumeId", () => {
   });
 });
 
-describe("WorkspaceService.createWorktreeGroup", () => {
-  it("creates a worktree with isDefault false and baseBranch", async () => {
-    const upsertWorktree = vi.fn();
-    const setActiveState = vi.fn();
-    const store = {
-      getSnapshot: vi.fn(() => ({
-        projects: [{ id: "p1", repoPath: "/tmp/repo" }],
-        worktrees: [],
-        threads: [],
-        activeProjectId: "p1",
-        activeWorktreeId: null,
-        activeThreadId: null
-      })),
-      upsertProject: vi.fn(),
-      setActiveState,
-      upsertWorktree,
-      upsertThread: vi.fn(),
-      deleteThread: vi.fn(),
-      renameThread: vi.fn(),
-      getThread: vi.fn(),
-      deleteWorktreeGroup: vi.fn()
-    };
-    const mockGit = {
-      worktreeAdd: vi.fn(async () => {}),
-      branchList: vi.fn(async () => ["main", "develop"]),
-      worktreeList: vi.fn(async () => []),
-      worktreeRemove: vi.fn(),
-      pathExists: vi.fn()
-    };
-    const service = new WorkspaceService(store as never, mockGit as never);
-
-    const result = await service.createWorktreeGroup({
-      projectId: "p1",
-      branch: "feat/auth",
-      baseBranch: "main"
-    });
-
-    expect(result.isDefault).toBe(false);
-    expect(result.baseBranch).toBe("main");
-    expect(result.branch).toBe("feat/auth");
-    expect(mockGit.worktreeAdd).toHaveBeenCalled();
-    expect(upsertWorktree).toHaveBeenCalledWith(expect.objectContaining({
-      isDefault: false,
-      baseBranch: "main"
-    }));
-  });
-});
-
-describe("WorkspaceService.deleteWorktreeGroup", () => {
-  it("removes git worktree and deletes store data", async () => {
-    const deleteWorktreeGroupStore = vi.fn();
-    const store = {
-      getSnapshot: vi.fn(() => ({
-        projects: [{ id: "p1", repoPath: "/tmp/repo" }],
-        worktrees: [
-          { id: "wt-default", projectId: "p1", path: "/tmp/repo", isDefault: true },
-          { id: "wt-feat", projectId: "p1", path: "/tmp/repo/.worktrees/feat-auth", isDefault: false }
-        ],
-        threads: [],
-        activeProjectId: "p1",
-        activeWorktreeId: "wt-feat",
-        activeThreadId: null
-      })),
-      upsertProject: vi.fn(),
-      setActiveState: vi.fn(),
-      upsertWorktree: vi.fn(),
-      upsertThread: vi.fn(),
-      deleteThread: vi.fn(),
-      renameThread: vi.fn(),
-      getThread: vi.fn(),
-      deleteWorktreeGroup: deleteWorktreeGroupStore
-    };
-    const mockGit = {
-      worktreeAdd: vi.fn(),
-      worktreeRemove: vi.fn(async () => {}),
-      branchList: vi.fn(),
-      worktreeList: vi.fn(async () => []),
-      pathExists: vi.fn(async () => true)
-    };
-    const service = new WorkspaceService(store as never, mockGit as never);
-
-    await service.deleteWorktreeGroup("wt-feat");
-
-    expect(mockGit.worktreeRemove).toHaveBeenCalledWith("/tmp/repo/.worktrees/feat-auth");
-    expect(deleteWorktreeGroupStore).toHaveBeenCalledWith("wt-feat");
-    expect(store.setActiveState).toHaveBeenCalledWith("p1", "wt-default", null);
-  });
-});
 
 describe("WorkspaceService.listBranches", () => {
   it("returns branches from the git adapter", async () => {
     const mockGit = {
-      worktreeAdd: vi.fn(),
-      worktreeRemove: vi.fn(),
-      branchList: vi.fn(async () => ["main", "develop", "feat/auth"]),
       worktreeList: vi.fn(async () => []),
+      branchList: vi.fn(async () => ["main", "develop", "feat/auth"]),
       pathExists: vi.fn()
     };
     const store = {
       getSnapshot: vi.fn(() => ({
         projects: [{ id: "p1", repoPath: "/tmp/repo" }],
-        worktrees: [],
         threads: [],
         activeProjectId: null,
-        activeWorktreeId: null,
+        activeWorktreePath: null,
         activeThreadId: null
       })),
       upsertProject: vi.fn(),
       setActiveState: vi.fn(),
-      upsertWorktree: vi.fn(),
       upsertThread: vi.fn(),
       deleteThread: vi.fn(),
       renameThread: vi.fn(),
-      getThread: vi.fn(),
-      deleteWorktreeGroup: vi.fn()
+      getThread: vi.fn()
     };
     const service = new WorkspaceService(store as never, mockGit as never);
 
@@ -714,12 +578,10 @@ describe("WorkspaceService.removeProject", () => {
       getSnapshot: vi.fn(),
       upsertProject: vi.fn(),
       setActiveState: vi.fn(),
-      upsertWorktree: vi.fn(),
       upsertThread: vi.fn(),
       deleteThread: vi.fn(),
       renameThread: vi.fn(),
       getThread: vi.fn(),
-      deleteWorktreeGroup: vi.fn(),
       deleteProject
     };
     const service = new WorkspaceService(store as never);
@@ -735,26 +597,9 @@ describe("WorkspaceService thread ordering", () => {
     const upsertThread = vi.fn();
     const setActiveState = vi.fn();
     const store = {
-      getSnapshot: vi.fn(() => ({
-        worktrees: [
-          {
-            id: "worktree-1",
-            projectId: "project-1",
-            name: "feature",
-            branch: "feature/x",
-            path: "/tmp/wt",
-            isActive: true,
-            isDefault: false,
-            baseBranch: null,
-            lastActiveThreadId: null,
-            createdAt: "2026-04-06T00:00:00.000Z",
-            updatedAt: "2026-04-06T00:00:00.000Z"
-          }
-        ]
-      })),
+      getSnapshot: vi.fn(),
       upsertProject: vi.fn(),
       setActiveState,
-      upsertWorktree: vi.fn(),
       upsertThread,
       deleteThread: vi.fn(),
       renameThread: vi.fn(),
@@ -764,7 +609,7 @@ describe("WorkspaceService thread ordering", () => {
 
     const created = service.createThread({
       projectId: "project-1",
-      worktreeId: "worktree-1",
+      worktreePath: "/tmp/wt",
       title: "New thread",
       agent: "codex"
     });
@@ -773,17 +618,17 @@ describe("WorkspaceService thread ordering", () => {
       expect.objectContaining({
         id: created.id,
         projectId: "project-1",
-        worktreeId: "worktree-1",
+        worktreePath: "/tmp/wt",
         title: "New thread",
         agent: "codex",
-        createdBranch: "feature/x"
+        createdBranch: null
       })
     );
 
     const withOverride = service.createThread(
       {
         projectId: "project-1",
-        worktreeId: "worktree-1",
+        worktreePath: "/tmp/wt",
         title: "Second",
         agent: "codex"
       },
@@ -796,40 +641,22 @@ describe("WorkspaceService thread ordering", () => {
       })
     );
     expect(created.createdAt).toEqual(expect.any(String));
-    expect(setActiveState).toHaveBeenCalledWith("project-1", "worktree-1", created.id);
+    expect(setActiveState).toHaveBeenCalledWith("project-1", "/tmp/wt", created.id);
   });
 
-  it("creates a new thread even when the worktree already has one", () => {
+  it("creates a new thread with a unique id", () => {
     const existing = buildThread({
       id: "thread-existing",
       projectId: "project-1",
-      worktreeId: "worktree-1",
+      worktreePath: "/tmp/wt",
       title: "Existing thread"
     });
     const upsertThread = vi.fn();
     const setActiveState = vi.fn();
     const store = {
-      getSnapshot: vi.fn(() => ({
-        worktrees: [
-          {
-            id: "worktree-1",
-            projectId: "project-1",
-            name: "feature",
-            branch: "feature/x",
-            path: "/tmp/wt",
-            isActive: true,
-            isDefault: false,
-            baseBranch: null,
-            lastActiveThreadId: "thread-existing",
-            createdAt: "2026-04-06T00:00:00.000Z",
-            updatedAt: "2026-04-06T00:00:00.000Z"
-          }
-        ],
-        threads: [existing]
-      })),
+      getSnapshot: vi.fn(() => ({ threads: [existing] })),
       upsertProject: vi.fn(),
       setActiveState,
-      upsertWorktree: vi.fn(),
       upsertThread,
       deleteThread: vi.fn(),
       renameThread: vi.fn(),
@@ -839,7 +666,7 @@ describe("WorkspaceService thread ordering", () => {
 
     const created = service.createThread({
       projectId: "project-1",
-      worktreeId: "worktree-1",
+      worktreePath: "/tmp/wt",
       title: "New thread title",
       agent: "codex"
     });
@@ -850,10 +677,9 @@ describe("WorkspaceService thread ordering", () => {
         id: created.id,
         title: "New thread title",
         projectId: "project-1",
-        worktreeId: "worktree-1",
-        createdBranch: "feature/x"
+        worktreePath: "/tmp/wt"
       })
     );
-    expect(setActiveState).toHaveBeenCalledWith("project-1", "worktree-1", created.id);
+    expect(setActiveState).toHaveBeenCalledWith("project-1", "/tmp/wt", created.id);
   });
 });

@@ -327,9 +327,7 @@ function assertCwdIsRegistered(cwd: string): void {
 function registerIpc(workspaceService: WorkspaceService): void {
   ipcMain.handle(IPC_CHANNELS.workspaceGetSnapshot, () => workspaceService.getSnapshot());
   ipcMain.handle(IPC_CHANNELS.workspaceAddProject, (_, payload: AddProjectInput) => {
-    const project = workspaceService.addProject(payload.name, payload.repoPath);
-    const branch = payload.defaultBranch ?? "main";
-    workspaceService.addWorktree(project.id, branch, payload.repoPath, true);
+    workspaceService.addProject(payload.name, payload.repoPath);
     emitWorkspaceDidChange();
     return workspaceService.getSnapshot();
   });
@@ -341,8 +339,8 @@ function registerIpc(workspaceService: WorkspaceService): void {
     workspaceService.reorderProjects(payload.orderedProjectIds);
     emitWorkspaceDidChange();
   });
-  ipcMain.handle(IPC_CHANNELS.workspaceSetActive, (_, payload: { projectId: string | null; worktreeId: string | null; threadId: string | null }) => {
-    workspaceService.setActive(payload.projectId, payload.worktreeId, payload.threadId);
+  ipcMain.handle(IPC_CHANNELS.workspaceSetActive, (_, payload: { projectId: string | null; worktreePath: string | null; threadId: string | null }) => {
+    workspaceService.setActive(payload.projectId, payload.worktreePath, payload.threadId);
     emitWorkspaceDidChange();
   });
   ipcMain.handle(IPC_CHANNELS.workspaceGetGitHubPrSettings, () => workspaceService.getGitHubPrSettings());
@@ -482,7 +480,6 @@ function registerIpc(workspaceService: WorkspaceService): void {
   ipcMain.handle(IPC_CHANNELS.diffGitCheckoutBranch, async (_, payload: { cwd: string; branch: string }) => {
     assertCwdIsRegistered(payload.cwd);
     await diffService.checkoutBranch(payload.cwd, payload.branch);
-    workspaceService.updateWorktreeBranchAtPath(payload.cwd, payload.branch);
     emitWorkspaceDidChange();
     emitWorkingTreeFilesDidChange();
   });

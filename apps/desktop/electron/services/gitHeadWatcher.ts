@@ -27,7 +27,9 @@ export class GitHeadWatcher {
   constructor(private readonly opts: GitHeadWatcherOptions) {}
 
   syncFromSnapshot(snapshot: WorkspaceSnapshot): void {
-    const desired = new Set(snapshot.worktrees.map((w) => path.normalize(w.path)));
+    const pathsFromThreads = snapshot.threads.map((t) => path.normalize(t.worktreePath));
+    const pathsFromProjects = snapshot.projects.map((p) => path.normalize(p.repoPath));
+    const desired = new Set([...pathsFromThreads, ...pathsFromProjects]);
 
     for (const cwd of this.watchers.keys()) {
       if (!desired.has(cwd)) {
@@ -98,16 +100,11 @@ export class GitHeadWatcher {
     this.pendingCwds.clear();
     if (cwds.length === 0) return;
 
-    let storeUpdated = false;
     for (const cwd of cwds) {
-      const branch = await this.opts.diffService.readAbbrevRefHead(cwd);
-      if (!branch) continue;
-      if (this.opts.workspaceService.updateWorktreeBranchAtPath(cwd, branch)) {
-        storeUpdated = true;
-      }
+      await this.opts.diffService.readAbbrevRefHead(cwd);
     }
 
     this.opts.onWorkingTreeChanged();
-    if (storeUpdated) this.opts.onWorkspaceMetadataChanged();
+    this.opts.onWorkspaceMetadataChanged();
   }
 }
