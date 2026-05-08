@@ -11,6 +11,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item";
 import type { AppNotificationKind } from "@/shared/domain";
 
 const router = useRouter();
@@ -94,29 +101,32 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
         </button>
       </div>
 
-      <div class="max-h-80 overflow-y-auto">
+      <div class="max-h-80 overflow-y-auto p-1">
         <template v-if="notifications?.length">
-          <button
+          <Item
             v-for="n in notifications"
             :key="n.id"
-            class="flex w-full items-start gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent"
-            :class="{ 'bg-accent/50': !n.read }"
+            as="button"
+            size="sm"
+            :class="{ 'bg-accent/40': !n.read }"
+            class="w-full cursor-pointer"
             @click="handleClick(n.id, n.threadId, n.projectId)"
           >
-            <component
-              :is="kindIcon[n.kind]"
-              class="mt-0.5 size-4 shrink-0"
-              :class="kindClass[n.kind]"
-              aria-hidden="true"
-            />
-            <div class="min-w-0 flex-1">
-              <p class="truncate font-medium">{{ n.threadTitle }}</p>
-              <p class="truncate text-xs text-muted-foreground">{{ n.projectName }}</p>
-            </div>
-            <span class="shrink-0 text-xs text-muted-foreground">
-              {{ relativeTime(n.createdAt) }}
-            </span>
-          </button>
+            <ItemMedia variant="icon">
+              <component
+                :is="kindIcon[n.kind]"
+                :class="kindClass[n.kind]"
+                aria-hidden="true"
+              />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>{{ n.threadTitle }}</ItemTitle>
+              <ItemDescription>{{ n.projectName }}</ItemDescription>
+            </ItemContent>
+            <ItemContent class="flex-none text-right">
+              <span class="text-xs text-muted-foreground">{{ relativeTime(n.createdAt) }}</span>
+            </ItemContent>
+          </Item>
         </template>
 
         <p v-else class="px-3 py-6 text-center text-sm text-muted-foreground">
