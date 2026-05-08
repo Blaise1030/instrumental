@@ -12,7 +12,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-  Item,
   ItemContent,
   ItemDescription,
   ItemTitle,
@@ -105,23 +104,23 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
     >
       <div class="flex items-center justify-between border-b px-3 py-2">
         <span class="text-sm font-medium">Notifications</span>
-        <button
+        <Button
           v-if="hasUnread"
-          class="text-xs text-muted-foreground hover:text-foreground"
+          variant="ghost"
+          size="xs"
           @click="markAllRead"
         >
           Mark all read
-        </button>
+        </Button>
       </div>
 
       <div class="max-h-80 overflow-y-auto p-1">
         <template v-if="notifications?.length">
-          <Item
+          <Button
             v-for="n in notifications"
             :key="n.id"
-            as="button"
-            size="sm"
-            class="w-full cursor-pointer"
+            variant="ghost"
+            class="h-auto w-full justify-start gap-2.5 px-2 py-2"
             @click="handleClick(n.id, n.threadId, n.projectId)"
           >
             <!-- Avatar with unread dot -->
@@ -151,7 +150,7 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
               />
               <ItemDescription>{{ relativeTime(n.createdAt) }}</ItemDescription>
             </ItemContent>
-          </Item>
+          </Button>
         </template>
 
         <p v-else class="px-3 py-6 text-center text-sm text-muted-foreground">
