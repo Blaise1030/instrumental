@@ -97,7 +97,7 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
     <PopoverContent
       side="top"
       align="end"
-      class="w-72 p-0"
+      class="w-[17rem] p-0"
       data-testid="notification-popover-content"
     >
       <div class="flex items-center justify-between border-b px-3 py-2">
