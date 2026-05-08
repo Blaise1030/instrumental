@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useVirtualList } from "@vueuse/core";
 import { useRouter } from "vue-router";
 import { Bell, CheckCircle2, Eye, XCircle } from "lucide-vue-next";
 import { useNotifications } from "../composables/useNotifications";
@@ -15,12 +16,21 @@ import AgentIcon from "@/components/ui/AgentIcon.vue";
 import type { AppNotificationKind } from "@/shared/domain";
 import type { ThreadAgent } from "@shared/domain";
 
+const ITEM_HEIGHT = 48;
+
 const router = useRouter();
 const workspace = useWorkspaceStore();
 const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
 const open = ref(false);
 
 const hasUnread = computed(() => unreadCount.value > 0);
+
+const items = computed(() => notifications.value ?? []);
+
+const { list, containerProps, wrapperProps } = useVirtualList(items, {
+  itemHeight: ITEM_HEIGHT,
+  overscan: 3,
+});
 
 const kindStatusIcon: Record<AppNotificationKind, typeof CheckCircle2> = {
   done: CheckCircle2,
@@ -102,46 +112,49 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
         </Button>
       </div>
 
-      <div class="max-h-72 overflow-y-auto p-1">
-        <template v-if="notifications?.length">
-          <button
-            v-for="n in notifications"
-            :key="n.id"
-            class="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted"
-            @click="handleClick(n.id, n.threadId, n.projectId)"
-          >
-            <!-- Agent icon with unread dot -->
-            <div class="relative mt-0.5 shrink-0">
-              <AgentIcon :agent="agentFor(n.threadId)" :size="14" class="text-foreground" />
-              <span
-                v-if="!n.read"
-                class="absolute -right-1 -top-1 size-1.5 rounded-full bg-primary"
-              />
-            </div>
+      <template v-if="items.length">
+        <div v-bind="containerProps" class="max-h-72">
+          <div v-bind="wrapperProps">
+            <button
+              v-for="{ data: n } in list"
+              :key="n.id"
+              :style="{ height: `${ITEM_HEIGHT}px` }"
+              class="flex w-full items-start gap-2 px-2.5 py-2 text-left hover:bg-muted"
+              @click="handleClick(n.id, n.threadId, n.projectId)"
+            >
+              <!-- Agent icon with unread dot -->
+              <div class="relative mt-0.5 shrink-0">
+                <AgentIcon :agent="agentFor(n.threadId)" :size="14" class="text-foreground" />
+                <span
+                  v-if="!n.read"
+                  class="absolute -right-1 -top-1 size-1.5 rounded-full bg-primary"
+                />
+              </div>
 
-            <!-- Title + description -->
-            <div class="min-w-0 flex-1 overflow-hidden">
-              <p class="truncate text-xs font-medium leading-tight">{{ n.threadTitle }}</p>
-              <p class="truncate text-[11px] leading-tight text-muted-foreground">{{ kindLabel[n.kind] }} · {{ n.projectName }}</p>
-            </div>
+              <!-- Title + description -->
+              <div class="min-w-0 flex-1 overflow-hidden">
+                <p class="truncate text-xs font-medium leading-tight">{{ n.threadTitle }}</p>
+                <p class="truncate text-[11px] leading-tight text-muted-foreground">{{ kindLabel[n.kind] }} · {{ n.projectName }}</p>
+              </div>
 
-            <!-- Status icon + timestamp -->
-            <div class="flex shrink-0 flex-col items-end gap-0.5">
-              <component
-                :is="kindStatusIcon[n.kind]"
-                class="size-3.5"
-                :class="kindStatusClass[n.kind]"
-                aria-hidden="true"
-              />
-              <span class="text-[11px] text-muted-foreground">{{ relativeTime(n.createdAt) }}</span>
-            </div>
-          </button>
-        </template>
+              <!-- Status icon + timestamp -->
+              <div class="flex shrink-0 flex-col items-end gap-0.5">
+                <component
+                  :is="kindStatusIcon[n.kind]"
+                  class="size-3.5"
+                  :class="kindStatusClass[n.kind]"
+                  aria-hidden="true"
+                />
+                <span class="text-[11px] text-muted-foreground">{{ relativeTime(n.createdAt) }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </template>
 
-        <p v-else class="px-2 py-4 text-center text-xs text-muted-foreground">
-          No notifications
-        </p>
-      </div>
+      <p v-else class="px-2 py-4 text-center text-xs text-muted-foreground">
+        No notifications
+      </p>
     </PopoverContent>
   </Popover>
 </template>
