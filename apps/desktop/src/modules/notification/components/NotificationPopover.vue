@@ -101,8 +101,8 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
 
     <PopoverContent
       side="top"
-      align="end"
-      class="w-[17rem] p-0"
+      align="end"      
+      class="p-0 gap-0"
       data-testid="notification-popover-content"
     >
       <div class="flex items-center justify-between border-b px-2.5 py-1.5">
@@ -113,13 +113,13 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
       </div>
 
       <template v-if="items.length">
-        <div v-bind="containerProps" class="max-h-72">
+        <div v-bind="containerProps" class="max-h-72 p-2">
           <div v-bind="wrapperProps">
             <button
               v-for="{ data: n } in list"
               :key="n.id"
               :style="{ height: `${ITEM_HEIGHT}px` }"
-              class="flex w-full items-start gap-2 px-2.5 py-2 text-left hover:bg-muted"
+              class="flex w-full rounded-sm items-start gap-2 px-2.5 py-2 text-left hover:bg-muted"
               @click="handleClick(n.id, n.threadId, n.projectId)"
             >
               <!-- Agent icon with unread dot -->
