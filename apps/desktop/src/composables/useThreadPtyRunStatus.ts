@@ -1,12 +1,15 @@
 import { onBeforeUnmount, onMounted, ref, watch, type ComputedRef, type Ref } from "vue";
 import type { RunStatus, Thread } from "@shared/domain";
 import { playTerminalChirp } from "@/terminal/playTerminalChirp";
+import type { WorkspaceService } from "@/app-context/workspaceService";
 
 export type UseThreadPtyRunStatusOpts = {
   /** Thread the user is focused on; idle attention and chirps use this. */
   activeThreadId: Ref<string | null>;
   /** When false, completion does not play the attention chirp (row may still highlight). */
   notificationsEnabled: Ref<boolean>;
+  /** Service used to subscribe to run-state events; abstracted so non-desktop modes can provide their own. */
+  workspaceService: Ref<WorkspaceService | undefined> | ComputedRef<WorkspaceService | undefined>;
 };
 
 /**
@@ -64,11 +67,9 @@ export function useThreadPtyRunStatus(
   let disposeHook: (() => void) | null = null;
 
   onMounted(() => {
-    const api = typeof window !== "undefined" ? window.workspaceApi : undefined;
-    if (!api?.onThreadRunStateChanged) return;
-    disposeHook = api.onThreadRunStateChanged((threadId, state) => {
+    disposeHook = opts.workspaceService.value?.onThreadRunStateChanged((threadId, state) => {
       applyHookState(threadId, state);
-    });
+    }) ?? null;
   });
 
   // Clean up stale entries when threads are removed.

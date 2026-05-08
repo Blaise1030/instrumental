@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useIsFullscreen } from "@/composables/useIsFullscreen";
 import { useAppContext } from "@/app-context/useAppContext";
 import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
+import { useThreadPtyRunStatus } from "@/composables/useThreadPtyRunStatus";
 import { useAddProjectFromDirectoryPick } from "@/composables/useAddProjectFromDirectoryPick";
 import { useNavigateToProject } from "@/composables/useNavigateToProject";
 import {
@@ -43,6 +44,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Terminal, Settings } from "lucide-vue-next";
 import ThemeToggle from "@/components/ThemeToggle.vue";
+import NotificationPopover from "@/modules/notification/components/NotificationPopover.vue";
 import BranchPicker from "@/modules/git/components/BranchPicker.vue";
 import {
   Popover,
@@ -210,6 +212,25 @@ const filterByBranch = (
   }
   return threads;
 };
+
+const allSidebarThreads = computed(() =>
+  (threadsGroup.value ?? []).flatMap((g) => g.threads)
+);
+
+const { runStatusByThreadId, idleAttentionByThreadId, clearIdleAttention } = useThreadPtyRunStatus(
+  allSidebarThreads,
+  { activeThreadId, notificationsEnabled: ref(true), workspaceService: computed(() => appContext.value?.workspaceService) }
+);
+
+function threadIconClass(threadId: string): string {
+  switch (runStatusByThreadId.value[threadId] ?? null) {
+    case "running": return "animate-pulse text-green-600 dark:text-green-400";
+    case "needsReview": return "animate-pulse text-orange-500";
+    case "done": return "text-green-500";
+    case "failed": return "text-red-500";
+    default: return "";
+  }
+}
 
 function openFeedbackIssue(): void {
   window.open("https://github.com/instrument-ai/instrument/issues", "_blank");
@@ -524,12 +545,14 @@ async function onCreateWorktreeGroup(
                             size="sm"
                             as-child
                             class="whitespace-nowrap group-item"
+                            :class="idleAttentionByThreadId[thread.id] ? 'bg-blue-500/12 ring-1 ring-blue-500/45 dark:bg-blue-400/14 dark:ring-blue-400/50' : ''"
                             :is-active="
                               route.path.startsWith(thread.threadPath)
                             "
+                            @click="clearIdleAttention(thread.id)"
                           >
                             <RouterLink :to="thread?.threadPath">
-                              <AgentIcon :agent="thread?.agent" />
+                              <AgentIcon :agent="thread?.agent" :class="threadIconClass(thread.id)" />
                               <span class="truncate">
                                 {{ thread?.title }}
                               </span>
@@ -607,7 +630,8 @@ async function onCreateWorktreeGroup(
               </div>
             </template>
           </SidebarContent>
-          <SidebarFooter class="flex flex-row items-center justify-end">
+          <SidebarFooter class="flex flex-row items-center justify-end gap-1">
+            <NotificationPopover />
             <Tooltip>
               <TooltipTrigger as-child>
                 <Button

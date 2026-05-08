@@ -8,6 +8,7 @@ import type { AppContext, AppMode } from './type';
 import { IpcGitService } from "@/modules/git/services/ipcGitService";
 import { IpcThreadManagementService } from "@/modules/agent/services/ipcThreadManagementService";
 import { IpcWorkspaceService } from "./ipcWorkspaceService";
+import { IpcNotificationService } from "@/modules/notification/services/ipcNotificationService";
 
 const props = defineProps<{ mode: AppMode }>();
 const services = ref<AppContext>();
@@ -19,6 +20,7 @@ onMounted(() => {
       threadManagementService: new IpcThreadManagementService(),
       gitService: new IpcGitService(),
       workspaceService: new IpcWorkspaceService(),
+      notificationService: new IpcNotificationService(),
     };
   }
 });

@@ -11,6 +11,7 @@ type WorkspaceApiSubset = {
   }) => Promise<void>;
   pickRepoDirectory?: () => Promise<string | null>;
   syncWorktrees?: (projectId: string) => Promise<unknown>;
+  onThreadRunStateChanged?: (callback: (threadId: string, state: string) => void) => () => void;
 };
 
 function readApi(): WorkspaceApiSubset | undefined {
@@ -51,5 +52,11 @@ export class IpcWorkspaceService implements WorkspaceService {
     const api = readApi();
     if (!api) throw new Error("workspaceApi not available");
     return api.addProject(payload) as Promise<WorkspaceSnapshot>;
+  }
+
+  onThreadRunStateChanged(callback: (threadId: string, state: string) => void): (() => void) | null {
+    const api = readApi();
+    if (!api?.onThreadRunStateChanged) return null;
+    return api.onThreadRunStateChanged(callback);
   }
 }

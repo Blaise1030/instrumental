@@ -10,4 +10,6 @@ export interface WorkspaceService {
   }): Promise<void>;
   pickRepoDirectory(): Promise<string | null>;
   addProject(payload: AddProjectInput): Promise<WorkspaceSnapshot>;
+  /** Subscribe to thread run-state changes. Returns a disposer, or null if unavailable in this mode. */
+  onThreadRunStateChanged(callback: (threadId: string, state: string) => void): (() => void) | null;
 }
