@@ -11,11 +11,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  ItemContent,
-  ItemDescription,
-  ItemTitle,
-} from "@/components/ui/item";
 import AgentIcon from "@/components/ui/AgentIcon.vue";
 import type { AppNotificationKind } from "@/shared/domain";
 import type { ThreadAgent } from "@shared/domain";
@@ -40,9 +35,9 @@ const kindStatusClass: Record<AppNotificationKind, string> = {
 };
 
 const kindLabel: Record<AppNotificationKind, string> = {
-  done: "Thread completed",
-  needsReview: "Needs your review",
-  failed: "Thread failed",
+  done: "Completed",
+  needsReview: "Needs review",
+  failed: "Failed",
 };
 
 function agentFor(threadId: string): ThreadAgent {
@@ -100,53 +95,50 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
       class="w-[17rem] p-0"
       data-testid="notification-popover-content"
     >
-      <div class="flex items-center justify-between border-b px-3 py-2">
-        <span class="text-sm font-medium">Notifications</span>
+      <div class="flex items-center justify-between border-b px-2.5 py-1.5">
+        <span class="text-xs font-medium">Notifications</span>
         <Button v-if="hasUnread" variant="ghost" size="xs" @click="markAllRead">
           Mark all read
         </Button>
       </div>
 
-      <div class="max-h-80 overflow-y-auto p-1">
+      <div class="max-h-72 overflow-y-auto p-1">
         <template v-if="notifications?.length">
-          <Button
+          <button
             v-for="n in notifications"
             :key="n.id"
-            variant="ghost"
-            class="h-auto w-full justify-start gap-2.5 whitespace-normal px-2 py-2"
+            class="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted"
             @click="handleClick(n.id, n.threadId, n.projectId)"
           >
             <!-- Agent icon with unread dot -->
-            <div class="relative shrink-0">
-              <div class="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <AgentIcon :agent="agentFor(n.threadId)" :size="16" />
-              </div>
+            <div class="relative mt-0.5 shrink-0">
+              <AgentIcon :agent="agentFor(n.threadId)" :size="14" class="text-foreground" />
               <span
                 v-if="!n.read"
-                class="absolute -left-0.5 -top-0.5 size-2.5 rounded-full border-2 border-popover bg-primary"
+                class="absolute -right-1 -top-1 size-1.5 rounded-full bg-primary"
               />
             </div>
 
             <!-- Title + description -->
-            <ItemContent class="min-w-0">
-              <ItemTitle class="truncate">{{ n.threadTitle }}</ItemTitle>
-              <ItemDescription class="truncate">{{ kindLabel[n.kind] }} · {{ n.projectName }}</ItemDescription>
-            </ItemContent>
+            <div class="min-w-0 flex-1 overflow-hidden">
+              <p class="truncate text-xs font-medium leading-tight">{{ n.threadTitle }}</p>
+              <p class="truncate text-[11px] leading-tight text-muted-foreground">{{ kindLabel[n.kind] }} · {{ n.projectName }}</p>
+            </div>
 
             <!-- Status icon + timestamp -->
-            <ItemContent class="flex-none items-end">
+            <div class="flex shrink-0 flex-col items-end gap-0.5">
               <component
                 :is="kindStatusIcon[n.kind]"
-                class="size-4 shrink-0"
+                class="size-3.5"
                 :class="kindStatusClass[n.kind]"
                 aria-hidden="true"
               />
-              <ItemDescription>{{ relativeTime(n.createdAt) }}</ItemDescription>
-            </ItemContent>
-          </Button>
+              <span class="text-[11px] text-muted-foreground">{{ relativeTime(n.createdAt) }}</span>
+            </div>
+          </button>
         </template>
 
-        <p v-else class="px-3 py-6 text-center text-sm text-muted-foreground">
+        <p v-else class="px-2 py-4 text-center text-xs text-muted-foreground">
           No notifications
         </p>
       </div>
