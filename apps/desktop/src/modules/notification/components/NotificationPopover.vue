@@ -16,7 +16,9 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@/components/ui/item";
+import AgentIcon from "@/components/ui/AgentIcon.vue";
 import type { AppNotificationKind } from "@/shared/domain";
+import type { ThreadAgent } from "@shared/domain";
 
 const router = useRouter();
 const workspace = useWorkspaceStore();
@@ -43,12 +45,8 @@ const kindLabel: Record<AppNotificationKind, string> = {
   failed: "Thread failed",
 };
 
-function initials(title: string): string {
-  return title
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
+function agentFor(threadId: string): ThreadAgent {
+  return workspace.threads.find((t) => t.id === threadId)?.agent ?? "claude";
 }
 
 function relativeTime(iso: string): string {
@@ -99,17 +97,12 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
     <PopoverContent
       side="top"
       align="end"
-      class="w-80 p-0"
+      class="w-(--sidebar-width) p-0"
       data-testid="notification-popover-content"
     >
       <div class="flex items-center justify-between border-b px-3 py-2">
         <span class="text-sm font-medium">Notifications</span>
-        <Button
-          v-if="hasUnread"
-          variant="ghost"
-          size="xs"
-          @click="markAllRead"
-        >
+        <Button v-if="hasUnread" variant="ghost" size="xs" @click="markAllRead">
           Mark all read
         </Button>
       </div>
@@ -120,13 +113,13 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
             v-for="n in notifications"
             :key="n.id"
             variant="ghost"
-            class="h-auto w-full justify-start gap-2.5 px-2 py-2"
+            class="h-auto w-full justify-start gap-2.5 whitespace-normal px-2 py-2"
             @click="handleClick(n.id, n.threadId, n.projectId)"
           >
-            <!-- Avatar with unread dot -->
+            <!-- Agent icon with unread dot -->
             <div class="relative shrink-0">
-              <div class="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                {{ initials(n.threadTitle) }}
+              <div class="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <AgentIcon :agent="agentFor(n.threadId)" :size="16" />
               </div>
               <span
                 v-if="!n.read"
@@ -135,7 +128,7 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
             </div>
 
             <!-- Title + description -->
-            <ItemContent>
+            <ItemContent class="min-w-0">
               <ItemTitle class="truncate">{{ n.threadTitle }}</ItemTitle>
               <ItemDescription class="truncate">{{ kindLabel[n.kind] }} · {{ n.projectName }}</ItemDescription>
             </ItemContent>
