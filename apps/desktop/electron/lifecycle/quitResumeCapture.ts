@@ -2,7 +2,7 @@ import { extractResumeIdFromStdout, RESUME_CAPTURE_TAIL_CHARS } from "../adapter
 import { isValidPersistedResumeId } from "../../src/shared/resumeSessionId.js";
 import type { PtyService } from "../services/ptyService.js";
 import type { WorkspaceService } from "../services/workspaceService.js";
-import type { WorkspaceStore } from "../storage/store.js";
+import type { WorkspaceStore } from "../storage/WorkspaceStore.js";
 
 const CTRL_C_COUNT = 3;
 const BETWEEN_CTRL_C_MS = 90;
