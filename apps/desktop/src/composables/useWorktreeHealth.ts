@@ -1,10 +1,10 @@
 import { onBeforeUnmount, type ComputedRef, type Ref } from "vue";
-import type { Worktree } from "@shared/domain";
+import type { WorktreeSummary } from "@/stores/workspaceStore";
 import type { useWorkspaceStore } from "@/stores/workspaceStore";
 
 export function useWorktreeHealth(
   workspace: ReturnType<typeof useWorkspaceStore>,
-  threadGroups: ComputedRef<Worktree[]>,
+  threadGroups: ComputedRef<WorktreeSummary[]>,
   staleWorktreeIds: Ref<Set<string>>
 ): void {
   async function checkWorktreeHealth(): Promise<void> {

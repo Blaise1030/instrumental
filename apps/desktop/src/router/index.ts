@@ -24,27 +24,27 @@ router.beforeEach((to) => {
 
   if (branch) {
     const decodedBranch = decodeBranch(branch);
-    const worktree = workspace.worktrees.find(
-      (w) => w.projectId === projectId && w.branch === decodedBranch,
+    const branchExists = workspace.threads.some(
+      (t) => t.projectId === projectId && t.createdBranch === decodedBranch,
     );
-    if (!worktree) {
-      const primary = workspace.worktrees.find((w) => w.projectId === projectId && w.isDefault);
-      if (!primary) return { name: "welcome" };
-      const eb = encodeBranch(primary.branch);
-      const fallbackThread = workspace.threads.find((t) => t.worktreeId === primary.id);
-      if (fallbackThread) {
-        return {
-          name: "agent",
-          params: { projectId, branch: eb, threadId: fallbackThread.id },
-        };
+    if (!branchExists) {
+      // Redirect to the most recently updated thread in this project
+      const fallback = workspace.threads
+        .filter((t) => t.projectId === projectId)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+      if (fallback?.createdBranch) {
+        const eb = encodeBranch(fallback.createdBranch);
+        return { name: "agent", params: { projectId, branch: eb, threadId: fallback.id } };
       }
-      return { name: "threadNew", params: { projectId, branch: eb } };
+      return { name: "welcome" };
     }
 
     if (threadId) {
       const thread = workspace.threads.find((t) => t.id === threadId);
       if (!thread) {
-        const fallback = workspace.threads.find((t) => t.worktreeId === worktree.id);
+        const fallback = workspace.threads.find(
+          (t) => t.projectId === projectId && t.createdBranch === decodedBranch,
+        );
         if (fallback) {
           return { name: "agent", params: { projectId, branch, threadId: fallback.id } };
         }

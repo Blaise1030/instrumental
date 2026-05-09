@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Worktree } from "@shared/domain";
+import type { WorktreeSummary } from "@/stores/workspaceStore";
 import { computed } from "vue";
 import {
   Select,
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 
 const props = defineProps<{
-  worktrees: Worktree[];
+  worktrees: WorktreeSummary[];
   activeWorktreeId: string | null;
 }>();
 

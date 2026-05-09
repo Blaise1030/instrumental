@@ -2,19 +2,13 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { decodeBranch } from "@/router/branchParam";
 import {
-  worktreeBranchNameContextLabel,
   type WorkspaceContextBadge,
-  type WorkspaceThreadContext
+  type WorkspaceThreadContext,
+  type WorktreeSummary,
+  worktreeBranchNameContextLabel
 } from "@/stores/workspaceStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import type { Thread, Worktree } from "@shared/domain";
-
-function worktreeDisplayLabel(worktree: Worktree): string {
-  const combined = worktreeBranchNameContextLabel(worktree);
-  if (combined.length > 0) return combined;
-  if (worktree.isDefault) return "Primary";
-  return worktree.name?.trim() || "Worktree";
-}
+import type { Thread } from "@shared/domain";
 
 function compareThreadSort(a: Thread, b: Thread): number {
   const byCreated = b.createdAt.localeCompare(a.createdAt);
@@ -22,40 +16,17 @@ function compareThreadSort(a: Thread, b: Thread): number {
   return a.id.localeCompare(b.id);
 }
 
-function getActiveProjectWorktrees(
-  worktrees: Worktree[],
-  activeProjectId: string | null
-): Worktree[] {
-  if (!activeProjectId) return [];
-  return worktrees.filter((w) => w.projectId === activeProjectId);
+function threadsForPath(threads: Thread[], worktreePath: string): Thread[] {
+  return threads.filter((t) => t.worktreePath === worktreePath).sort(compareThreadSort);
 }
 
-function orderProjectWorktrees(worktrees: Worktree[]): Worktree[] {
-  const defaultWorktree = worktrees.find((w) => w.isDefault);
-  const linkedWorktrees = worktrees.filter((w) => !w.isDefault);
-  return defaultWorktree ? [defaultWorktree, ...linkedWorktrees] : linkedWorktrees;
-}
-
-function threadsForWorktree(threads: Thread[], worktreeId: string): Thread[] {
-  return threads
-    .filter((t) => t.worktreeId === worktreeId)
-    .sort(compareThreadSort);
-}
-
-function buildThreadContexts(
-  worktrees: Worktree[],
-  threads: Thread[],
-  activeProjectId: string | null
-): WorkspaceThreadContext[] {
-  return orderProjectWorktrees(getActiveProjectWorktrees(worktrees, activeProjectId)).map(
-    (worktree) => ({
-      worktreeId: worktree.id,
-      worktree,
-      displayLabel: worktreeDisplayLabel(worktree),
-      isDefault: worktree.isDefault,
-      threads: threadsForWorktree(threads, worktree.id)
-    })
-  );
+function makeWorktreeSummary(
+  path: string,
+  branch: string | null,
+  isDefault: boolean,
+  projectId: string
+): WorktreeSummary {
+  return { path, id: path, branch: branch ?? "main", isDefault, projectId };
 }
 
 export function useActiveWorkspace() {
@@ -76,13 +47,23 @@ export function useActiveWorkspace() {
     return typeof b === "string" && b.length > 0 ? decodeBranch(b) : null;
   });
 
-  const activeWorktree = computed<Worktree | undefined>(() =>
-    workspace.worktrees.find(
-      (w) => w.projectId === activeProjectId.value && w.branch === activeBranch.value
-    )
-  );
+  const activeWorktree = computed<WorktreeSummary | undefined>(() => {
+    const pid = activeProjectId.value;
+    const branch = activeBranch.value;
+    if (!pid || !branch) return undefined;
+    const thread = workspace.threads.find(
+      (t) => t.projectId === pid && t.createdBranch === branch
+    );
+    if (!thread) return undefined;
+    const isDefault = thread.worktreePath === activeProject.value?.repoPath;
+    return makeWorktreeSummary(thread.worktreePath, branch, isDefault, pid);
+  });
 
-  const activeWorktreeId = computed<string | null>(() => activeWorktree.value?.id ?? null);
+  /** The worktree path for the currently active worktree context. */
+  const activeWorktreePath = computed<string | null>(() => activeWorktree.value?.path ?? null);
+
+  /** Alias for backward compatibility — equals activeWorktreePath. */
+  const activeWorktreeId = activeWorktreePath;
 
   const activeThreadId = computed<string | null>(() => {
     const id = route.params.threadId;
@@ -94,53 +75,101 @@ export function useActiveWorkspace() {
   );
 
   const activeThreads = computed<Thread[]>(() => {
-    if (!activeWorktreeId.value) return [];
-    return threadsForWorktree(workspace.threads, activeWorktreeId.value);
+    const path = activeWorktree.value?.path;
+    if (!path) return [];
+    return threadsForPath(workspace.threads, path);
   });
 
   const activeProjectThreads = computed<Thread[]>(() => {
     const pid = activeProjectId.value;
     if (!pid) return [];
-    const orderedWt = orderProjectWorktrees(getActiveProjectWorktrees(workspace.worktrees, pid));
-    const wtRank = new Map(orderedWt.map((w, i) => [w.id, i]));
+    const repoPath = activeProject.value?.repoPath ?? "";
     return workspace.threads
-      .filter((t) => wtRank.has(t.worktreeId))
+      .filter((t) => t.projectId === pid)
       .sort((a, b) => {
-        const ra = wtRank.get(a.worktreeId) ?? 0;
-        const rb = wtRank.get(b.worktreeId) ?? 0;
-        if (ra !== rb) return ra - rb;
+        const aDefault = a.worktreePath === repoPath ? 0 : 1;
+        const bDefault = b.worktreePath === repoPath ? 0 : 1;
+        if (aDefault !== bDefault) return aDefault - bDefault;
+        const byPath = a.worktreePath.localeCompare(b.worktreePath);
+        if (byPath !== 0) return byPath;
         return compareThreadSort(a, b);
       });
   });
 
-  const defaultWorktree = computed<Worktree | undefined>(() =>
-    workspace.worktrees.find(
-      (w) => w.projectId === activeProjectId.value && w.isDefault
-    )
-  );
-
-  const threadGroups = computed<Worktree[]>(() => {
-    if (!activeProjectId.value) return [];
-    return workspace.worktrees.filter(
-      (w) => w.projectId === activeProjectId.value && !w.isDefault
+  const defaultWorktree = computed<WorktreeSummary | undefined>(() => {
+    const pid = activeProjectId.value;
+    const project = activeProject.value;
+    if (!pid || !project) return undefined;
+    const thread = workspace.threads.find(
+      (t) => t.projectId === pid && t.worktreePath === project.repoPath
+    );
+    return makeWorktreeSummary(
+      project.repoPath,
+      thread?.createdBranch ?? null,
+      true,
+      pid
     );
   });
 
-  const threadContexts = computed<WorkspaceThreadContext[]>(() =>
-    buildThreadContexts(workspace.worktrees, workspace.threads, activeProjectId.value)
-  );
+  const threadGroups = computed<WorktreeSummary[]>(() => {
+    const pid = activeProjectId.value;
+    if (!pid) return [];
+    const repoPath = activeProject.value?.repoPath ?? "";
+    const seen = new Set<string>();
+    const result: WorktreeSummary[] = [];
+    for (const t of workspace.threads) {
+      if (t.projectId !== pid || t.worktreePath === repoPath) continue;
+      if (seen.has(t.worktreePath)) continue;
+      seen.add(t.worktreePath);
+      result.push(makeWorktreeSummary(t.worktreePath, t.createdBranch, false, pid));
+    }
+    return result;
+  });
+
+  const threadContexts = computed<WorkspaceThreadContext[]>(() => {
+    const pid = activeProjectId.value;
+    if (!pid) return [];
+    const repoPath = activeProject.value?.repoPath ?? "";
+    const projectThreads = workspace.threads.filter((t) => t.projectId === pid);
+
+    const groups = new Map<string, Thread[]>();
+    for (const t of projectThreads) {
+      const arr = groups.get(t.worktreePath) ?? [];
+      arr.push(t);
+      groups.set(t.worktreePath, arr);
+    }
+
+    const contexts: WorkspaceThreadContext[] = [];
+    const defaultThreads = groups.get(repoPath);
+    if (defaultThreads) {
+      contexts.push({
+        worktreePath: repoPath,
+        displayLabel: worktreeBranchNameContextLabel(defaultThreads[0]?.createdBranch),
+        isDefault: true,
+        threads: defaultThreads.sort(compareThreadSort)
+      });
+    }
+    for (const [path, threads] of groups) {
+      if (path === repoPath) continue;
+      contexts.push({
+        worktreePath: path,
+        displayLabel: worktreeBranchNameContextLabel(threads[0]?.createdBranch),
+        isDefault: false,
+        threads: threads.sort(compareThreadSort)
+      });
+    }
+    return contexts;
+  });
 
   const activeContextBadge = computed((): WorkspaceContextBadge | null => {
     const wt = activeWorktree.value;
     const pid = activeProjectId.value;
-    if (!wt || !pid || wt.projectId !== pid) {
-      return null;
-    }
+    if (!wt || !pid || wt.projectId !== pid) return null;
     return {
-      worktreeId: wt.id,
-      displayLabel: worktreeDisplayLabel(wt),
+      worktreePath: wt.path,
+      displayLabel: worktreeBranchNameContextLabel(wt.branch),
       isDefault: wt.isDefault,
-      threadCount: threadsForWorktree(workspace.threads, wt.id).length
+      threadCount: threadsForPath(workspace.threads, wt.path).length
     };
   });
 
@@ -153,6 +182,7 @@ export function useActiveWorkspace() {
     activeProject,
     activeBranch,
     activeWorktree,
+    activeWorktreePath,
     activeWorktreeId,
     activeThreadId,
     activeThread,

@@ -7,7 +7,7 @@ import ThreadInlinePromptEditor from "@/modules/agent/components/ThreadInlinePro
 import { useAgentBootstrapCommands } from "@/composables/useAgentBootstrapCommands";
 import { decodeBranch, encodeBranch } from "@/router/branchParam";
 import { stashPendingAgentBootstrap } from "@/lib/pendingAgentBootstrapSession";
-import { useWorkspaceStore, worktreeBranchNameContextLabel } from "@/stores/workspaceStore";
+import { useWorkspaceStore, worktreeBranchNameContextLabel, type WorktreeSummary } from "@/stores/workspaceStore";
 import type { Thread, ThreadAgent, ThreadCreateWithAgentPayload } from "@shared/domain";
 import type { WorkspaceSnapshot } from "@shared/ipc";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
@@ -28,14 +28,20 @@ const { bootstrapCommandLineWithPrompt } = useAgentBootstrapCommands();
 const projectId = computed(() => route.params.projectId as string);
 const branchParam = computed(() => route.params.branch as string);
 
-const worktree = computed(() => {
+const worktree = computed<WorktreeSummary | null>(() => {
   const pid = projectId.value;
   const branch = decodeBranch(branchParam.value);
-  return workspace.worktrees.find((w) => w.projectId === pid && w.branch === branch) ?? null;
+  const thread = workspace.threads.find(
+    (t) => t.projectId === pid && t.createdBranch === branch
+  );
+  if (!thread) return null;
+  const project = workspace.projects.find((p) => p.id === pid);
+  const isDefault = thread.worktreePath === project?.repoPath;
+  return { path: thread.worktreePath, id: thread.worktreePath, branch, isDefault, projectId: pid };
 });
 
 const threadContextLabel = computed(() =>
-  worktree.value ? worktreeBranchNameContextLabel(worktree.value) : null
+  worktree.value ? worktreeBranchNameContextLabel(worktree.value.branch) : null
 );
 
 const createError = computed(() => {
@@ -92,7 +98,7 @@ async function onSubmit(payload: ThreadCreateWithAgentPayload): Promise<void> {
   try {
     const created = (await api.createThread({
       projectId: pid,
-      worktreeId: wt.id,
+      worktreePath: wt.path,
       title,
       agent
     })) as Thread;

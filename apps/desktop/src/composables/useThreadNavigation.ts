@@ -59,12 +59,10 @@ export function useThreadNavigation(
     const i = cur ? threads.findIndex((t) => t.id === cur) : 0;
     const prev = i <= 0 ? threads.length - 1 : i - 1;
     const t = threads[prev];
-    if (!t) return;
-    const wt = workspace.worktrees.find((w) => w.id === t.worktreeId);
-    if (!wt) return;
+    if (!t || !t.createdBranch) return;
     void router.push({
       name: "agent",
-      params: { projectId: t.projectId, branch: encodeBranch(wt.branch), threadId: t.id }
+      params: { projectId: t.projectId, branch: encodeBranch(t.createdBranch), threadId: t.id }
     });
   }
 
@@ -75,12 +73,10 @@ export function useThreadNavigation(
     const i = cur ? threads.findIndex((t) => t.id === cur) : -1;
     const next = i < 0 || i >= threads.length - 1 ? 0 : i + 1;
     const t = threads[next];
-    if (!t) return;
-    const wt = workspace.worktrees.find((w) => w.id === t.worktreeId);
-    if (!wt) return;
+    if (!t || !t.createdBranch) return;
     void router.push({
       name: "agent",
-      params: { projectId: t.projectId, branch: encodeBranch(wt.branch), threadId: t.id }
+      params: { projectId: t.projectId, branch: encodeBranch(t.createdBranch!), threadId: t.id }
     });
   }
 

@@ -6,11 +6,10 @@ type WorkspaceApiSubset = {
   addProject: (payload: AddProjectInput) => Promise<unknown>;
   setActive?: (payload: {
     projectId: string | null;
-    worktreeId: string | null;
+    worktreePath: string | null;
     threadId: string | null;
   }) => Promise<void>;
   pickRepoDirectory?: () => Promise<string | null>;
-  syncWorktrees?: (projectId: string) => Promise<unknown>;
   onThreadRunStateChanged?: (callback: (threadId: string, state: string) => void) => () => void;
 };
 
@@ -26,15 +25,9 @@ export class IpcWorkspaceService implements WorkspaceService {
     return api.getSnapshot() as Promise<WorkspaceSnapshot>;
   }
 
-  async syncWorktrees(projectId: string): Promise<WorkspaceSnapshot | null> {
-    const api = readApi();
-    if (!api?.syncWorktrees) return null;
-    return api.syncWorktrees(projectId) as Promise<WorkspaceSnapshot>;
-  }
-
   async setActive(payload: {
     projectId: string | null;
-    worktreeId: string | null;
+    worktreePath: string | null;
     threadId: string | null;
   }): Promise<void> {
     const api = readApi();

@@ -32,15 +32,16 @@ async function tryRestoreStoredRoute(
     return false;
   }
 
-  const worktree = workspace.worktrees.find(
-    (w) => w.projectId === targetProjectId && w.branch === decoded,
+  // Find a thread whose branch matches the stored route context
+  const thread = workspace.threads.find(
+    (t) => t.projectId === targetProjectId && t.createdBranch === decoded,
   );
-  if (!worktree) return false;
+  if (!thread) return false;
 
   if (stored.name === "threadNew") {
     await workspaceService.setActive({
       projectId: targetProjectId,
-      worktreeId: worktree.id,
+      worktreePath: thread.worktreePath,
       threadId: null,
     });
     await router.push(storedRouteToLocation(stored));
@@ -50,15 +51,15 @@ async function tryRestoreStoredRoute(
   const threadIdStr = routeParamFirst(stored.params.threadId);
   if (!threadIdStr) return false;
 
-  const thread = workspace.threads.find(
-    (t) => t.id === threadIdStr && t.worktreeId === worktree.id,
+  const target = workspace.threads.find(
+    (t) => t.id === threadIdStr && t.worktreePath === thread.worktreePath,
   );
-  if (!thread) return false;
+  if (!target) return false;
 
   await workspaceService.setActive({
     projectId: targetProjectId,
-    worktreeId: worktree.id,
-    threadId: thread.id,
+    worktreePath: target.worktreePath,
+    threadId: target.id,
   });
 
   await router.push(storedRouteToLocation(stored));
@@ -81,58 +82,50 @@ export function useNavigateToProject(): {
     const workspaceService = appContext.value?.workspaceService;
     if (!workspaceService) return false;
 
-    let snapshot = await workspaceService.getSnapshot();
-    workspace.hydrate(snapshot);
-
-    const synced = await workspaceService.syncWorktrees(targetProjectId);
-    if (synced) {
-      workspace.hydrate(synced);
-    }
-
-    snapshot = await workspaceService.getSnapshot();
+    const snapshot = await workspaceService.getSnapshot();
     workspace.hydrate(snapshot);
 
     const project = workspace.projects.find((p) => p.id === targetProjectId);
     if (!project) return false;
 
     if (await tryRestoreStoredRoute(router, workspaceService, workspace, targetProjectId)) {
-      snapshot = await workspaceService.getSnapshot();
-      workspace.hydrate(snapshot);
+      const fresh = await workspaceService.getSnapshot();
+      workspace.hydrate(fresh);
       return true;
     }
 
-    const worktree =
-      workspace.worktrees.find(
-        (w) => w.projectId === targetProjectId && w.id === project.lastActiveWorktreeId,
-      ) ?? workspace.worktrees.find((w) => w.projectId === targetProjectId && w.isDefault);
-    if (!worktree) return false;
+    // Pick the most recently updated thread for this project
+    const thread = workspace.threads
+      .filter((t) => t.projectId === targetProjectId)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
 
-    const lastThreadId = worktree.lastActiveThreadId;
-    const thread =
-      (lastThreadId && workspace.threads.find((t) => t.id === lastThreadId)) ||
-      workspace.threads.find((t) => t.worktreeId === worktree.id);
-
-    await workspaceService.setActive({
-      projectId: targetProjectId,
-      worktreeId: worktree.id,
-      threadId: thread?.id ?? null,
-    });
-
-    snapshot = await workspaceService.getSnapshot();
-    workspace.hydrate(snapshot);
-
-    const eb = encodeBranch(worktree.branch);
-    if (thread) {
+    if (thread?.createdBranch) {
+      await workspaceService.setActive({
+        projectId: targetProjectId,
+        worktreePath: thread.worktreePath,
+        threadId: thread.id,
+      });
+      const fresh = await workspaceService.getSnapshot();
+      workspace.hydrate(fresh);
       await router.push({
         name: "agent",
-        params: { projectId: targetProjectId, branch: eb, threadId: thread.id },
+        params: {
+          projectId: targetProjectId,
+          branch: encodeBranch(thread.createdBranch),
+          threadId: thread.id,
+        },
       });
     } else {
-      await router.push({
-        name: "threadNew",
-        params: { projectId: targetProjectId, branch: eb },
+      // No threads yet — just update active project
+      await workspaceService.setActive({
+        projectId: targetProjectId,
+        worktreePath: null,
+        threadId: null,
       });
+      const fresh = await workspaceService.getSnapshot();
+      workspace.hydrate(fresh);
     }
+
     return true;
   }
 

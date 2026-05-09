@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Project, RunStatus, Thread, Worktree } from "@shared/domain";
+import type { Project, RunStatus, Thread } from "@shared/domain";
 import type { AppUpdateAvailability } from "@shared/ipc";
 import { ChevronDown, Download, FileText, Plus, Settings, X, PanelRightClose } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
@@ -70,7 +70,6 @@ const props = withDefaults(
   defineProps<{
     collapsed: boolean;
     projects: Project[];
-    worktrees: Worktree[];
     activeProjectId: string | null;
     activeThreadId?: string | null;
     /** All threads (across projects) for attention chrome on tabs. */

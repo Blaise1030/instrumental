@@ -1,5 +1,5 @@
 import Fuse from "fuse.js";
-import type { Project, Thread, ThreadAgent, Worktree } from "@shared/domain";
+import type { Project, Thread, ThreadAgent } from "@shared/domain";
 
 export type LauncherSearchMode = "default" | "worktree" | "threads" | "branches" | "files";
 
@@ -193,8 +193,8 @@ export function searchLauncherWorkspaceSwitch(
   commandSearchText: string,
   projects: readonly Project[],
   activeProjectId: string | null,
-  worktrees: readonly Worktree[],
-  activeWorktreeId: string | null
+  threads: readonly Thread[],
+  activeWorktreePath: string | null
 ): LauncherRow[] {
   if (parsed.mode !== "default" && parsed.mode !== "branches") return [];
 
@@ -209,13 +209,17 @@ export function searchLauncherWorkspaceSwitch(
       pathTail: pathBasename(p.repoPath)
     }));
 
-  const worktreeDocs = worktrees
-    .filter((w) => w.projectId === activeProjectId && w.id !== activeWorktreeId)
-    .map((w) => ({
-      worktreeId: w.id,
-      name: w.name,
-      branch: w.branch
-    }));
+  // Derive unique non-active worktree paths from threads
+  const seen = new Set<string>();
+  const worktreeDocs: { worktreeId: string; name: string; branch: string }[] = [];
+  for (const t of threads) {
+    if (t.projectId !== activeProjectId) continue;
+    if (t.worktreePath === activeWorktreePath) continue;
+    if (seen.has(t.worktreePath)) continue;
+    seen.add(t.worktreePath);
+    const branch = t.createdBranch ?? "main";
+    worktreeDocs.push({ worktreeId: t.worktreePath, name: branch, branch });
+  }
 
   const out: LauncherRow[] = [];
 

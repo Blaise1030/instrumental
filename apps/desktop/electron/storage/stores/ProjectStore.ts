@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { AppDatabase } from "../db.js";
-import type { Project } from "../../src/shared/domain.js";
+import type { Project } from "../../../src/shared/domain.js";
 
 export class ProjectStore {
   constructor(private readonly db: AppDatabase) {}

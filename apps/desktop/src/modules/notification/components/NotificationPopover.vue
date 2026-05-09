@@ -68,12 +68,10 @@ async function handleClick(id: string, threadId: string, projectId: string): Pro
   open.value = false;
   await markRead(id);
   const thread = workspace.threads.find((t) => t.id === threadId);
-  if (!thread) return;
-  const wt = workspace.worktrees.find((w) => w.id === thread.worktreeId);
-  if (!wt) return;
+  if (!thread?.createdBranch) return;
   void router.push({
     name: "agent",
-    params: { projectId, branch: encodeBranch(wt.branch), threadId },
+    params: { projectId, branch: encodeBranch(thread.createdBranch), threadId },
   });
 }
 </script>

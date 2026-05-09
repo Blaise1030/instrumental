@@ -68,8 +68,8 @@ const rows = computed<LauncherRow[]>(() => {
     commandSearchText.value,
     workspace.projects,
     active.activeProjectId.value,
-    workspace.worktrees,
-    active.activeWorktreeId.value
+    workspace.threads,
+    active.activeWorktreePath.value
   );
   const rest = searchLauncherRows(
     parsed.value,

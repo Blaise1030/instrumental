@@ -17,8 +17,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarProvider,
-  SidebarRail,
+  SidebarProvider,  
 } from "@/components/ui/sidebar";
 import {
   Collapsible,
@@ -168,9 +167,9 @@ const { data: threadsGroup } = useQuery({
     const res = (await window.workspaceApi?.getSnapshot()) as WorkspaceSnapshot;
     const currentProject = res.projects?.find((p) => p.id === projectId.value);
     const repoRoot = currentProject?.repoPath ?? "";
-    const persisted = res.worktrees.filter(
+    const persisted = (res as { worktrees?: { projectId: string; path: string; branch: string; id: string; isDefault: boolean }[] }).worktrees?.filter(
       (w) => w.projectId === projectId.value,
-    );
+    ) ?? [];
     const listed = await appContext.value.gitService.listWorktrees(repoRoot);
     const threads = await appContext.value.threadManagementService.loadThreads(
       projectId.value,
@@ -192,7 +191,7 @@ const { data: threadsGroup } = useQuery({
       return {
         path: wtPath,
         branch,
-        worktreeId: row?.id ?? null,
+        worktreePath: row?.path ?? null,
         isDefault: row?.isDefault ?? false,
         threads: (threadsMap[branch] ?? [])?.map((thread) => ({
           ...thread,
@@ -301,7 +300,7 @@ async function onCreateWorktreeGroup(
   >
     <SidebarProvider class="flex flex-col">
       <nav
-        class="h-(--header-height) bg-sidebar sticky top-0 left-0 z-10 flex min-w-0 items-center gap-1 border-b"
+        class="h-(--header-height) bg-sidebar sticky top-0 left-0 z-10 flex min-w-0 items-center gap-1"
       >
         <div
           class="flex shrink-0 items-center justify-end gap-1 ps-2"
@@ -388,7 +387,7 @@ async function onCreateWorktreeGroup(
           <ThemeToggle variant="outline" size="icon-sm" />
         </div>
       </nav>
-      <div class="flex min-h-0 flex-1">
+      <div class="flex min-h-0 flex-1 bg-sidebar">
         <Sidebar
           class="top-(--header-height) h-[calc(100dvh-var(--header-height))]"
         >
@@ -464,7 +463,7 @@ async function onCreateWorktreeGroup(
                       >
                         <Button
                           v-if="
-                            value.worktreeId &&
+                            value.worktreePath &&
                             !value.isDefault &&
                             canDeleteWorktree
                           "
@@ -476,7 +475,7 @@ async function onCreateWorktreeGroup(
                           data-testid="layout-worktree-delete"
                           @click.stop="
                             onDeleteWorktreeGroup(
-                              value.worktreeId!,
+                              value.worktreePath!,
                               value.branch,
                               value.isDefault,
                             )
@@ -647,10 +646,9 @@ async function onCreateWorktreeGroup(
               </TooltipTrigger>
               <TooltipContent side="top"> Show terminal </TooltipContent>
             </Tooltip>
-          </SidebarFooter>
-          <SidebarRail />
+          </SidebarFooter>          
         </Sidebar>
-        <SidebarInset class="h-[calc(100dvh-var(--header-height))] min-h-0">
+        <SidebarInset class="mx-1 h-[calc(100dvh-var(--header-height)-0.3rem)] min-h-0 rounded-xl border shadow-sm overflow-hidden bg-background">
           <RouterView />
         </SidebarInset>
       </div>
