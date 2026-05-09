@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 import type { Project, Thread, ThreadAgent } from "../../src/shared/domain.js";
 import { isValidPersistedResumeId } from "../../src/shared/resumeSessionId.js";
 import type {
+  CreateWorktreeGroupInput,
   CreateThreadInput,
   GitHubPrSettings,
   WorkspaceSnapshot,
@@ -11,6 +13,12 @@ import { WorkspaceStore } from "../storage/WorkspaceStore.js";
 export interface GitAdapter {
   worktreeList(repoPath: string): Promise<Array<{ path: string; branch: string }>>;
   branchList(repoPath: string): Promise<string[]>;
+  worktreeAdd(
+    repoPath: string,
+    worktreePath: string,
+    branch: string,
+    baseBranch: string | null
+  ): Promise<void>;
   removeWorktree(repoPath: string, worktreePath: string): Promise<void>;
   pathExists(fsPath: string): Promise<boolean>;
 }
@@ -253,6 +261,20 @@ export class WorkspaceService {
     if (!project) throw new Error(`Project ${projectId} not found`);
 
     return this.git.branchList(project.repoPath);
+  }
+
+  async createWorktreeGroup(input: CreateWorktreeGroupInput): Promise<{ path: string; branch: string }> {
+    if (!this.git) throw new Error("Git adapter required for worktree operations");
+    const branch = input.branch.trim();
+    if (!branch) throw new Error("branch is required");
+    const snapshot = this.store.getSnapshot();
+    const project = snapshot.projects.find((p) => p.id === input.projectId);
+    if (!project) throw new Error(`Project ${input.projectId} not found`);
+
+    const sanitized = branch.replace(/[\\/]/g, "-");
+    const worktreePath = path.join(project.repoPath, ".worktrees", sanitized);
+    await this.git.worktreeAdd(project.repoPath, worktreePath, branch, input.baseBranch);
+    return { path: worktreePath, branch };
   }
 
   async deleteWorktreeGroup(worktreePath: string): Promise<void> {

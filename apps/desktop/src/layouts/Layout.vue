@@ -368,7 +368,8 @@ async function onDeleteWorktreeGroup(
   if (!api?.deleteWorktreeGroup) return;
   try {
     await api.deleteWorktreeGroup({ worktreeId });
-    void queryClient.invalidateQueries({ queryKey: ["worktrees"] });
+    void queryClient.invalidateQueries({ queryKey: ["worktrees", appContext] });
+    toast.success("Worktree removed", `Removed linked worktree for ${branch}.`);
   } catch (e) {
     toast.error(
       "Could not remove worktree",
@@ -384,9 +385,17 @@ async function onCreateWorktreeGroup(
   const api = window.workspaceApi;
   const pid = projectId.value;
   if (!api?.createWorktreeGroup || !pid) return;
-  await api.createWorktreeGroup({ projectId: pid, branch, baseBranch });
-  addWorktreePopoverOpen.value = false;
-  void queryClient.invalidateQueries({ queryKey: ["worktrees"] });
+  try {
+    await api.createWorktreeGroup({ projectId: pid, branch, baseBranch });
+    addWorktreePopoverOpen.value = false;
+    void queryClient.invalidateQueries({ queryKey: ["worktrees", appContext] });
+    toast.success("Worktree created", `Created linked worktree for ${branch}.`);
+  } catch (e) {
+    toast.error(
+      "Could not create worktree",
+      e instanceof Error ? e.message : "Unknown error",
+    );
+  }
 }
 </script>
 

@@ -30,6 +30,20 @@ export interface AddProjectInput {
   defaultBranch?: string;
 }
 
+/** Legacy add-worktree payload used by older renderer flows. */
+export interface AddWorktreeInput {
+  projectId: string;
+  branch: string;
+  baseBranch: string | null;
+}
+
+/** Create a linked worktree group for a project branch. */
+export interface CreateWorktreeGroupInput {
+  projectId: string;
+  branch: string;
+  baseBranch: string | null;
+}
+
 export interface RemoveProjectInput {
   projectId: string;
 }

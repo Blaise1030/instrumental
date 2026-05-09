@@ -30,6 +30,19 @@ export function createGitAdapter(): GitAdapter {
       return result.all;
     },
 
+    async worktreeAdd(repoPath, worktreePath, branch, baseBranch) {
+      if (!isValidBranchName(branch)) throw new Error(`Invalid branch name: ${branch}`);
+      if (baseBranch && !isValidBranchName(baseBranch)) {
+        throw new Error(`Invalid base branch name: ${baseBranch}`);
+      }
+      const git = simpleGit(repoPath);
+      if (baseBranch) {
+        await git.raw(["worktree", "add", "-b", branch, "--", worktreePath, baseBranch]);
+        return;
+      }
+      await git.raw(["worktree", "add", "--", worktreePath, branch]);
+    },
+
     async removeWorktree(repoPath, worktreePath) {
       const git = simpleGit(repoPath);
       await git.raw(["worktree", "remove", "--force", worktreePath]);

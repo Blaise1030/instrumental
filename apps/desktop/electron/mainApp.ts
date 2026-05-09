@@ -16,6 +16,7 @@ import {
   IPC_CHANNELS,
   type AddProjectInput,
   type AppUpdateAvailability,
+  type CreateWorktreeGroupInput,
   type CreateThreadInput,
   type DeleteThreadInput,
   type GitHubPrSettings,
@@ -395,6 +396,15 @@ function registerIpc(workspaceService: WorkspaceService): void {
   ipcMain.handle(IPC_CHANNELS.workspaceListBranches, async (_, payload: { projectId: string }) => {
     return workspaceService.listBranches(payload.projectId);
   });
+  ipcMain.handle(
+    IPC_CHANNELS.workspaceCreateWorktreeGroup,
+    async (_, payload: CreateWorktreeGroupInput) => {
+      const created = await workspaceService.createWorktreeGroup(payload);
+      emitWorkspaceDidChange();
+      emitWorkingTreeFilesDidChange();
+      return created;
+    }
+  );
   ipcMain.handle(
     IPC_CHANNELS.workspaceDeleteWorktreeGroup,
     async (_, payload: { worktreeId: string }) => {
