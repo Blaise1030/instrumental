@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useQueryClient } from "@tanstack/vue-query";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
+import { useAppContext } from "@/app-context/useAppContext";
 import ThreadInlinePromptEditor from "@/modules/agent/components/ThreadInlinePromptEditor.vue";
 import { useAgentBootstrapCommands } from "@/modules/agent/hooks/useAgentBootstrapCommands";
 import { decodeBranch, encodeBranch } from "@/router/branchParam";
@@ -22,23 +23,53 @@ const THREAD_AGENT_LABELS: Record<ThreadAgent, string> = {
 const route = useRoute();
 const router = useRouter();
 const queryClient = useQueryClient();
+const appContext = useAppContext();
 const workspace = useWorkspaceStore();
 const { bootstrapCommandLineWithPrompt } = useAgentBootstrapCommands();
 
 const projectId = computed(() => route.params.projectId as string);
 const branchParam = computed(() => route.params.branch as string);
+const decodedBranch = computed(() => decodeBranch(branchParam.value));
+
+const project = computed(() => workspace.projects.find((p) => p.id === projectId.value));
+
+const threadForBranch = computed(() => {
+  const pid = projectId.value;
+  const branch = decodedBranch.value;
+  return workspace.threads.find((t) => t.projectId === pid && t.createdBranch === branch);
+});
+
+const repoPath = computed(() => project.value?.repoPath ?? "");
+
+const { data: gitWorktrees, isPending: gitWorktreesPending, isError: gitWorktreesError } = useQuery({
+  queryKey: ["createNewThread", "gitWorktrees", repoPath],
+  enabled: computed(
+    () =>
+      Boolean(appContext.value.gitService && repoPath.value) &&
+      !threadForBranch.value
+  ),
+  queryFn: () => appContext.value.gitService.listWorktrees(repoPath.value)
+});
 
 const worktree = computed<WorktreeSummary | null>(() => {
   const pid = projectId.value;
-  const branch = decodeBranch(branchParam.value);
-  const thread = workspace.threads.find(
-    (t) => t.projectId === pid && t.createdBranch === branch
-  );
-  if (!thread) return null;
-  const project = workspace.projects.find((p) => p.id === pid);
-  const isDefault = thread.worktreePath === project?.repoPath;
-  return { path: thread.worktreePath, id: thread.worktreePath, branch, isDefault, projectId: pid };
+  const branch = decodedBranch.value;
+  const thread = threadForBranch.value;
+  if (thread) {
+    const proj = project.value;
+    const isDefault = thread.worktreePath === proj?.repoPath;
+    return { path: thread.worktreePath, id: thread.worktreePath, branch, isDefault, projectId: pid };
+  }
+  const entry = (gitWorktrees.value ?? []).find((w) => w.branch === branch);
+  if (!entry) return null;
+  const proj = project.value;
+  const isDefault = entry.path === proj?.repoPath;
+  return { path: entry.path, id: entry.path, branch, isDefault, projectId: pid };
 });
+
+const awaitingGitWorktrees = computed(
+  () => !threadForBranch.value && Boolean(repoPath.value && appContext.value.gitService && gitWorktreesPending.value)
+);
 
 const threadContextLabel = computed(() =>
   worktree.value ? worktreeBranchNameContextLabel(worktree.value.branch) : null
@@ -47,6 +78,24 @@ const threadContextLabel = computed(() =>
 const createError = computed(() => {
   if (!projectId.value?.trim() || !branchParam.value?.trim()) {
     return "Missing project or branch.";
+  }
+  if (!project.value) {
+    return "Project not found. Return to the workspace and try again.";
+  }
+  if (threadForBranch.value) {
+    return null;
+  }
+  if (!repoPath.value) {
+    return "This worktree is not available. Return to the workspace and try again.";
+  }
+  if (!appContext.value.gitService) {
+    return "Git is not available in this environment.";
+  }
+  if (gitWorktreesPending.value) {
+    return null;
+  }
+  if (gitWorktreesError.value) {
+    return "Could not load worktrees for this project. Try again.";
   }
   if (!worktree.value) {
     return "This worktree is not available. Return to the workspace and try again.";
@@ -146,6 +195,12 @@ function onSubmitError(e: unknown): void {
       >
         Back to workspace
       </button>
+    </div>
+    <div
+      v-else-if="awaitingGitWorktrees"
+      class="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center"
+    >
+      <p class="text-sm text-muted-foreground">Loading worktree…</p>
     </div>
     <ThreadInlinePromptEditor
       v-else-if="worktree"

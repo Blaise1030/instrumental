@@ -69,6 +69,7 @@ const workspaceLauncherOpen = ref(false);
 const sidebarOpen = ref(true);
 const projectId = computed(() => route.params.projectId as string);
 const keybindings = useKeybindingsStore();
+const branchId = computed(() => route.params.branch as string);
 
 const { mutateAsync: removeThreadMutate } = useRemoveThread();
 
@@ -136,8 +137,8 @@ function onNavigateForward() {
 }
 
 function goNewThread(branch: string): void {
-  const pid = projectId.value;
-  if (!pid || !branch) return;
+  const pid = projectId.value;  
+  if (!pid || !branch) return;  
   void router.push({
     name: "threadNew",
     params: { projectId: pid, branch: encodeBranch(branch) },
@@ -168,7 +169,6 @@ async function removeThreadViaArchiveButton(thread: Thread): Promise<void> {
   }
 }
 
-const branchId = computed(() => route.params.branch as string);
 const showMoreToggleState = ref<{ [k: string]: boolean }>({});
 
 const { data: projectTabs } = useQuery({
@@ -399,7 +399,7 @@ async function onCreateWorktreeGroup(
 }
 </script>
 
-<template>
+<template>  
   <AgentCommandsSettingsDialog v-model="settingsOpen" />
   <WorkspaceLauncherModal
     v-model="workspaceLauncherOpen"
@@ -422,6 +422,7 @@ async function onCreateWorktreeGroup(
           :class="{ 'ps-20': !isFullscreen }"
         >
           <SidebarTrigger class="border" />
+          {{ route.path }}
           <ButtonGroup>
             <Button
               type="button"
@@ -615,9 +616,7 @@ async function onCreateWorktreeGroup(
                         </Label>
                       </div>
                       <div
-                        v-if="
-                          value.threads.some((t) => t.id === activeThreadId)
-                        "
+                        v-if="branchId === value.branch"
                         class="pb-1 flex flex-wrap gap-0.5"
                       >
                         <Button
