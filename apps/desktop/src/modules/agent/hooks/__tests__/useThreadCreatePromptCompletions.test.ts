@@ -4,7 +4,7 @@ import {
   AGENT_SKILLS_DIRECTORY_NAME,
   parseSlashCommandAtCursor,
   skillDisplayLabelFromRelativePath
-} from "@/composables/useThreadCreatePromptCompletions";
+} from "@/modules/agent/hooks/useThreadCreatePromptCompletions";
 
 describe("parseSlashCommandAtCursor", () => {
   it("matches /command at the start of the prompt", () => {

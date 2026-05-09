@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { clampPopupRect } from "@/lib/contextQueueAnchor";
+import { clampPopupRect } from "@/utils/contextQueueAnchor";
 
 describe("clampPopupRect", () => {
   const origInnerWidth = window.innerWidth;

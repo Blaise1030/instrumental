@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { useIsFullscreen } from "@/composables/useIsFullscreen";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useIsFullscreen } from "@/hooks/useIsFullscreen";
 import { useAppContext } from "@/app-context/useAppContext";
-import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
-import { useThreadPtyRunStatus } from "@/composables/useThreadPtyRunStatus";
-import { useAddProjectFromDirectoryPick } from "@/composables/useAddProjectFromDirectoryPick";
-import { useNavigateToProject } from "@/composables/useNavigateToProject";
+import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
+import { useThreadPtyRunStatus } from "@/hooks/useThreadPtyRunStatus";
+import { useAddProjectFromDirectoryPick } from "@/hooks/useAddProjectFromDirectoryPick";
+import { useNavigateToProject } from "@/hooks/useNavigateToProject";
 import {
   Sidebar,
   SidebarContent,
@@ -50,9 +50,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { WorkspaceSnapshot } from "@shared/ipc";
-import { useToast } from "@/composables/useToast";
+import { useToast } from "@/hooks/useToast";
 import { useRemoveThread } from "@/modules/agent/hooks/useThreads";
 import AgentCommandsSettingsDialog from "@/modules/agent/components/AgentCommandsSettingsDialog.vue";
+import WorkspaceLauncherModal from "@/components/WorkspaceLauncherModal.vue";
+import { eventMatchesShortcut, findDefinitionIn } from "@/keybindings/registry";
+import { useKeybindingsStore } from "@/stores/keybindingsStore";
 
 const appContext = useAppContext();
 const { isFullscreen } = useIsFullscreen();
@@ -62,7 +65,10 @@ const route = useRoute();
 const router = useRouter();
 const filterMode = ref(false);
 const settingsOpen = ref(false);
+const workspaceLauncherOpen = ref(false);
+const sidebarOpen = ref(true);
 const projectId = computed(() => route.params.projectId as string);
+const keybindings = useKeybindingsStore();
 
 const { mutateAsync: removeThreadMutate } = useRemoveThread();
 
@@ -277,6 +283,65 @@ function openTerminalPanel(): void {
   router.push({ name: "terminal" });
 }
 
+function onLauncherPickThread(threadId: string): void {
+  const pid = projectId.value;
+  const branch = branchId.value;
+  if (!pid || !branch || !threadId) return;
+  void router.push({
+    name: "agent",
+    params: { projectId: pid, branch, threadId }
+  });
+}
+
+function onLauncherPickFile(payload: { relativePath: string; worktreeId: string | null }): void {
+  const pid = projectId.value;
+  const branch = branchId.value;
+  const tid = activeThreadId.value;
+  if (!pid || !branch || !tid || !payload.relativePath) return;
+  void router.push({
+    name: "fileDetail",
+    params: { projectId: pid, branch, threadId: tid, filename: payload.relativePath }
+  });
+}
+
+async function onLauncherPickProject(targetProjectId: string): Promise<void> {
+  await navigateToProject(targetProjectId);
+}
+
+function onLauncherPickWorktree(worktreeId: string): void {
+  const pid = projectId.value;
+  if (!pid || !worktreeId) return;
+  const matched = allSidebarThreads.value.find((t) => t.worktreePath === worktreeId);
+  if (!matched?.createdBranch) return;
+  void router.push({
+    name: "agent",
+    params: {
+      projectId: pid,
+      branch: encodeBranch(matched.createdBranch),
+      threadId: matched.id
+    }
+  });
+}
+
+function onLauncherPickCommand(id: "toggle-thread-sidebar"): void {
+  if (id === "toggle-thread-sidebar") sidebarOpen.value = !sidebarOpen.value;
+}
+
+function onGlobalKeydownForWorkspaceLauncher(ev: KeyboardEvent): void {
+  const def = findDefinitionIn(keybindings.effectiveDefinitions, "workspaceLauncher");
+  if (!def || !eventMatchesShortcut(ev, def.shortcut)) return;
+  ev.preventDefault();
+  workspaceLauncherOpen.value = !workspaceLauncherOpen.value;
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", onGlobalKeydownForWorkspaceLauncher, { capture: true });
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onGlobalKeydownForWorkspaceLauncher, { capture: true });
+});
+
 const addWorktreePopoverOpen = ref(false);
 
 const canCreateWorktree = computed(() => {
@@ -329,11 +394,19 @@ async function onCreateWorktreeGroup(
 
 <template>
   <AgentCommandsSettingsDialog v-model="settingsOpen" />
+  <WorkspaceLauncherModal
+    v-model="workspaceLauncherOpen"
+    @pick-thread="onLauncherPickThread"
+    @pick-file="onLauncherPickFile"
+    @pick-project="(id) => void onLauncherPickProject(id)"
+    @pick-worktree="onLauncherPickWorktree"
+    @pick-command="onLauncherPickCommand"
+  />
   <div
     style="--header-height: 44px"
     class="max-h-screen overflow-hidden relative"
   >
-    <SidebarProvider class="flex flex-col">
+    <SidebarProvider v-model:open="sidebarOpen" class="flex flex-col">
       <nav
         class="h-(--header-height) bg-sidebar sticky top-0 left-0 z-10 flex min-w-0 items-center gap-1"
       >

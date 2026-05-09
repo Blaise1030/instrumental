@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, toRef, watch } from "vue";
-import { monaco } from "@/lib/monacoApi";
-import { applyMonacoGithubTheme } from "@/lib/monacoGithubTheme";
+import { monaco } from "@/utils/monacoApi";
+import { applyMonacoGithubTheme } from "@/utils/monacoGithubTheme";
 
 export type QueueableEditorSelection = {
   selectedText: string;

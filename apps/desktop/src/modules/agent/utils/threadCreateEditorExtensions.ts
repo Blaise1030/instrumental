@@ -7,12 +7,12 @@ import { findSuggestionMatch as defaultFindSuggestionMatch } from "@tiptap/sugge
 import type { SuggestionMatch } from "@tiptap/suggestion";
 import { VueRenderer } from "@tiptap/vue-3";
 import ThreadCreateSuggestionList from "@/modules/agent/components/threadCreate/ThreadCreateSuggestionList.vue";
-import { absolutePathInWorktree, isSkillLikePath, parseMentionAtCursor } from "@/composables/useThreadCreateMentions";
+import { absolutePathInWorktree, isSkillLikePath, parseMentionAtCursor } from "@/modules/agent/hooks/useThreadCreateMentions";
 import {
   parseSlashCommandAtCursor,
   searchSlashSkills
-} from "@/composables/useThreadCreatePromptCompletions";
-import { promptDocFlatText, promptFlatOffsetAtDocPos } from "@/lib/threadCreateTipTap";
+} from "@/modules/agent/hooks/useThreadCreatePromptCompletions";
+import { promptDocFlatText, promptFlatOffsetAtDocPos } from "@/modules/agent/utils/threadCreateTipTap";
 
 export const threadAtSuggestionKey = new PluginKey("threadAtSuggestion");
 export const threadSlashSuggestionKey = new PluginKey("threadSlashSuggestion");

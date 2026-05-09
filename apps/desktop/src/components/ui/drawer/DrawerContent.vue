@@ -3,7 +3,7 @@ import type { DialogContentEmits, DialogContentProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 import { useForwardPropsEmits } from 'reka-ui'
 import { DrawerContent, DrawerPortal } from 'vaul-vue'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/cn'
 import DrawerOverlay from './DrawerOverlay.vue'
 
 defineOptions({

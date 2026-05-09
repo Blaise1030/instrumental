@@ -20,8 +20,8 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { THREAD_AGENT_SKILL_ROOT_DEFAULT } from "@shared/threadAgentSkillRoots";
-import { usePreferredThreadAgent } from "@/composables/usePreferredThreadAgent";
-import { useTerminalSoundSettings } from "@/composables/useTerminalSoundSettings";
+import { usePreferredThreadAgent } from "@/modules/agent/hooks/usePreferredThreadAgent";
+import { useTerminalSoundSettings } from "@/modules/agent/hooks/useTerminalSoundSettings";
 import type { TerminalActivitySensitivity } from "@/terminal/activitySensitivity";
 import {
   conflictingBindingId,

@@ -28,7 +28,7 @@ const mockEditor = {
   _contentListener: null as ((e: unknown) => void) | null,
 };
 
-vi.mock("@/lib/monacoApi", () => ({
+vi.mock("@/utils/monacoApi", () => ({
   monaco: {
     KeyMod: { CtrlCmd: 2048 },
     KeyCode: { KeyS: 49 },
@@ -66,7 +66,7 @@ describe("MonacoEditor", () => {
   });
 
   it("emits update:modelValue when editor content changes", async () => {
-    const { monaco } = await import("@/lib/monacoApi");
+    const { monaco } = await import("@/utils/monacoApi");
     const { editor } = monaco;
     const wrapper = mount(MonacoEditor, {
       props: { modelValue: "hello" },

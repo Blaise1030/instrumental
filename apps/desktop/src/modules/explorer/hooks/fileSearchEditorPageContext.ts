@@ -1,7 +1,7 @@
 import type { PillTabItem } from "@/components/ui/pill-tabs";
 import type MonacoEditor from "@/components/MonacoEditor.vue";
 import type { QueueableEditorSelection } from "@/components/MonacoEditor.vue";
-import type { Rect } from "@/lib/contextQueueAnchor";
+import type { Rect } from "@/utils/contextQueueAnchor";
 
 /**
  * Open tab model for the file editor header (tabs strip).

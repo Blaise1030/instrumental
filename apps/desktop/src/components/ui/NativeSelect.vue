@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown } from "lucide-vue-next";
 import { computed, useAttrs } from "vue";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 defineOptions({ inheritAttrs: false });
 

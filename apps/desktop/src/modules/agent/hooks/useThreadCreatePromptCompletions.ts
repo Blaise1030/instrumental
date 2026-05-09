@@ -3,13 +3,13 @@ import type { ThreadAgent } from "@shared/domain";
 import {
   expandUserSkillRoot,
   readStoredAgentSkillRoots
-} from "@/composables/useAgentSkillRoots";
+} from "@/modules/agent/hooks/useAgentSkillRoots";
 import {
   absolutePathInWorktree,
   isSkillLikePath,
   parseMentionAtCursor,
   type ThreadMentionItem
-} from "@/composables/useThreadCreateMentions";
+} from "@/modules/agent/hooks/useThreadCreateMentions";
 
 function getApi() {
   return typeof window !== "undefined" ? window.workspaceApi ?? null : null;

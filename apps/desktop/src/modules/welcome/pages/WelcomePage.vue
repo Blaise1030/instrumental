@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { useNavigateToProject } from "@/composables/useNavigateToProject";
+import { useNavigateToProject } from "@/hooks/useNavigateToProject";
 import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import WorkbenchLogoMark from "@/modules/agent/components/WorkbenchLogoMark.vue";
-import { useAddProjectFromDirectoryPick } from "@/composables/useAddProjectFromDirectoryPick";
+import { useAddProjectFromDirectoryPick } from "@/hooks/useAddProjectFromDirectoryPick";
 import { useAppContext } from "@/app-context/useAppContext";
 
 const appContext = useAppContext();

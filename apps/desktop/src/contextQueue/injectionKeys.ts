@@ -1,5 +1,5 @@
 import type { InjectionKey } from "vue";
-import type { useThreadContextQueue } from "@/composables/useThreadContextQueue";
+import type { useThreadContextQueue } from "@/contextQueue/useThreadContextQueue";
 import type { QueueItem } from "@/contextQueue/types";
 
 export type ThreadContextQueueApi = ReturnType<typeof useThreadContextQueue>;

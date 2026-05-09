@@ -1,6 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import { useToast } from "@/composables/useToast";
+import { useToast } from "@/hooks/useToast";
 
 export interface GitHubPr {
   number: number;

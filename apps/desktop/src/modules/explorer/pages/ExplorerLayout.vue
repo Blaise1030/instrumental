@@ -34,7 +34,7 @@ import { buildPasteText } from "@/contextQueue/formatters";
 import { formatFolderListingFromFiles } from "@/contextQueue/folderListing";
 import { threadContextQueueKey } from "@/contextQueue/injectionKeys";
 import type { QueueCapture } from "@/contextQueue/types";
-import { useToast } from "@/composables/useToast";
+import { useToast } from "@/hooks/useToast";
 import { Input } from "@/components/ui/input";
 import PillTabs, { type PillTabItem } from "@/components/ui/pill-tabs";
 import {
@@ -69,7 +69,7 @@ import {
 } from "@/modules/explorer/services/explorerShellContext";
 import { normalizeExplorerFilenameParam } from "@/modules/explorer/explorerRoute";
 import { getExplorerEditorBridge } from "@/modules/explorer/services/explorerEditorBridge";
-import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
+import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
 
 const props = defineProps<{
   worktreeId?: string | null;

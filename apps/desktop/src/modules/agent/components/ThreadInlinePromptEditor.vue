@@ -11,9 +11,9 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import AgentIcon from "@/components/ui/AgentIcon.vue";
-import { readPreferredThreadAgent } from "@/composables/usePreferredThreadAgent";
-import { buildThreadCreatePromptWithAttachmentBlocks } from "@/lib/threadCreatePromptAssembly";
-import type { LocalFileAttachment } from "@/lib/localFileAttachment";
+import { readPreferredThreadAgent } from "@/modules/agent/hooks/usePreferredThreadAgent";
+import { buildThreadCreatePromptWithAttachmentBlocks } from "@/modules/agent/utils/threadCreatePromptAssembly";
+import type { LocalFileAttachment } from "@/modules/agent/utils/localFileAttachment";
 import ditherDarkImage from "@/assets/thread-inline-prompt-dither-dark.png";
 import ditherLightImage from "@/assets/thread-inline-prompt-dither-light.png";
 

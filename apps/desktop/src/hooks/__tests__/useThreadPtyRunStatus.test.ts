@@ -1,7 +1,8 @@
-import { defineComponent, ref, type Ref } from "vue";
+import { computed, defineComponent, ref, type Ref } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Thread, ThreadAgent } from "@shared/domain";
+import type { WorkspaceService } from "@/app-context/workspaceService";
 import { useThreadPtyRunStatus } from "../useThreadPtyRunStatus";
 import * as chirp from "@/terminal/playTerminalChirp";
 
@@ -26,15 +27,6 @@ describe("useThreadPtyRunStatus", () => {
   beforeEach(() => {
     vi.mocked(chirp.playTerminalChirp).mockClear();
     hookHandler = null;
-    vi.stubGlobal("window", {
-      ...window,
-      workspaceApi: {
-        onThreadRunStateChanged: (cb: (threadId: string, state: string) => void) => {
-          hookHandler = cb;
-          return () => { hookHandler = null; };
-        }
-      }
-    });
   });
 
   afterEach(() => {
@@ -55,6 +47,14 @@ describe("useThreadPtyRunStatus", () => {
     const threadsRef = ref(threads);
     const active = ref<string | null>(activeThreadId);
     const notif = ref(notificationsEnabled);
+    const workspaceService = ref<Pick<WorkspaceService, "onThreadRunStateChanged">>({
+      onThreadRunStateChanged: (cb: (threadId: string, state: string) => void) => {
+        hookHandler = cb;
+        return () => {
+          hookHandler = null;
+        };
+      }
+    });
     const bag = {} as {
       runStatusByThreadId: Ref<Record<string, import("@shared/domain").RunStatus>>;
       idleAttentionByThreadId: Ref<Record<string, boolean>>;
@@ -66,7 +66,8 @@ describe("useThreadPtyRunStatus", () => {
       setup() {
         const r = useThreadPtyRunStatus(threadsRef, {
           activeThreadId: active,
-          notificationsEnabled: notif
+          notificationsEnabled: notif,
+          workspaceService: computed(() => workspaceService.value)
         });
         bag.runStatusByThreadId = r.runStatusByThreadId;
         bag.idleAttentionByThreadId = r.idleAttentionByThreadId;

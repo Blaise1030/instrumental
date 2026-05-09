@@ -2,8 +2,8 @@ import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import { createPinia } from "pinia";
 import { createApp } from "vue";
 import App from "./App.vue";
-import { initColorSchemeFromStorage } from "./composables/useColorScheme";
-import { initUiThemePresetFromStorage } from "./composables/useUiThemePreset";
+import { initColorSchemeFromStorage } from "./hooks/useColorScheme";
+import { initUiThemePresetFromStorage } from "./hooks/useUiThemePreset";
 import { router } from "./router/index";
 import "./styles/globals.css";
 

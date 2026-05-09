@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import ScmBranchCombobox from "@/components/ScmBranchCombobox.vue";
 import BranchSelector from "@/modules/git/components/BranchSelector.vue";
 import {Button} from "@/components/ui/button";;

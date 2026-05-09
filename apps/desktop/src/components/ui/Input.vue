@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, useAttrs } from "vue";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 defineOptions({ inheritAttrs: false });
 

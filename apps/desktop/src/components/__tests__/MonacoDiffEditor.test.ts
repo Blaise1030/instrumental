@@ -27,7 +27,7 @@ const mockDiffEditor = {
   dispose: vi.fn(),
 };
 
-vi.mock("@/lib/monacoApi", () => ({
+vi.mock("@/utils/monacoApi", () => ({
   monaco: {
     editor: {
       createDiffEditor: vi.fn(() => mockDiffEditor),
@@ -60,7 +60,7 @@ describe("MonacoDiffEditor", () => {
   });
 
   it("calls createDiffEditor on mount", async () => {
-    const { monaco } = await import("@/lib/monacoApi");
+    const { monaco } = await import("@/utils/monacoApi");
     const { editor } = monaco;
     mount(MonacoDiffEditor, {
       props: { original: "a", modified: "b", filePath: "src/foo.ts" },
@@ -69,7 +69,7 @@ describe("MonacoDiffEditor", () => {
   });
 
   it("calls setModel with original and modified content", async () => {
-    const { monaco } = await import("@/lib/monacoApi");
+    const { monaco } = await import("@/utils/monacoApi");
     const { editor } = monaco;
     mount(MonacoDiffEditor, {
       props: { original: "original content", modified: "modified content", filePath: "src/foo.ts" },
@@ -80,7 +80,7 @@ describe("MonacoDiffEditor", () => {
   });
 
   it("sets renderSideBySide:true for split layout", async () => {
-    const { monaco } = await import("@/lib/monacoApi");
+    const { monaco } = await import("@/utils/monacoApi");
     const { editor } = monaco;
     mount(MonacoDiffEditor, {
       props: { original: "a", modified: "b", filePath: "src/foo.ts", layout: "split" },
@@ -95,7 +95,7 @@ describe("MonacoDiffEditor", () => {
   });
 
   it("sets renderSideBySide:false for unified layout", async () => {
-    const { monaco } = await import("@/lib/monacoApi");
+    const { monaco } = await import("@/utils/monacoApi");
     const { editor } = monaco;
     mount(MonacoDiffEditor, {
       props: { original: "a", modified: "b", filePath: "src/foo.ts", layout: "unified" },

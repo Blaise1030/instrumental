@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/combobox";
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { useToast } from "@/composables/useToast";
+import { cn } from "@/utils/cn";
+import { useToast } from "@/hooks/useToast";
 
 const props = withDefaults(
   defineProps<{

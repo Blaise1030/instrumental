@@ -4,7 +4,7 @@ import { PanelLeftClose, PanelLeftOpen, RefreshCw, Trash2, X } from "lucide-vue-
 import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import { badgeVariants } from "@/components/ui/badge/index";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import MonacoEditor from "@/components/MonacoEditor.vue";
 import PillTabs from "@/components/ui/pill-tabs";
 import ContextQueueSelectionPopup from "@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue";

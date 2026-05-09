@@ -3,7 +3,7 @@ import type { AlertDialogOverlayProps } from "reka-ui";
 import type { HTMLAttributes } from "vue";
 import { reactiveOmit } from "@vueuse/core";
 import { AlertDialogOverlay, useForwardProps } from "reka-ui";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 defineOptions({ inheritAttrs: false });
 

@@ -6,7 +6,7 @@ import {
   ContextMenuItem,
   useForwardPropsEmits,
 } from 'reka-ui'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/cn'
 
 const props = withDefaults(defineProps<ContextMenuItemProps & {
   class?: HTMLAttributes['class']

@@ -1,4 +1,4 @@
-import type { LocalFileAttachment } from "@/lib/localFileAttachment";
+import type { LocalFileAttachment } from "@/modules/agent/utils/localFileAttachment";
 
 export type QueueSource = "diff" | "file" | "folder" | "terminal";
 

@@ -47,11 +47,11 @@ import {
   SidebarProvider,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
-import { useToast } from "@/composables/useToast";
+import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
+import { useToast } from "@/hooks/useToast";
 import { useScm } from "@/modules/git/hooks/useScm";
-import { LruMap } from "@/lib/lruMap";
-import { fileEmojiForPath } from "@/lib/fileEmojiForPath";
+import { LruMap } from "@/modules/git/utils/lruMap";
+import { fileEmojiForPath } from "@/utils/fileEmojiForPath";
 import type {
   FileDiffScope,
   FileMergeSidesResult,

@@ -1,9 +1,9 @@
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ThreadFileBadge, ThreadImageBadge, ThreadQueueContextTag } from "@/lib/threadCreateEditorExtensions";
-import { collectDocAttachmentPaths } from "@/lib/threadCreatePromptSerialize";
-import { docPosAtFlatOffset, promptDocFlatText, promptFlatOffsetAtDocPos, replaceFlatRange } from "@/lib/threadCreateTipTap";
+import { ThreadFileBadge, ThreadImageBadge, ThreadQueueContextTag } from "@/modules/agent/utils/threadCreateEditorExtensions";
+import { collectDocAttachmentPaths } from "@/modules/agent/utils/threadCreatePromptSerialize";
+import { docPosAtFlatOffset, promptDocFlatText, promptFlatOffsetAtDocPos, replaceFlatRange } from "@/modules/agent/utils/threadCreateTipTap";
 
 describe("threadCreateTipTap", () => {
   let editor: Editor;

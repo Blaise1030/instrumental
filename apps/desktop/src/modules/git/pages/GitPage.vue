@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import PillTabs from "@/components/ui/PillTabs.vue";
-import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
+import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
 import type { PillTabItem } from "@/components/ui/PillTabs.vue";
 
 const route = useRoute();

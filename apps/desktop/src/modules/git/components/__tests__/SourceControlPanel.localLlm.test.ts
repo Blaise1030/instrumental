@@ -38,7 +38,7 @@ vi.mock("@/app-context/useAppContext", () => ({
   useAppContext: () => appContextRef,
 }));
 
-vi.mock("@/composables/useToast", () => ({
+vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({
     success: vi.fn(),
     error: vi.fn(),
@@ -47,7 +47,7 @@ vi.mock("@/composables/useToast", () => ({
   }),
 }));
 
-vi.mock("@/composables/useActiveWorkspace", () => {
+vi.mock("@/hooks/useActiveWorkspace", () => {
   const { computed } = require("vue") as typeof import("vue");
   return {
     useActiveWorkspace: () => ({

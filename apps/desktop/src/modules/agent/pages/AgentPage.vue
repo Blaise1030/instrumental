@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
-import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
-import { buildThreadCreatePromptWithAttachmentBlocks } from "@/lib/threadCreatePromptAssembly";
-import { useAgentBootstrapCommands } from "@/composables/useAgentBootstrapCommands";
+import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
+import { buildThreadCreatePromptWithAttachmentBlocks } from "@/modules/agent/utils/threadCreatePromptAssembly";
+import { useAgentBootstrapCommands } from "@/modules/agent/hooks/useAgentBootstrapCommands";
 import { threadAgentResumeCommandLine } from "@shared/threadAgentBootstrap";
 import { isValidPersistedResumeId } from "@/shared/resumeSessionId";
 import ThreadAdaptivePromptInput from "@/modules/agent/components/ThreadAdaptivePromptInput.vue";
 import TerminalPane from "@/modules/agent/components/TerminalPane.vue";
-import type { LocalFileAttachment } from "@/lib/localFileAttachment";
+import type { LocalFileAttachment } from "@/modules/agent/utils/localFileAttachment";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
 import { useAppContext } from "@/app-context/useAppContext";
-import { useThreadMessageDraft, clearThreadMessageDraft } from "@/composables/useThreadMessageDraft";
+import { useThreadMessageDraft, clearThreadMessageDraft } from "@/modules/agent/hooks/useThreadMessageDraft";
+import { takePendingAgentBootstrapForThread } from "@/modules/agent/utils/pendingAgentBootstrapSession";
 
 const route = useRoute();
 const { activeWorktree } = useActiveWorkspace();
@@ -31,6 +32,12 @@ useThreadMessageDraft(threadId, prompt);
 onMounted(async () => {
   const tid = threadId.value;
   if (!tid) return;
+
+  const pendingCreateBootstrap = takePendingAgentBootstrapForThread(tid);
+  if (pendingCreateBootstrap?.command.trim()) {
+    pendingBootstrap.value = pendingCreateBootstrap;
+    return;
+  }
 
   const workspaceService = appContext.value?.workspaceService;
   if (!workspaceService) return;

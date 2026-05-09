@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   extractSelectionFilePathCandidates,
   resolveSelectionFilePath
-} from "@/lib/selectionFilePath";
+} from "@/utils/selectionFilePath";
 
 describe("selectionFilePath", () => {
   it("extracts a relative file path with line suffix from selected text", () => {

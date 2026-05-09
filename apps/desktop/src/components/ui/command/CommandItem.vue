@@ -6,7 +6,7 @@ import { reactiveOmit, useCurrentElement } from '@vueuse/core'
 import { CheckIcon } from 'lucide-vue-next'
 import { ListboxItem, useForwardPropsEmits, useId } from 'reka-ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/cn'
 import { useCommand, useCommandGroup } from '.'
 
 const props = defineProps<ListboxItemProps & { class?: HTMLAttributes['class'] }>()

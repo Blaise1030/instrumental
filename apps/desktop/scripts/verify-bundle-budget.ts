@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { readMainBundleMetrics } from "../src/lib/bundleMetrics";
+import { readMainBundleMetrics } from "../src/utils/bundleMetrics";
 
 const root = process.cwd();
 const budgetPath = join(root, "scripts", "bundle-budget.json");

@@ -99,7 +99,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import { setPreviewNativeCollisionEl, setPreviewNativeViewportTopPx } from "@/composables/previewNativeViewportTop";
+import { setPreviewNativeCollisionEl, setPreviewNativeViewportTopPx } from "@/modules/browser/hooks/previewNativeViewportTop";
 import {Button} from "@/components/ui/button";;
 import { Badge } from "@/components/ui/badge/index";
 import type { BadgeVariants } from "@/components/ui/badge/index";
@@ -110,8 +110,8 @@ import {
   loadPreviewPanelUrl,
   savePreviewPanelDevtoolsOpen,
   savePreviewPanelUrl
-} from "@/composables/usePreviewPanelUrlPersistence";
-import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
+} from "@/modules/browser/hooks/usePreviewPanelUrlPersistence";
+import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
 
 const { activeWorktreeId } = useActiveWorkspace();
 const props = withDefaults(

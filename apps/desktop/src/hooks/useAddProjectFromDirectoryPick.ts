@@ -1,5 +1,5 @@
-import { useToast } from "@/composables/useToast";
-import { displayNameFromRepoPath, normalizeRepoPathForCompare } from "@/lib/repoPathUtils";
+import { useToast } from "@/hooks/useToast";
+import { displayNameFromRepoPath, normalizeRepoPathForCompare } from "@/utils/repoPathUtils";
 import { useAppContext } from "@/app-context/useAppContext";
 
 export function useAddProjectFromDirectoryPick(options: {

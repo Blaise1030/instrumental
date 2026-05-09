@@ -15,11 +15,11 @@ import {
   ThreadFileBadge,
   ThreadImageBadge,
   ThreadQueueContextTag
-} from "@/lib/threadCreateEditorExtensions";
-import { collectDocAttachmentPaths } from "@/lib/threadCreatePromptSerialize";
-import { isImageFile, pathFromFile, type LocalFileAttachment } from "@/lib/localFileAttachment";
-import { THREAD_PROMPT_BLOCK_SEP, promptDocFlatText } from "@/lib/threadCreateTipTap";
-import { cn } from "@/lib/utils";
+} from "@/modules/agent/utils/threadCreateEditorExtensions";
+import { collectDocAttachmentPaths } from "@/modules/agent/utils/threadCreatePromptSerialize";
+import { isImageFile, pathFromFile, type LocalFileAttachment } from "@/modules/agent/utils/localFileAttachment";
+import { THREAD_PROMPT_BLOCK_SEP, promptDocFlatText } from "@/modules/agent/utils/threadCreateTipTap";
+import { cn } from "@/utils/cn";
 
 const props = withDefaults(
   defineProps<{

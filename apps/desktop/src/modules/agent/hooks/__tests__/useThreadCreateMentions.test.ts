@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isSkillLikePath,
   parseMentionAtCursor
-} from "@/composables/useThreadCreateMentions";
+} from "@/modules/agent/hooks/useThreadCreateMentions";
 
 describe("useThreadCreateMentions helpers", () => {
   it("parseMentionAtCursor detects active @ query before cursor", () => {

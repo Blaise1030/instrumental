@@ -17,13 +17,13 @@ import {
   threadContextQueueKey,
 } from "@/contextQueue/injectionKeys";
 import type { QueueCapture, QueueItem } from "@/contextQueue/types";
-import type { Rect } from "@/lib/contextQueueAnchor";
-import { resolveSelectionFilePath } from "@/lib/selectionFilePath";
-import { fileEmojiForPath } from "@/lib/fileEmojiForPath";
-import { useToast } from "@/composables/useToast";
+import type { Rect } from "@/utils/contextQueueAnchor";
+import { resolveSelectionFilePath } from "@/utils/selectionFilePath";
+import { fileEmojiForPath } from "@/utils/fileEmojiForPath";
+import { useToast } from "@/hooks/useToast";
 import { type PillTabItem } from "@/components/ui/pill-tabs";
-import { monacoLanguageIdFromPath } from "@/lib/monacoLanguage";
-import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
+import { monacoLanguageIdFromPath } from "@/utils/monacoLanguage";
+import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
 import type { ExplorerShell } from "@/modules/explorer/services/explorerShellContext";
 import { normalizeExplorerFilenameParam } from "@/modules/explorer/explorerRoute";
 import {

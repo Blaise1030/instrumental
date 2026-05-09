@@ -13,7 +13,7 @@ import {
   ComboboxViewport
 } from "@/components/ui/combobox";
 import { CursorLoading } from "@/components/ui/cursor-loading";
-import { useToast } from "@/composables/useToast";
+import { useToast } from "@/hooks/useToast";
 import { useAppContext } from "@/app-context/useAppContext";
 import Button from "@/components/ui/button/Button.vue";
 

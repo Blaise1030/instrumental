@@ -4,7 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ChevronLeft } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { useGitHubPrStore } from "@/modules/git/stores/githubPrStore";
-import { detectGitHubRemote } from "@/composables/useGitHubRemote";
+import { detectGitHubRemote } from "@/modules/git/hooks/useGitHubRemote";
 
 const route = useRoute();
 const router = useRouter();

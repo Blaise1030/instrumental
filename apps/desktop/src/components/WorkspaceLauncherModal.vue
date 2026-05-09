@@ -11,10 +11,10 @@ import {
   type LauncherCommandId,
   type LauncherRow,
   type LauncherSectionId
-} from "@/lib/workspaceLauncherSearch";
+} from "@/utils/workspaceLauncherSearch";
 import { findDefinitionIn, formatShortcut } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
-import { useActiveWorkspace } from "@/composables/useActiveWorkspace";
+import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import type { FileSummary } from "@shared/ipc";
 import type { ThreadAgent } from "@shared/domain";

@@ -2,14 +2,14 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Component } from "vue";
 import type { PreviewProbeResult } from "@shared/ipc";
-import { setPreviewNativeCollisionEl, setPreviewNativeViewportTopPx } from "@/composables/previewNativeViewportTop";
+import { setPreviewNativeCollisionEl, setPreviewNativeViewportTopPx } from "@/modules/browser/hooks/previewNativeViewportTop";
 
 const { previewPanelActiveWorktreeId } = vi.hoisted(() => {
   const { ref } = require("vue") as typeof import("vue");
   return { previewPanelActiveWorktreeId: ref<string | null>("wt-test-1") };
 });
 
-vi.mock("@/composables/useActiveWorkspace", () => ({
+vi.mock("@/hooks/useActiveWorkspace", () => ({
   useActiveWorkspace: () => ({
     activeWorktreeId: previewPanelActiveWorktreeId
   })

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { monaco } from "@/lib/monacoApi";
-import { applyMonacoGithubTheme } from "@/lib/monacoGithubTheme";
-import { monacoLanguageIdFromPath } from "@/lib/monacoLanguage";
+import { monaco } from "@/utils/monacoApi";
+import { applyMonacoGithubTheme } from "@/utils/monacoGithubTheme";
+import { monacoLanguageIdFromPath } from "@/utils/monacoLanguage";
 import ContextQueueSelectionPopup from "@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue";
 import { buildPasteText } from "@/contextQueue/formatters";
 import {
@@ -11,9 +11,9 @@ import {
   threadContextQueueKey
 } from "@/contextQueue/injectionKeys";
 import type { QueueCapture, QueueItem } from "@/contextQueue/types";
-import type { Rect } from "@/lib/contextQueueAnchor";
-import { resolveSelectionFilePath } from "@/lib/selectionFilePath";
-import { useToast } from "@/composables/useToast";
+import type { Rect } from "@/utils/contextQueueAnchor";
+import { resolveSelectionFilePath } from "@/utils/selectionFilePath";
+import { useToast } from "@/hooks/useToast";
 
 type ScmDiffLayout = "split" | "unified";
 

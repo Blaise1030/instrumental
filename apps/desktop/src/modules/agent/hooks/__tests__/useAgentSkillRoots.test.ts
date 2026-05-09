@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expandUserSkillRoot } from "@/composables/useAgentSkillRoots";
+import { expandUserSkillRoot } from "@/modules/agent/hooks/useAgentSkillRoots";
 
 describe("expandUserSkillRoot", () => {
   it("expands ~/ with a home prefix", () => {
