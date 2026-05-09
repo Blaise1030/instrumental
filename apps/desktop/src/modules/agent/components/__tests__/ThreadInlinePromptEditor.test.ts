@@ -21,7 +21,7 @@ describe("ThreadInlinePromptEditor", () => {
       props: { worktreeId: "wt-1", worktreePath: null }
     });
     expect(wrapper.find('[data-testid="inline-prompt-editor"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="inline-prompt-tiptap-placeholder-hint"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="inline-prompt-container"]').exists()).toBe(true);
   });
 
   it("shows thread context label when provided", () => {

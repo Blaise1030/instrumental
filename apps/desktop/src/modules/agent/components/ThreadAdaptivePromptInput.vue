@@ -342,7 +342,7 @@ defineExpose({
       :data-testid="`${testIdPrefix}-container`"
       :class="
         cn(
-          'border border-input bg-background shadow-xs focus-within:shadow-md',
+          'border border-input bg-input shadow-xs focus-within:shadow-md',
           isMultiLine
             ? 'flex flex-col rounded-xl'
             : 'flex items-center gap-1 rounded-full p-1'
@@ -373,11 +373,12 @@ defineExpose({
       </div>
 
       <!-- Cmd+Enter hint — single-line only -->
-      <span
-        v-show="!isMultiLine"
-        class="shrink-0 select-none pr-2 font-mono text-xs text-muted-foreground/60"
-        aria-hidden="true"
-      >⌘↵ to send</span>
+      <slot name="trailing" v-if="!isMultiLine">
+        <span          
+          class="shrink-0 select-none pr-2 font-mono text-xs text-muted-foreground/60"
+          aria-hidden="true"
+        >⌘↵ to send</span>
+      </slot>      
 
       <!-- Send button — single-line position (after editor) -->
       <Button
@@ -408,6 +409,7 @@ defineExpose({
         </Button>
 
         <div class="ms-auto flex items-center gap-2">
+          <slot name="trailing" />
           <Button
             type="button"
             size="icon"

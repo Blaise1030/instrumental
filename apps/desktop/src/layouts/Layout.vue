@@ -52,6 +52,7 @@ import {
 import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useToast } from "@/composables/useToast";
 import { useRemoveThread } from "@/modules/agent/hooks/useThreads";
+import AgentCommandsSettingsDialog from "@/modules/agent/components/AgentCommandsSettingsDialog.vue";
 
 const appContext = useAppContext();
 const { isFullscreen } = useIsFullscreen();
@@ -60,6 +61,7 @@ const queryClient = useQueryClient();
 const route = useRoute();
 const router = useRouter();
 const filterMode = ref(false);
+const settingsOpen = ref(false);
 const projectId = computed(() => route.params.projectId as string);
 
 const { mutateAsync: removeThreadMutate } = useRemoveThread();
@@ -268,7 +270,7 @@ function openFeedbackIssue(): void {
 }
 
 function openSettings(): void {
-  router.push({ name: "settings" });
+  settingsOpen.value = true;
 }
 
 function openTerminalPanel(): void {
@@ -326,6 +328,7 @@ async function onCreateWorktreeGroup(
 </script>
 
 <template>
+  <AgentCommandsSettingsDialog v-model="settingsOpen" />
   <div
     style="--header-height: 44px"
     class="max-h-screen overflow-hidden relative"

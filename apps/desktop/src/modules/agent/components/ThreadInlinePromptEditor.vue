@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ThreadAgent, ThreadCreateWithAgentPayload } from "@shared/domain";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import PromptWithFileAttachments from "@/modules/agent/components/PromptWithFileAttachments.vue";
+import ThreadAdaptivePromptInput from "@/modules/agent/components/ThreadAdaptivePromptInput.vue";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -55,10 +55,7 @@ const attachments = ref<LocalFileAttachment[]>([]);
 const skillPaths = ref<string[]>([]);
 const isDarkTheme = ref(false);
 
-const promptEditorRef = ref<{
-  flushToModels: () => void;
-  openFilePicker: () => void;
-} | null>(null);
+const promptEditorRef = ref<InstanceType<typeof ThreadAdaptivePromptInput> | null>(null);
 let themeObserver: MutationObserver | null = null;
 
 const ditherImageSrc = computed(() => (isDarkTheme.value ? ditherDarkImage : ditherLightImage));
@@ -136,60 +133,37 @@ defineExpose({
           Building something great ? <span aria-hidden="true">🛠️</span>
         </h2>
 
-        <div
-          class="relative mx-auto max-w-xl overflow-hidden rounded-xl border border-input bg-muted/50 px-2 pt-2"
-        >
-          <PromptWithFileAttachments
+        <div class="relative mx-auto max-w-xl overflow-hidden">
+          <ThreadAdaptivePromptInput
             ref="promptEditorRef"
             v-model:prompt="prompt"
             v-model:attachments="attachments"
             v-model:skill-paths="skillPaths"
             test-id-prefix="inline-prompt"
-            :tiptap="true"
-            adaptive-line-layout
-            :show-done-button="false"
             :worktree-path="worktreePath"
             placeholder="Use @ for files or / for skills..."
+            composer-label="Composer 2"
+            @submit="startThread"
           >
-            <template #footer>
-              <div class="flex flex-col items-center gap-2 py-1 w-full">                
-                <div class="ms-auto flex flex-wrap items-center gap-2">
-                  <Select v-model="selectedAgent" data-testid="inline-prompt-agent-select">
-                    <SelectTrigger class="h-8 max-h-8 w-[11rem] bg-background text-sm">
-                      <span class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-                        <AgentIcon :agent="selectedAgent" :size="16" class="shrink-0" />
-                        <SelectValue placeholder="Choose agent">{{ selectedAgentLabel }}</SelectValue>
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem v-for="opt in AGENT_OPTIONS" :key="opt.agent" :value="opt.agent">
-                        <span class="flex items-center gap-2">
-                          <AgentIcon :agent="opt.agent" :size="16" class="shrink-0" />
-                          {{ opt.label }}
-                        </span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="outline"                    
-                    data-testid="inline-prompt-cancel"
-                    @click="$emit('cancel')"
-                  >
-                    Cancel
-                  </Button>
-
-                  <Button
-                    type="button"                    
-                    data-testid="inline-prompt-start-thread"
-                    @click="startThread"
-                  >
-                    Start thread
-                  </Button>
-                </div>                
-              </div>
+            <template #trailing>
+              <Select v-model="selectedAgent" data-testid="inline-prompt-agent-select">
+                <SelectTrigger class="border-none outline-none text-sm bg-transparent">
+                  <span class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+                    <AgentIcon :agent="selectedAgent" :size="16" class="shrink-0" />
+                    <SelectValue placeholder="Choose agent">{{ selectedAgentLabel }}</SelectValue>
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="opt in AGENT_OPTIONS" :key="opt.agent" :value="opt.agent">
+                    <span class="flex items-center gap-2">
+                      <AgentIcon :agent="opt.agent" :size="16" class="shrink-0" />
+                      {{ opt.label }}
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </template>
-          </PromptWithFileAttachments>           
+          </ThreadAdaptivePromptInput>
         </div>        
           <div class="text-xs text-center py-4 text-muted-foreground">
             You are adding a thread to <b>{{ threadTargetLabel }}</b>.
