@@ -266,6 +266,10 @@ contextBridge.exposeInMainWorld("workspaceApi", {
     return () => ipcRenderer.off(IPC_CHANNELS.uiOpenWorkspaceSettings, handler);
   },
   pickRepoDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.dialogPickRepoDirectory),
+  createWorktreeGroup: (payload: { projectId: string; branch: string; baseBranch: string | null }) =>
+    ipcRenderer.invoke(IPC_CHANNELS.workspaceCreateWorktreeGroup, payload),
+  deleteWorktreeGroup: (payload: { worktreeId: string }) =>
+    ipcRenderer.invoke(IPC_CHANNELS.workspaceDeleteWorktreeGroup, payload),
   resolveRepoRootFromWebkitFile: (file: File) => resolveRepoRootFromWebkitFile(file),
   /** Absolute path for a file from a drag-and-drop `DataTransfer` (Electron). */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),

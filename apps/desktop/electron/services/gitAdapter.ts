@@ -30,6 +30,11 @@ export function createGitAdapter(): GitAdapter {
       return result.all;
     },
 
+    async removeWorktree(repoPath, worktreePath) {
+      const git = simpleGit(repoPath);
+      await git.raw(["worktree", "remove", "--force", worktreePath]);
+    },
+
     async pathExists(fsPath) {
       return fs.existsSync(fsPath);
     }

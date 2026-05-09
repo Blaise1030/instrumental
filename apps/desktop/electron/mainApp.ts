@@ -395,6 +395,14 @@ function registerIpc(workspaceService: WorkspaceService): void {
   ipcMain.handle(IPC_CHANNELS.workspaceListBranches, async (_, payload: { projectId: string }) => {
     return workspaceService.listBranches(payload.projectId);
   });
+  ipcMain.handle(
+    IPC_CHANNELS.workspaceDeleteWorktreeGroup,
+    async (_, payload: { worktreeId: string }) => {
+      await workspaceService.deleteWorktreeGroup(payload.worktreeId);
+      emitWorkspaceDidChange();
+      emitWorkingTreeFilesDidChange();
+    }
+  );
   ipcMain.handle(IPC_CHANNELS.workspaceSetAgentSkillSearchRoots, (_, roots: unknown) => {
     if (!Array.isArray(roots)) {
       agentSkillSearchRootsAbs = [];

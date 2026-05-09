@@ -11,6 +11,7 @@ import { WorkspaceStore } from "../storage/WorkspaceStore.js";
 export interface GitAdapter {
   worktreeList(repoPath: string): Promise<Array<{ path: string; branch: string }>>;
   branchList(repoPath: string): Promise<string[]>;
+  removeWorktree(repoPath: string, worktreePath: string): Promise<void>;
   pathExists(fsPath: string): Promise<boolean>;
 }
 
@@ -252,6 +253,37 @@ export class WorkspaceService {
     if (!project) throw new Error(`Project ${projectId} not found`);
 
     return this.git.branchList(project.repoPath);
+  }
+
+  async deleteWorktreeGroup(worktreePath: string): Promise<void> {
+    if (!this.git) throw new Error("Git adapter required for worktree operations");
+    const target = worktreePath.trim();
+    if (!target) throw new Error("worktree path is required");
+
+    const snapshot = this.store.getSnapshot();
+    let matchedProject = snapshot.projects.find((p) => p.repoPath === target) ?? null;
+    if (!matchedProject) {
+      for (const project of snapshot.projects) {
+        const listed = await this.git.worktreeList(project.repoPath);
+        if (listed.some((entry) => entry.path === target)) {
+          matchedProject = project;
+          break;
+        }
+      }
+    }
+    if (!matchedProject) throw new Error(`Could not resolve parent repo for worktree: ${target}`);
+    if (matchedProject.repoPath === target) {
+      throw new Error("Cannot delete the default repository worktree");
+    }
+
+    await this.git.removeWorktree(matchedProject.repoPath, target);
+
+    for (const thread of snapshot.threads.filter((t) => t.worktreePath === target)) {
+      this.store.deleteThread(thread.id);
+    }
+    if (this.store.getSnapshot().activeWorktreePath === target) {
+      this.store.setActiveState(matchedProject.id, null, null);
+    }
   }
 
 }

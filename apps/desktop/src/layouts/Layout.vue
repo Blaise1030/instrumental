@@ -230,8 +230,8 @@ const { data: threadsGroup } = useQuery({
       return {
         path: wtPath,
         branch,
-        worktreePath: row?.path ?? null,
-        isDefault: row?.isDefault ?? false,
+        worktreePath: row?.path ?? wtPath,
+        isDefault: row?.isDefault ?? wtPath === repoRoot,
         threads: (threadsMap[branch] ?? [])?.map((thread) => ({
           ...thread,
           resumeId: sessionResumeIdMap[thread.id] ?? thread.resumeId,
@@ -345,15 +345,13 @@ onBeforeUnmount(() => {
 const addWorktreePopoverOpen = ref(false);
 
 const canCreateWorktree = computed(() => {
-  if (typeof window === "undefined") return false;
-  return Boolean(
-    appContext.value.gitService && window.workspaceApi?.createWorktreeGroup,
-  );
+  if (!appContext.value?.gitService) return false;
+  return appContext.value.workspaceService.canCreateWorktreeGroup();
 });
 
 const canDeleteWorktree = computed(() => {
-  if (typeof window === "undefined") return false;
-  return Boolean(window.workspaceApi?.deleteWorktreeGroup);
+  if (!appContext.value?.gitService) return false;
+  return appContext.value.workspaceService.canDeleteWorktreeGroup();
 });
 
 async function onDeleteWorktreeGroup(
