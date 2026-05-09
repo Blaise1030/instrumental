@@ -421,8 +421,7 @@ async function onCreateWorktreeGroup(
           class="flex shrink-0 items-center justify-end gap-1 ps-2"
           :class="{ 'ps-20': !isFullscreen }"
         >
-          <SidebarTrigger class="border" />
-          {{ route.path }}
+          <SidebarTrigger class="border" />          
           <ButtonGroup>
             <Button
               type="button"
