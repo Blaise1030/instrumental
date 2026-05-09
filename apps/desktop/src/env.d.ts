@@ -122,7 +122,7 @@ interface WorkspaceApi {
   /** Electron: GitHub PR panel credentials from `workspace.db`. */
   getGitHubPrSettings?: () => Promise<GitHubPrSettings>;
   setGitHubPrSettings?: (payload: GitHubPrSettings) => Promise<void>;
-  /** Electron: fetch raw PR diff from main process (avoids renderer CORS 406 on diff media type). */
+  /** Electron: fetch raw PR diff from main process (avoids CORS; main uses combined Accept per GitHub REST docs). */
   githubFetchPrDiff?: (payload: { owner: string; repo: string; prNumber: number; token: string }) => Promise<string>;
   pickRepoDirectory: () => Promise<string | null>;
   /** Present when running under Electron preload; maps a webkitdirectory file to the chosen folder path. */

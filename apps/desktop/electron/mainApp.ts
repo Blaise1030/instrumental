@@ -231,11 +231,18 @@ function createMainWindow(): BrowserWindow {
     console.error("[electron] Preload failed to execute:", failedPreloadPath, error);
   });
 
-  /** ⌘, / Ctrl+, is often eaten by the OS or default app menu before the renderer sees it. */
+  /**
+   * - ⌘, / Ctrl+, — often eaten by the OS or default app menu before the renderer sees it.
+   * - ⌘R / Ctrl+R (and shift for hard reload) — prevent full window refresh like a browser tab.
+   */
   win.webContents.on("before-input-event", (event, input) => {
     if (input.type !== "keyDown") return;
     const mac = process.platform === "darwin";
     const mod = mac ? input.meta : input.control;
+    if (mod && !input.alt && input.key.toLowerCase() === "r") {
+      event.preventDefault();
+      return;
+    }
     if (mod && !input.alt && !input.shift && input.key === ",") {
       event.preventDefault();
       win.webContents.send(IPC_CHANNELS.uiOpenWorkspaceSettings);
@@ -353,15 +360,23 @@ function registerIpc(workspaceService: WorkspaceService): void {
     IPC_CHANNELS.workspaceGithubFetchPrDiff,
     async (_, payload: { owner: string; repo: string; prNumber: number; token: string }) => {
       const url = `https://api.github.com/repos/${payload.owner}/${payload.repo}/pulls/${payload.prNumber}`;
+      // GitHub REST docs: combine JSON + diff Accept so API version negotiation succeeds; diff-only Accept can yield 406 with X-GitHub-Api-Version on some stacks.
+      const acceptDiff =
+        "application/vnd.github+json,application/vnd.github.diff";
       const res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${payload.token}`,
-          Accept: "application/vnd.github.diff",
+          Accept: acceptDiff,
           "X-GitHub-Api-Version": "2022-11-28",
           "User-Agent": "instrument-app",
         },
       });
-      if (!res.ok) throw new Error(`GitHub API error ${res.status}`);
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(
+          `GitHub API error ${res.status}${detail ? `: ${detail.slice(0, 400)}` : ""}`
+        );
+      }
       return res.text();
     }
   );

@@ -1068,7 +1068,8 @@ defineExpose({
     <Sidebar
       id="file-search-sidebar"
       sidebar-scope="fileExplorer"
-      layout="nested"       
+      layout="nested"
+      class="border-e"
     >
       <SidebarHeader data-testid="file-search-header" class="gap-1">
         <div class="relative min-w-0">

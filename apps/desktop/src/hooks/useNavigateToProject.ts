@@ -10,8 +10,31 @@ import {
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useAppContext } from "@/app-context/useAppContext";
 import type { WorkspaceService } from "@/app-context/workspaceService";
+import type { GitService } from "@/modules/git/services/gitService";
 
 type WorkspaceStore = ReturnType<typeof useWorkspaceStore>;
+
+/** Branch checked out at `worktreePath` (under `repoPath`), for URLs when DB has no `createdBranch`. */
+async function resolveBranchForWorktree(
+  gitService: GitService | undefined,
+  repoPath: string,
+  worktreePath: string,
+): Promise<string> {
+  if (!gitService || !worktreePath.trim()) return "";
+  try {
+    const b = (await gitService.getCurrentBranch(worktreePath)).trim();
+    if (b) return b;
+  } catch {
+    /* fall through */
+  }
+  try {
+    const trees = await gitService.listWorktrees(repoPath);
+    const match = trees.find((w) => w.path === worktreePath);
+    return match?.branch?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
 
 async function tryRestoreStoredRoute(
   router: Router,
@@ -99,6 +122,8 @@ export function useNavigateToProject(): {
       .filter((t) => t.projectId === targetProjectId)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
 
+    const gitService = appContext.value?.gitService;
+
     if (thread?.createdBranch) {
       await workspaceService.setActive({
         projectId: targetProjectId,
@@ -115,15 +140,43 @@ export function useNavigateToProject(): {
           threadId: thread.id,
         },
       });
-    } else {
-      // No threads yet — just update active project
+    } else if (thread) {
+      const branchName =
+        (await resolveBranchForWorktree(gitService, project.repoPath, thread.worktreePath)) ||
+        "main";
       await workspaceService.setActive({
         projectId: targetProjectId,
-        worktreePath: null,
+        worktreePath: thread.worktreePath,
+        threadId: thread.id,
+      });
+      const fresh = await workspaceService.getSnapshot();
+      workspace.hydrate(fresh);
+      await router.push({
+        name: "agent",
+        params: {
+          projectId: targetProjectId,
+          branch: encodeBranch(branchName),
+          threadId: thread.id,
+        },
+      });
+    } else {
+      const branchName =
+        (await resolveBranchForWorktree(gitService, project.repoPath, project.repoPath)) ||
+        "main";
+      await workspaceService.setActive({
+        projectId: targetProjectId,
+        worktreePath: project.repoPath,
         threadId: null,
       });
       const fresh = await workspaceService.getSnapshot();
       workspace.hydrate(fresh);
+      await router.push({
+        name: "threadNew",
+        params: {
+          projectId: targetProjectId,
+          branch: encodeBranch(branchName),
+        },
+      });
     }
 
     return true;

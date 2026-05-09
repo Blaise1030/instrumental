@@ -280,7 +280,9 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
       });
     }
     const url = `https://api.github.com/repos/${repoOwner.value}/${repoName.value}/pulls/${prNumber}`;
-    const res = await fetch(url, { headers: apiHeaders("application/vnd.github.diff") });
+    const res = await fetch(url, {
+      headers: apiHeaders("application/vnd.github+json,application/vnd.github.diff"),
+    });
     if (!res.ok) throw new Error(`GitHub API error ${res.status}`);
     return res.text();
   }

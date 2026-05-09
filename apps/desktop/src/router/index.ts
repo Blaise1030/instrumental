@@ -12,10 +12,10 @@ export const router = createRouter({
 router.beforeEach((to) => {
   const workspace = useWorkspaceStore();
 
-  const projectId = to.params.projectId as string | undefined;
-  if (!projectId) return true;  
-  const project = workspace.projects.find((p) => p.id === projectId);
-  if (!project) return { name: "welcome" };  
+  // const projectId = to.params.projectId as string | undefined;
+  // if (!projectId) return true;  
+  // const project = workspace.projects.find((p) => p.id === projectId);
+  // if (!project) return { name: "welcome" };  
 
   return true;
 });
