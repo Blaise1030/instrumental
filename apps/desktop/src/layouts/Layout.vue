@@ -637,7 +637,7 @@ async function onCreateWorktreeGroup(
 
                     <SidebarGroupContent>
                       <SidebarMenu :class="index === 0 ? 'px-1' : ''">
-                        <SidebarMenuItem
+                        <SidebarMenuItem                          
                           v-for="thread in (showMoreToggleState[value?.branch]
                             ? filterByBranch(value?.threads, value?.branch)
                             : filterByBranch(
@@ -689,6 +689,16 @@ async function onCreateWorktreeGroup(
                             </div>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
+                        <div v-if="value?.threads.length === 0" class="flex gap-2 bg-muted rounded-md items-center py-4 flex-col">
+                          <p class="text-xs text-muted-foreground">                          
+                            No threads created.                          
+                          </p>
+                          <Button size="xs" class="w-fit" variant="outline" @click="goNewThread(value?.branch)">
+                            <PlusIcon />
+                            New thread
+                          </Button>
+                        </div>
+                        
                         <Button
                           v-if="
                             filterByBranch(value?.threads, value?.branch)
