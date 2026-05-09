@@ -25,7 +25,8 @@ import {
   type FileWriteInput,
   type RemoveProjectInput,
   type RenameThreadInput,
-  type ReorderProjectsInput
+  type ReorderProjectsInput,
+  type UpdateThreadInput
 } from "../src/shared/ipc.js";
 import type { ThreadAgent } from "../src/shared/domain.js";
 import { DiffService } from "./services/diffService.js";
@@ -387,7 +388,7 @@ function registerIpc(workspaceService: WorkspaceService): void {
     workspaceService.renameThread(payload.threadId, payload.title);
     emitWorkspaceDidChange();
   });
-  ipcMain.handle(IPC_CHANNELS.workspaceUpdateThread, (_, payload: { threadId: string; title?: string; agent?: ThreadAgent }) => {
+  ipcMain.handle(IPC_CHANNELS.workspaceUpdateThread, (_, payload: UpdateThreadInput) => {
     workspaceService.updateThread(payload.threadId, payload);
     emitWorkspaceDidChange();
   });

@@ -33,6 +33,7 @@ export function useRemoveThread() {
       appContext.value.threadManagementService.removeThread(threadId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agent", "threads"] });
+      queryClient.invalidateQueries({ queryKey: ["worktrees"] });
     },
   });
 }
@@ -45,6 +46,7 @@ export function useUpdateThread() {
       appContext.value.threadManagementService.updateThread(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agent", "threads"] });
+      queryClient.invalidateQueries({ queryKey: ["worktrees"] });
     },
   });
 }

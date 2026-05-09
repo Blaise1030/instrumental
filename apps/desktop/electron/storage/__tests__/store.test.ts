@@ -370,6 +370,7 @@ describe("WorkspaceStore", () => {
     const result = store.captureResumeId("thread-1", "new-resume-id");
     expect(result).toBe(true);
     expect(store.getThreadSession("thread-1")?.resumeId).toBe("new-resume-id");
+    expect(store.getThread("thread-1")?.resumeId).toBe("new-resume-id");
   });
 
   it("captureResumeId returns false when thread session does not exist", () => {
@@ -382,6 +383,23 @@ describe("WorkspaceStore", () => {
 
     const result = store.captureResumeId("thread-1", "some-resume-id");
     expect(result).toBe(false);
+  });
+
+  it("repairIntegrity backfills threads.resume_id from thread_sessions when thread row was cleared", () => {
+    const baseDir = makeTempDir();
+    const store = new WorkspaceStore(openDatabase(baseDir));
+    store.migrate();
+    seedBasicWorkspace(store);
+    store.upsertThread(makeThread({ resumeId: null }));
+    store.upsertThreadSession(makeThreadSession({ resumeId: "backfill-resume", threadId: "thread-1" }));
+
+    const raw = new Database(path.join(baseDir, "workspace.db"));
+    raw.prepare("UPDATE threads SET resume_id = NULL WHERE id = ?").run("thread-1");
+    raw.close();
+
+    const reopened = new WorkspaceStore(openDatabase(baseDir));
+    reopened.migrate();
+    expect(reopened.getThread("thread-1")?.resumeId).toBe("backfill-resume");
   });
 
   it("deleteThread clears active thread from app_state", () => {

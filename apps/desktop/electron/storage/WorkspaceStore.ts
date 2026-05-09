@@ -126,7 +126,6 @@ export class WorkspaceStore {
     if (nextProjectId) {
       const nextThreads = this.threads.listAll().filter((t) => t.projectId === nextProjectId);
       if (nextThreads.length > 0) {
-        // Sort by created_at DESC to get newest
         const sorted = [...nextThreads].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
         nextThreadId = sorted[0]?.id ?? null;
         nextWorktreePath = sorted[0]?.worktreePath ?? null;
@@ -248,9 +247,10 @@ export class WorkspaceStore {
     const existing = this.threads.getSession(threadId);
     if (!existing) return false;
     const now = new Date().toISOString();
+    const trimmed = resumeId.trim();
     this.threads.upsertSession({
       ...existing,
-      resumeId,
+      resumeId: trimmed,
       updatedAt: now,
     });
     return true;
@@ -296,5 +296,7 @@ export class WorkspaceStore {
           END
       WHERE id = 1
     `);
+
+    this.threads.backfillThreadResumeIdsFromSessions();
   }
 }

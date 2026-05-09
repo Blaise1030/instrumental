@@ -25,7 +25,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ButtonGroup } from "@/components/ui/button-group";
-import { ChevronRight, PlusIcon, ChevronLeft, Trash2 } from "lucide-vue-next";
+import { Archive, ChevronRight, PlusIcon, ChevronLeft, Settings, Terminal, Trash2 } from "lucide-vue-next";
 import type { Project, Thread } from "@/shared/domain";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useRoute, useRouter } from "vue-router";
@@ -41,7 +41,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Terminal, Settings } from "lucide-vue-next";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import NotificationPopover from "@/modules/notification/components/NotificationPopover.vue";
 import BranchPicker from "@/modules/git/components/BranchPicker.vue";
@@ -52,6 +51,7 @@ import {
 } from "@/components/ui/popover";
 import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useToast } from "@/composables/useToast";
+import { useRemoveThread } from "@/modules/agent/hooks/useThreads";
 
 const appContext = useAppContext();
 const { isFullscreen } = useIsFullscreen();
@@ -61,6 +61,8 @@ const route = useRoute();
 const router = useRouter();
 const filterMode = ref(false);
 const projectId = computed(() => route.params.projectId as string);
+
+const { mutateAsync: removeThreadMutate } = useRemoveThread();
 
 const { activeThreadId } = useActiveWorkspace();
 const { navigateToProject: navigateToProjectCore } = useNavigateToProject();
@@ -134,6 +136,30 @@ function goNewThread(branch: string): void {
   });
 }
 
+async function removeThreadViaArchiveButton(thread: Thread): Promise<void> {
+  const ok = window.confirm(
+    `Remove “${thread.title}” from this project? The thread will be deleted from the workspace database. This cannot be undone.`,
+  );
+  if (!ok) return;
+  try {
+    await removeThreadMutate(thread.id);
+    if (route.params.threadId === thread.id && projectId.value) {
+      void router.push({
+        name: "threadNew",
+        params: {
+          projectId: projectId.value,
+          branch: encodeBranch(thread.createdBranch ?? ""),
+        },
+      });
+    }
+  } catch (e) {
+    toast.error(
+      "Could not remove thread",
+      e instanceof Error ? e.message : "Unknown error",
+    );
+  }
+}
+
 const branchId = computed(() => route.params.branch as string);
 const showMoreToggleState = ref<{ [k: string]: boolean }>({});
 
@@ -171,8 +197,13 @@ const { data: threadsGroup } = useQuery({
       (w) => w.projectId === projectId.value,
     ) ?? [];
     const listed = await appContext.value.gitService.listWorktrees(repoRoot);
-    const threads = await appContext.value.threadManagementService.loadThreads(
+    const allThreads = await appContext.value.threadManagementService.loadThreads(
       projectId.value,
+    );
+    const threads = allThreads;
+    const sessionResumeIdMap = (res.threadSessions ?? []).reduce(
+      (p, s) => ({ ...p, [s.threadId]: s.resumeId ?? null }),
+      {} as Record<string, string | null>,
     );
     const threadsMap = threads.reduce(
       (p, c) => {
@@ -195,6 +226,7 @@ const { data: threadsGroup } = useQuery({
         isDefault: row?.isDefault ?? false,
         threads: (threadsMap[branch] ?? [])?.map((thread) => ({
           ...thread,
+          resumeId: sessionResumeIdMap[thread.id] ?? thread.resumeId,
           threadPath: `/${projectId.value}/${encodeBranch(thread.createdBranch ?? "")}/thread/${thread.id}`,
         })),
       };
@@ -334,18 +366,12 @@ async function onCreateWorktreeGroup(
               v-for="value in projectTabs ?? []"
               :key="value.id"
               type="button"
-              class="shrink-0"
               :variant="value.id === projectId ? 'outline' : 'ghost'"
               :class="value.id === projectId ? 'bg-background' : ''"
               :aria-current="value.id === projectId ? 'page' : undefined"
               @click="navigateToProject(value.id)"
-            >
-            <span
-              class="inline-flex shrink-0 items-center justify-center ps-0.5 text-[15px] leading-none select-none"
-              role="img"
-              aria-label="Workspace"
-              >📁</span>
-              {{ value.name }}
+            >            
+              📁 {{ value.name }}
             </Button>
             <Button
               type="button"
@@ -531,31 +557,55 @@ async function onCreateWorktreeGroup(
                     <SidebarGroupContent>
                       <SidebarMenu :class="index === 0 ? 'px-1' : ''">
                         <SidebarMenuItem
-                          :key="thread?.id"
-                          v-for="thread in showMoreToggleState[value?.branch]
+                          v-for="thread in (showMoreToggleState[value?.branch]
                             ? filterByBranch(value?.threads, value?.branch)
                             : filterByBranch(
                                 value?.threads,
                                 value?.branch,
-                              )?.splice(0, 10)"
+                              ).slice(0, 10))"
+                          :key="thread.id"
+                          class="group/thread-item w-full min-w-0"
                         >
                           <SidebarMenuButton
                             :title="thread?.title"
                             size="sm"
                             as-child
-                            class="whitespace-nowrap group-item"
-                            :class="idleAttentionByThreadId[thread.id] ? 'bg-blue-500/12 ring-1 ring-blue-500/45 dark:bg-blue-400/14 dark:ring-blue-400/50' : ''"
+                            class="min-w-0 group-item"
+                            :class="
+                              idleAttentionByThreadId[thread.id]
+                                ? 'bg-blue-500/12 ring-1 ring-blue-500/45 dark:bg-blue-400/14 dark:ring-blue-400/50'
+                                : ''
+                            "
                             :is-active="
                               route.path.startsWith(thread.threadPath)
                             "
-                            @click="clearIdleAttention(thread.id)"
                           >
-                            <RouterLink :to="thread?.threadPath">
-                              <AgentIcon :agent="thread?.agent" :class="threadIconClass(thread.id)" />
-                              <span class="truncate">
-                                {{ thread?.title }}
-                              </span>
-                            </RouterLink>
+                            <div class="relative flex w-full min-w-0 items-center">
+                              <span class="flex min-w-0 flex-1 justify-between items-center gap-2 text-start outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+                                <RouterLink
+                                  :to="thread?.threadPath"
+                                  @click="clearIdleAttention(thread.id)"
+                                  class="flex gap-2 min-w-0 flex-1"
+                                >                            
+                                  <AgentIcon :agent="thread?.agent" :class="threadIconClass(thread.id)" />                                
+                                  <span class="truncate">
+                                    {{ thread?.title }}
+                                  </span>
+                                </RouterLink>
+                                <Button
+                                  type="button"
+                                  size="icon-sm"
+                                  variant="ghost"
+                                  class="z-20 shrink-0 hidden group-hover/thread-item:block group-focus-within/thread-item:block"
+                                  title="Remove thread from workspace"
+                                  aria-label="Remove thread from workspace"
+                                  data-testid="layout-thread-archive"
+                                  @click="void removeThreadViaArchiveButton(thread)"
+                                >
+                                  <Archive class="size-4" />
+                                </Button>
+                              </span>                                                            
+                            </div>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                         <Button
@@ -577,10 +627,13 @@ async function onCreateWorktreeGroup(
                             showMoreToggleState[value?.branch] ? "less" : "all"
                           }}
                           ({{
-                            filterByBranch(
-                              value?.threads,
-                              value?.branch,
-                            )?.splice(10)?.length
+                            Math.max(
+                              0,
+                              filterByBranch(
+                                value?.threads,
+                                value?.branch,
+                              ).length - 10,
+                            )
                           }})
                         </Button>
                       </SidebarMenu>

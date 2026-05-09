@@ -314,6 +314,33 @@ export class ThreadStore {
         metadata_json = excluded.metadata_json,
         updated_at = excluded.updated_at
     `);
+    const trimmedResume = session.resumeId?.trim() ?? "";
+    if (trimmedResume !== "") {
+      this.db.run(sql`
+        UPDATE threads
+        SET resume_id = ${trimmedResume}, updated_at = ${session.updatedAt}
+        WHERE id = ${session.threadId}
+      `);
+    }
+  }
+
+  /** Copies non-empty `thread_sessions.resume_id` onto `threads` when the thread row has none (startup repair). */
+  backfillThreadResumeIdsFromSessions(): void {
+    const now = new Date().toISOString();
+    this.db.run(sql`
+      UPDATE threads
+      SET resume_id = (
+        SELECT TRIM(s.resume_id) FROM thread_sessions s WHERE s.thread_id = threads.id LIMIT 1
+      ),
+      updated_at = ${now}
+      WHERE EXISTS (
+        SELECT 1 FROM thread_sessions s
+        WHERE s.thread_id = threads.id
+          AND s.resume_id IS NOT NULL
+          AND TRIM(s.resume_id) != ''
+      )
+      AND (threads.resume_id IS NULL OR TRIM(threads.resume_id) = '')
+    `);
   }
 
   deleteSession(threadId: string): void {
