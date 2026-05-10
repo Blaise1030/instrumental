@@ -123,4 +123,12 @@ export const IPC_CHANNELS = {
   notificationsMarkAllRead: "notifications:markAllRead",
   /** Main → renderer: notification list changed (new item added or read-state updated). */
   notificationsDidChange: "notifications:didChange",
+  /** List all terminal tabs for a worktree. */
+  terminalsListTabs: "terminals:listTabs",
+  /** Create a new terminal tab for a worktree (activates it). */
+  terminalsCreateTab: "terminals:createTab",
+  /** Delete a terminal tab by id. */
+  terminalsDeleteTab: "terminals:deleteTab",
+  /** Set the active terminal tab for a worktree. */
+  terminalsSetActiveTab: "terminals:setActiveTab",
 } as const;

@@ -50,6 +50,7 @@ import { registerAllAgentHooks } from "./services/hookRegistrationService.js";
 import { handleHookEvent } from "./adapters/hookHandler.js";
 import { NotificationService } from "./services/notificationService.js";
 import { NotificationStore, registerNotificationIpc, emitNotificationsDidChange } from "./notification/index.js";
+import { TerminalTabStore } from "./storage/stores/TerminalTabStore.js";
 
 function isSafePreviewOpenExternalUrl(url: string): boolean {
   try {
@@ -667,6 +668,8 @@ const dataDir = app.getPath("userData");
 const db = openDatabase(dataDir);
 const store = new WorkspaceStore(db);
 store.migrate();
+const terminalTabStore = new TerminalTabStore(db);
+terminalTabStore.initialize();
 const notificationStore = new NotificationStore((db.$client as import("better-sqlite3").Database));
 const gitAdapter = createGitAdapter();
 const workspaceService = new WorkspaceService(store, gitAdapter);
@@ -725,6 +728,12 @@ ptyService.setSubmittedInputListener((sessionId, input) => {
 });
 registerIpc(workspaceService);
 registerNotificationIpc(notificationStore, () => BrowserWindow.getAllWindows());
+ipcMain.handle(IPC_CHANNELS.terminalsListTabs, (_, worktreeId: string) => terminalTabStore.list(worktreeId));
+ipcMain.handle(IPC_CHANNELS.terminalsCreateTab, (_, worktreeId: string) => terminalTabStore.create(worktreeId));
+ipcMain.handle(IPC_CHANNELS.terminalsDeleteTab, (_, id: string) => terminalTabStore.delete(id));
+ipcMain.handle(IPC_CHANNELS.terminalsSetActiveTab, (_, payload: { worktreeId: string; id: string }) =>
+  terminalTabStore.setActive(payload.worktreeId, payload.id)
+);
 gitHeadWatcher.syncFromSnapshot(workspaceService.getSnapshot());
 
 app.on("will-quit", () => {

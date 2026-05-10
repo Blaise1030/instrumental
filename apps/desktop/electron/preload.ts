@@ -17,7 +17,8 @@ import type {
   StagedUnifiedDiffResult,
   PreviewNavigationState,
   UpdateThreadInput,
-  GitWorktreeListEntry
+  GitWorktreeListEntry,
+  TerminalTab
 } from "../src/shared/ipc.js";
 
 /**
@@ -117,6 +118,10 @@ const IPC_CHANNELS = {
   notificationsMarkRead: "notifications:markRead",
   notificationsMarkAllRead: "notifications:markAllRead",
   notificationsDidChange: "notifications:didChange",
+  terminalsListTabs: "terminals:listTabs",
+  terminalsCreateTab: "terminals:createTab",
+  terminalsDeleteTab: "terminals:deleteTab",
+  terminalsSetActiveTab: "terminals:setActiveTab",
 } as const;
 
 /** Absolute repo root from the first file in a webkitdirectory pick (Electron only). */
@@ -337,4 +342,15 @@ contextBridge.exposeInMainWorld("previewApi", {
     ipcRenderer.on(IPC_CHANNELS.previewNavigationStateChanged, handler);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.previewNavigationStateChanged, handler);
   }
+});
+
+contextBridge.exposeInMainWorld("terminalsApi", {
+  listTabs: (worktreeId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.terminalsListTabs, worktreeId) as Promise<TerminalTab[]>,
+  createTab: (worktreeId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.terminalsCreateTab, worktreeId) as Promise<TerminalTab>,
+  deleteTab: (id: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.terminalsDeleteTab, id) as Promise<void>,
+  setActiveTab: (worktreeId: string, id: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.terminalsSetActiveTab, { worktreeId, id }) as Promise<void>,
 });

@@ -1,5 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import TerminalsPanel from "@/modules/terminals/components/TerminalsPanel.vue";
 import { useIsFullscreen } from "@/hooks/useIsFullscreen";
 import { useAppContext } from "@/app-context/useAppContext";
 import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
@@ -29,7 +35,7 @@ import { Archive, ChevronRight, PlusIcon, ChevronLeft, Settings, Terminal, Trash
 import type { Project, Thread } from "@/shared/domain";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useRoute, useRouter } from "vue-router";
-import { encodeBranch } from "@/router/branchParam";
+import { decodeBranch, encodeBranch } from "@/router/branchParam";
 import AgentIcon from "@/components/ui/AgentIcon.vue";
 import { Button } from "@/components/ui/button";
 import Switch from "@/components/ui/Switch.vue";
@@ -56,8 +62,10 @@ import AgentCommandsSettingsDialog from "@/modules/agent/components/AgentCommand
 import WorkspaceLauncherModal from "@/components/WorkspaceLauncherModal.vue";
 import { eventMatchesShortcut, findDefinitionIn } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 const appContext = useAppContext();
+const workspace = useWorkspaceStore();
 const { isFullscreen } = useIsFullscreen();
 const toast = useToast();
 const queryClient = useQueryClient();
@@ -65,6 +73,7 @@ const route = useRoute();
 const router = useRouter();
 const filterMode = ref(false);
 const settingsOpen = ref(false);
+const terminalPanelOpen = ref(false);
 const workspaceLauncherOpen = ref(false);
 const sidebarOpen = ref(true);
 const projectId = computed(() => route.params.projectId as string);
@@ -73,7 +82,7 @@ const branchId = computed(() => route.params.branch as string);
 
 const { mutateAsync: removeThreadMutate } = useRemoveThread();
 
-const { activeThreadId } = useActiveWorkspace();
+const { activeThreadId, activeWorktreeId } = useActiveWorkspace();
 const { navigateToProject: navigateToProjectCore } = useNavigateToProject();
 
 async function navigateToProject(targetProjectId: string): Promise<void> {
@@ -242,6 +251,20 @@ const { data: threadsGroup } = useQuery({
   },
 });
 
+/** Absolute worktree folder for PTY cwd and terminal-tab store key (not always the project repo root). */
+const terminalPanelWorktreePath = computed(() => {
+  const fromThread = activeWorktreeId.value;
+  if (fromThread) return fromThread;
+  const b = branchId.value;
+  const groups = threadsGroup.value;
+  if (b && groups?.length) {
+    const branch = decodeBranch(b);
+    const row = groups.find((g) => g.branch === branch);
+    if (row?.worktreePath) return row.worktreePath;
+  }
+  return projectPath.value ?? "";
+});
+
 const filterByBranch = (
   threads: (Thread & { threadPath: string })[],
   branch: string,
@@ -256,10 +279,22 @@ const allSidebarThreads = computed(() =>
   (threadsGroup.value ?? []).flatMap((g) => g.threads)
 );
 
+/** All threads in the workspace (snapshot); needed so idle attention applies across projects, not only the open one. */
+const allWorkspaceThreads = computed(() => workspace.threads);
+
 const { runStatusByThreadId, idleAttentionByThreadId, clearIdleAttention } = useThreadPtyRunStatus(
-  allSidebarThreads,
+  allWorkspaceThreads,
   { activeThreadId, notificationsEnabled: ref(true), workspaceService: computed(() => appContext.value?.workspaceService) }
 );
+
+const projectIdsWithIdleAttention = computed(() => {
+  const idle = idleAttentionByThreadId.value;
+  const ids = new Set<string>();
+  for (const t of workspace.threads) {
+    if (idle[t.id]) ids.add(t.projectId);
+  }
+  return ids;
+});
 
 function threadIconClass(threadId: string): string {
   switch (runStatusByThreadId.value[threadId] ?? null) {
@@ -280,7 +315,7 @@ function openSettings(): void {
 }
 
 function openTerminalPanel(): void {
-  router.push({ name: "terminal" });
+  terminalPanelOpen.value = !terminalPanelOpen.value;
 }
 
 function onLauncherPickThread(threadId: string): void {
@@ -450,8 +485,18 @@ async function onCreateWorktreeGroup(
               :key="value.id"
               type="button"
               :variant="value.id === projectId ? 'outline' : 'ghost'"
-              :class="value.id === projectId ? 'bg-background' : ''"
+              :class="[
+                value.id === projectId ? 'bg-background' : '',
+                projectIdsWithIdleAttention.has(value.id)
+                  ? 'bg-blue-500/12 ring-1 ring-blue-500/45 dark:bg-blue-400/14 dark:ring-blue-400/50'
+                  : '',
+              ]"
               :aria-current="value.id === projectId ? 'page' : undefined"
+              :title="
+                projectIdsWithIdleAttention.has(value.id)
+                  ? 'A thread in this project needs attention'
+                  : undefined
+              "
               @click="navigateToProject(value.id)"
             >            
               📁 {{ value.name }}
@@ -793,7 +838,29 @@ async function onCreateWorktreeGroup(
           </SidebarFooter>          
         </Sidebar>
         <SidebarInset class="mx-1 h-[calc(100dvh-var(--header-height)-0.3rem)] min-h-0 rounded-xl border shadow-sm overflow-hidden bg-background">
-          <RouterView />
+          <ResizablePanelGroup
+            v-if="terminalPanelOpen && activeTab === 'agent'"
+            direction="vertical"
+            class="h-full min-h-0"
+          >
+            <ResizablePanel :default-size="70" :min-size="15" class="min-h-0 min-w-0">
+              <div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+                <RouterView class="min-h-0 flex-1" />
+              </div>
+            </ResizablePanel>
+            
+            <ResizablePanel :default-size="30" :min-size="10" class="min-h-0 relative min-w-0 border-t">
+              <ResizableHandle
+                class="bg-border absolute left-1/2 -translate-x-1/2 top-1 active:bg-foreground w-6 mx-auto h-1 rounded-lg z-10 flex shrink-0"              
+              />
+              <TerminalsPanel
+                :worktree-id="terminalPanelWorktreePath"
+                :cwd="terminalPanelWorktreePath"
+                @close="terminalPanelOpen = false"
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+          <RouterView v-else class="h-full min-h-0" />
         </SidebarInset>
       </div>
     </SidebarProvider>

@@ -19,7 +19,8 @@ import type {
   RepoScmSnapshot,
   RepoStatusEntry,
   StagedUnifiedDiffResult,
-  GitWorktreeListEntry
+  GitWorktreeListEntry,
+  TerminalTab
 } from "@shared/ipc";
 
 declare module "*.vue" {
@@ -156,9 +157,17 @@ interface PreviewApi {
   onPreviewEmbeddedDevtoolsOpen?: (callback: (open: boolean) => void) => () => void;
 }
 
+interface TerminalsApi {
+  listTabs: (worktreeId: string) => Promise<TerminalTab[]>;
+  createTab: (worktreeId: string) => Promise<TerminalTab>;
+  deleteTab: (id: string) => Promise<void>;
+  setActiveTab: (worktreeId: string, id: string) => Promise<void>;
+}
+
 declare global {
   interface Window {
     workspaceApi?: WorkspaceApi;
     previewApi?: PreviewApi;
+    terminalsApi?: TerminalsApi;
   }
 }

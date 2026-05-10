@@ -8,6 +8,16 @@ export interface MarkNotificationReadInput {
 
 export { IPC_CHANNELS } from "../../electron/ipcChannels.js";
 
+export interface TerminalTab {
+  id: string;
+  worktreeId: string;
+  sessionId: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface WorkspaceSnapshot {
   projects: Project[];
   threads: Thread[];
