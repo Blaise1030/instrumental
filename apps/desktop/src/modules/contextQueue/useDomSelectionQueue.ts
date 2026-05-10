@@ -6,6 +6,7 @@ import type { Rect } from "@/utils/contextQueueAnchor";
 export type DomSelectionQueueOpts = {
   source: "diff" | "file";
   getFilePath?: () => string | null;
+  getLineNumbers?: () => { start: number; end: number } | null;
 };
 
 export function useDomSelectionQueue(opts: DomSelectionQueueOpts) {
@@ -38,10 +39,11 @@ export function useDomSelectionQueue(opts: DomSelectionQueueOpts) {
       throw new Error("buildItem called with no pending selection");
     }
     const filePath = opts.getFilePath?.() ?? "";
+    const lines = opts.getLineNumbers?.();
     const capture: QueueCapture =
       opts.source === "diff"
-        ? { source: "diff", filePath, selectedText: pendingText.value }
-        : { source: "file", filePath, selectedText: pendingText.value };
+        ? { source: "diff", filePath, selectedText: pendingText.value, ...(lines ? { lineStart: lines.start, lineEnd: lines.end } : {}) }
+        : { source: "file", filePath, selectedText: pendingText.value, ...(lines ? { lineStart: lines.start, lineEnd: lines.end } : {}) };
     return {
       id: crypto.randomUUID(),
       source: opts.source,

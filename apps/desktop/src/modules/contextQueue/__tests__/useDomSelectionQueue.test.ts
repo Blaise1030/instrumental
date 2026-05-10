@@ -53,8 +53,6 @@ describe("useDomSelectionQueue", () => {
     q.onMouseUp();
     const item = q.buildItem();
     expect(item.source).toBe("diff");
-    expect(item.pasteText).toContain("[diff]");
-    expect(item.pasteText).toContain("diff snippet");
     expect(item.pasteText).toContain("src/foo.ts");
   });
 
@@ -64,7 +62,7 @@ describe("useDomSelectionQueue", () => {
     q.onMouseUp();
     const item = q.buildItem();
     expect(item.source).toBe("file");
-    expect(item.pasteText).toContain("[file]");
+    expect(item.pasteText).toContain("README.md");
   });
 
   it("buildItem uses empty filePath when getFilePath not provided", () => {
@@ -72,11 +70,39 @@ describe("useDomSelectionQueue", () => {
     const q = useDomSelectionQueue({ source: "diff" });
     q.onMouseUp();
     const item = q.buildItem();
-    expect(item.pasteText).toContain("[diff]");
+    expect(item.pasteText).toBe("");
   });
 
   it("buildItem throws when called before any selection", () => {
     const q = useDomSelectionQueue({ source: "diff" });
     expect(() => q.buildItem()).toThrow("buildItem called with no pending selection");
+  });
+
+  it("buildItem calls getLineNumbers and includes lineStart/lineEnd in pasteText when provided", () => {
+    mockSelection("diff snippet with lines");
+    const getLineNumbers = vi.fn(() => ({ start: 10, end: 20 }));
+    const q = useDomSelectionQueue({
+      source: "diff",
+      getFilePath: () => "src/bar.ts",
+      getLineNumbers,
+    });
+    q.onMouseUp();
+    const item = q.buildItem();
+    expect(getLineNumbers).toHaveBeenCalledOnce();
+    expect(item.pasteText).toBe("src/bar.ts:10:20");
+  });
+
+  it("buildItem omits line numbers when getLineNumbers returns null", () => {
+    mockSelection("snippet");
+    const getLineNumbers = vi.fn(() => null);
+    const q = useDomSelectionQueue({
+      source: "diff",
+      getFilePath: () => "src/baz.ts",
+      getLineNumbers,
+    });
+    q.onMouseUp();
+    const item = q.buildItem();
+    expect(getLineNumbers).toHaveBeenCalledOnce();
+    expect(item.pasteText).toBe("src/baz.ts");
   });
 });

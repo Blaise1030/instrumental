@@ -49,6 +49,7 @@ import GitHubTokenSetup from "@/modules/git/components/GitHubTokenSetup.vue";
 import Label from "@/components/ui/label/Label.vue";
 import ContextQueueSelectionPopup from "@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue";
 import { useDomSelectionQueue } from "@/modules/contextQueue/useDomSelectionQueue";
+import { extractDiffLineNumbers } from "@/modules/contextQueue/extractDiffLineNumbers";
 import { injectContextToAgentKey } from "@/contextQueue/injectionKeys";
 
 defineProps<{ cwd: string; contextLabel?: string | null }>();
@@ -274,6 +275,7 @@ const prDiffQueue = useDomSelectionQueue({
     const el = node instanceof Element ? node : node.parentElement;
     return el?.closest("[data-file-path]")?.getAttribute("data-file-path") ?? null;
   },
+  getLineNumbers: extractDiffLineNumbers,
 });
 
 async function onPrDiffSendToAgent(): Promise<void> {

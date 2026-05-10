@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/vue-query";
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import ContextQueueSelectionPopup from "@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue";
 import { useDomSelectionQueue } from "@/modules/contextQueue/useDomSelectionQueue";
+import { extractDiffLineNumbers } from "@/modules/contextQueue/extractDiffLineNumbers";
 import { injectContextToAgentKey } from "@/contextQueue/injectionKeys";
 import {
   ArrowDownToLine,
@@ -722,6 +723,7 @@ const commitTextareaRef = ref<HTMLElement | null>(null);
 const diffQueue = useDomSelectionQueue({
   source: "diff",
   getFilePath: () => selectedEntry.value?.path ?? null,
+  getLineNumbers: extractDiffLineNumbers,
 });
 
 const commitQueue = useDomSelectionQueue({
