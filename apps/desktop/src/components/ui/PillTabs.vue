@@ -141,7 +141,7 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
     data-slot="button-group"
     :aria-label="ariaLabel"
     :class="[
-      'flex min-w-0 max-w-full shadow-xs flex-nowrap select-none items-center gap-0.5 overflow-x-auto overflow-y-hidden px-1 [scrollbar-width:thin]',
+      'flex min-w-0 max-w-full flex-nowrap select-none items-center gap-0.5 overflow-x-auto overflow-y-hidden px-1 [scrollbar-width:thin]',
       tablistPaddingClass
     ]"
   >

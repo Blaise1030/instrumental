@@ -8,6 +8,10 @@ export const projects = sqliteTable("projects", {
   tabOrder: integer("tab_order").notNull().default(0),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  githubPrOwner: text("github_pr_owner").notNull().default(""),
+  githubPrRepo: text("github_pr_repo").notNull().default(""),
+  /** OS-encrypted PAT (Electron `safeStorage`) or legacy plaintext until migration runs. */
+  githubPrToken: text("github_pr_token").notNull().default(""),
 });
 
 export const threads = sqliteTable("threads", {

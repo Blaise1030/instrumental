@@ -12,7 +12,7 @@ import type {
   RemoveProjectInput,
   RenameThreadInput,
   ReorderProjectsInput,
-  GitHubPrSettings,
+  SetProjectGitHubPrInput,
   UpdateThreadInput,
   WorktreeEditorState,
   PreviewProbeResult,
@@ -20,7 +20,10 @@ import type {
   RepoStatusEntry,
   StagedUnifiedDiffResult,
   GitWorktreeListEntry,
-  TerminalTab
+  TerminalTab,
+  GitHubPrByProjectInput,
+  GitHubPrDiffByProjectInput,
+  GitHubPrCommentsByProjectInput
 } from "@shared/ipc";
 
 declare module "*.vue" {
@@ -122,11 +125,14 @@ interface WorkspaceApi {
   syncWorktrees?: (projectId: string) => Promise<unknown>;
   /** Electron: absolute skill-directory roots from Settings → Agents (custom paths outside ~/.*/skills). */
   setAgentSkillSearchRoots?: (roots: string[]) => Promise<void>;
-  /** Electron: GitHub PR panel credentials from `workspace.db`. */
-  getGitHubPrSettings?: () => Promise<GitHubPrSettings>;
-  setGitHubPrSettings?: (payload: GitHubPrSettings) => Promise<void>;
-  /** Electron: fetch raw PR diff from main process (avoids CORS; main uses combined Accept per GitHub REST docs). */
-  githubFetchPrDiff?: (payload: { owner: string; repo: string; prNumber: number; token: string }) => Promise<string>;
+  /** Electron: GitHub PR panel credentials from `workspace.db` (PAT encrypted at rest in main). */
+  setProjectGitHubPr?: (payload: SetProjectGitHubPrInput) => Promise<void>;
+  /** Electron: list open PRs using stored credentials (renderer never receives the PAT). */
+  githubListOpenPullRequests?: (payload: GitHubPrByProjectInput) => Promise<unknown>;
+  /** Electron: fetch raw PR diff from main (Bearer from stored credentials). */
+  githubFetchPrDiff?: (payload: GitHubPrDiffByProjectInput) => Promise<string>;
+  /** Electron: PR review comments from main. */
+  githubFetchPrComments?: (payload: GitHubPrCommentsByProjectInput) => Promise<unknown>;
   pickRepoDirectory: () => Promise<string | null>;
   /** Present when running under Electron preload; maps a webkitdirectory file to the chosen folder path. */
   resolveRepoRootFromWebkitFile?: (file: File) => string;

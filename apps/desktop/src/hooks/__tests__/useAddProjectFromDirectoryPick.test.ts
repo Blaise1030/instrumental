@@ -43,6 +43,9 @@ function minimalProject(overrides: Partial<Project> & Pick<Project, "id" | "name
     tabOrder: 0,
     createdAt: "",
     updatedAt: "",
+    githubPrTokenConfigured: false,
+    githubPrOwner: "",
+    githubPrRepo: "",
     ...overrides
   };
 }

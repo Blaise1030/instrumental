@@ -34,7 +34,18 @@ describe("ThreadStore", () => {
   beforeEach(() => {
     db = createTestDb();
     const ps = new ProjectStore(db); ps.initialize();
-    ps.upsert({ id: "proj-1", name: "P", repoPath: "/r", status: "idle", tabOrder: 0, createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z" });
+    ps.upsert({
+      id: "proj-1",
+      name: "P",
+      repoPath: "/r",
+      status: "idle",
+      tabOrder: 0,
+    githubPrTokenConfigured: false,
+      githubPrOwner: "",
+      githubPrRepo: "",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z"
+    });
     store = new ThreadStore(db);
     store.initialize();
   });

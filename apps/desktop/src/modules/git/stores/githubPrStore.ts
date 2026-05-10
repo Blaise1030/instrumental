@@ -1,6 +1,7 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
 import { useToast } from "@/hooks/useToast";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 export interface GitHubPr {
   number: number;
@@ -47,7 +48,6 @@ export interface ParsedFileDiff {
 function parsePrDiff(diff: string): ParsedFileDiff[] {
   const result: ParsedFileDiff[] = [];
   const normalized = diff.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  // Split on each "diff --git" marker
   const sections = normalized.split(/(?=^diff --git )/m).filter((s) => s.trim());
 
   for (const section of sections) {
@@ -109,35 +109,20 @@ function parsePrDiff(diff: string): ParsedFileDiff[] {
   return result;
 }
 
-const STORAGE_TOKEN_KEY = "instrument.githubToken";
-const STORAGE_OWNER_KEY = "instrument.githubOwner";
-const STORAGE_REPO_KEY = "instrument.githubRepo";
-
-function readStorage(key: string): string {
-  try {
-    return typeof localStorage !== "undefined" ? (localStorage.getItem(key) ?? "") : "";
-  } catch {
-    return "";
-  }
-}
-
-function writeStorage(key: string, value: string): void {
-  try {
-    if (typeof localStorage !== "undefined") {
-      if (value) localStorage.setItem(key, value);
-      else localStorage.removeItem(key);
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
 export const useGitHubPrStore = defineStore("githubPr", () => {
   const toast = useToast();
+  const workspace = useWorkspaceStore();
 
-  const githubToken = ref(readStorage(STORAGE_TOKEN_KEY));
-  const repoOwner = ref(readStorage(STORAGE_OWNER_KEY));
-  const repoName = ref(readStorage(STORAGE_REPO_KEY));
+  /** Project whose GitHub PR credentials are used for API calls. */
+  const activeProjectId = ref("");
+
+  const activeProject = computed(() =>
+    workspace.projects.find((x) => x.id === activeProjectId.value)
+  );
+
+  const repoOwner = computed(() => (activeProject.value?.githubPrOwner ?? "").trim());
+
+  const repoName = computed(() => (activeProject.value?.githubPrRepo ?? "").trim());
 
   const prs = ref<GitHubPr[]>([]);
   const selectedPrNumber = ref<number | null>(null);
@@ -149,7 +134,10 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
   const error = ref<string | null>(null);
 
   const isConfigured = computed(
-    () => Boolean(githubToken.value) && Boolean(repoOwner.value) && Boolean(repoName.value)
+    () =>
+      Boolean(activeProject.value?.githubPrTokenConfigured) &&
+      Boolean(repoOwner.value) &&
+      Boolean(repoName.value)
   );
 
   const selectedPr = computed(() =>
@@ -166,75 +154,48 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
     return prComments.value.filter((c) => c.path === name);
   });
 
-  function applyLocalConfig(token: string, owner: string, repo: string): void {
-    githubToken.value = token.trim();
-    repoOwner.value = owner.trim();
-    repoName.value = repo.trim();
-    writeStorage(STORAGE_TOKEN_KEY, githubToken.value);
-    writeStorage(STORAGE_OWNER_KEY, repoOwner.value);
-    writeStorage(STORAGE_REPO_KEY, repoName.value);
+  function setActiveProjectContext(projectId: string): void {
+    activeProjectId.value = projectId;
   }
 
-  async function saveConfig(token: string, owner: string, repo: string): Promise<void> {
-    applyLocalConfig(token, owner, repo);
+  async function saveProjectGitHubPr(
+    projectId: string,
+    token: string,
+    owner: string,
+    repo: string,
+    opts?: { retainTokenIfEmpty?: boolean }
+  ): Promise<void> {
     const api = window.workspaceApi;
-    if (api?.setGitHubPrSettings) {
-      try {
-        await api.setGitHubPrSettings({
-          token: githubToken.value,
-          owner: repoOwner.value,
-          repo: repoName.value
-        });
-      } catch {
-        toast.error("Could not save GitHub settings", "Settings were kept in this session only.");
-      }
+    if (!api?.setProjectGitHubPr) {
+      toast.error("Could not save GitHub settings", "This build does not support saving GitHub credentials.");
+      return;
     }
-  }
-
-  /** Electron: load credentials from `workspace.db`, or migrate legacy localStorage into the DB once. */
-  async function syncPersistenceFromMain(): Promise<void> {
-    const api = window.workspaceApi;
-    if (!api?.getGitHubPrSettings || !api?.setGitHubPrSettings) return;
     try {
-      const fromDb = await api.getGitHubPrSettings();
-      const dbHasData = Boolean(fromDb.token.trim() || fromDb.owner.trim() || fromDb.repo.trim());
-      const localHasData = Boolean(
-        githubToken.value.trim() || repoOwner.value.trim() || repoName.value.trim()
-      );
-      if (dbHasData) {
-        applyLocalConfig(fromDb.token, fromDb.owner, fromDb.repo);
-      } else if (localHasData) {
-        await api.setGitHubPrSettings({
-          token: githubToken.value,
-          owner: repoOwner.value,
-          repo: repoName.value
-        });
-      }
+      await api.setProjectGitHubPr({
+        projectId,
+        token: token.trim(),
+        owner: owner.trim(),
+        repo: repo.trim(),
+        retainTokenIfEmpty: opts?.retainTokenIfEmpty,
+      });
     } catch {
-      /* ignore — fall back to localStorage-backed refs */
+      toast.error("Could not save GitHub settings", "Check your connection and try again.");
     }
-  }
-
-  function apiHeaders(acceptOverride?: string): Record<string, string> {
-    return {
-      Authorization: `Bearer ${githubToken.value}`,
-      Accept: acceptOverride ?? "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    };
   }
 
   async function fetchPrs(): Promise<void> {
-    if (!isConfigured.value) return;
+    if (!isConfigured.value || !activeProjectId.value) return;
+    if (loading.value) return;
+    const api = window.workspaceApi;
+    if (!api?.githubListOpenPullRequests) {
+      toast.error("Could not load PRs", "This build does not support GitHub PR listing from the main process.");
+      return;
+    }
     loading.value = true;
     error.value = null;
     try {
-      const url = `https://api.github.com/repos/${repoOwner.value}/${repoName.value}/pulls?state=open&per_page=30`;
-      const res = await fetch(url, { headers: apiHeaders() });
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(`GitHub API error ${res.status}: ${msg}`);
-      }
-      prs.value = await res.json() as GitHubPr[];
+      const data = await api.githubListOpenPullRequests({ projectId: activeProjectId.value });
+      prs.value = data as GitHubPr[];
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Failed to fetch PRs.";
       toast.error("Failed to load PRs", error.value);
@@ -271,29 +232,19 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
 
   async function fetchPrDiff(prNumber: number): Promise<string> {
     const api = window.workspaceApi;
-    if (api?.githubFetchPrDiff) {
-      return api.githubFetchPrDiff({
-        owner: repoOwner.value,
-        repo: repoName.value,
-        prNumber,
-        token: githubToken.value,
-      });
+    if (!api?.githubFetchPrDiff || !activeProjectId.value) {
+      throw new Error("PR diff is unavailable (missing project or IPC).");
     }
-    const url = `https://api.github.com/repos/${repoOwner.value}/${repoName.value}/pulls/${prNumber}`;
-    const res = await fetch(url, {
-      headers: apiHeaders("application/vnd.github+json,application/vnd.github.diff"),
-    });
-    if (!res.ok) throw new Error(`GitHub API error ${res.status}`);
-    return res.text();
+    return api.githubFetchPrDiff({ projectId: activeProjectId.value, prNumber });
   }
 
   async function fetchPrComments(prNumber: number): Promise<GitHubPrComment[]> {
-    const url = `https://api.github.com/repos/${repoOwner.value}/${repoName.value}/pulls/${prNumber}/comments?per_page=100`;
-    const res = await fetch(url, { headers: apiHeaders() });
-    if (!res.ok) {
-      throw new Error(`GitHub API error ${res.status}`);
+    const api = window.workspaceApi;
+    if (!api?.githubFetchPrComments || !activeProjectId.value) {
+      throw new Error("PR comments are unavailable (missing project or IPC).");
     }
-    return res.json() as Promise<GitHubPrComment[]>;
+    const data = await api.githubFetchPrComments({ projectId: activeProjectId.value, prNumber });
+    return data as GitHubPrComment[];
   }
 
   function clearPr(): void {
@@ -304,8 +255,16 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
     error.value = null;
   }
 
+  /** Clears list + selection when switching workspace projects so another tab's PRs never linger. */
+  function resetRemotePrStateForProjectChange(): void {
+    prs.value = [];
+    clearPr();
+    loading.value = false;
+    diffLoading.value = false;
+  }
+
   return {
-    githubToken,
+    activeProjectId,
     repoOwner,
     repoName,
     prs,
@@ -320,10 +279,11 @@ export const useGitHubPrStore = defineStore("githubPr", () => {
     selectedPr,
     selectedFileDiff,
     commentsForSelectedFile,
-    saveConfig,
-    syncPersistenceFromMain,
+    setActiveProjectContext,
+    saveProjectGitHubPr,
     fetchPrs,
     selectPr,
     clearPr,
+    resetRemotePrStateForProjectChange,
   };
 });

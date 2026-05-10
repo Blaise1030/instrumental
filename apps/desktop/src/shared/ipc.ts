@@ -179,11 +179,35 @@ export interface AppUpdateAvailability {
   compareUrl: string;
 }
 
-/** GitHub PAT + default repo for the in-app PR panel (`workspace.db`). */
-export interface GitHubPrSettings {
+/** Persist GitHub PAT + `owner/repo` for pull requests for one workspace project. */
+export interface SetProjectGitHubPrInput {
+  projectId: string;
+  /** New PAT, or empty to clear unless {@link retainTokenIfEmpty} is true. */
   token: string;
   owner: string;
   repo: string;
+  /**
+   * When true and `token` is empty, keep the existing stored token and only update owner/repo.
+   * Used when the UI does not re-display the secret after save.
+   */
+  retainTokenIfEmpty?: boolean;
+}
+
+/** Main process lists open PRs using the stored PAT for this project (renderer never sees the token). */
+export interface GitHubPrByProjectInput {
+  projectId: string;
+}
+
+/** Fetch PR unified diff via main (Bearer from stored credentials). */
+export interface GitHubPrDiffByProjectInput {
+  projectId: string;
+  prNumber: number;
+}
+
+/** Fetch PR review comments via main. */
+export interface GitHubPrCommentsByProjectInput {
+  projectId: string;
+  prNumber: number;
 }
 
 /** Result of checking whether a preview URL responds (main process; no CORS). */

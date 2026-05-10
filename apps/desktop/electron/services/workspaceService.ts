@@ -5,7 +5,6 @@ import { isValidPersistedResumeId } from "../../src/shared/resumeSessionId.js";
 import type {
   CreateWorktreeGroupInput,
   CreateThreadInput,
-  GitHubPrSettings,
   WorkspaceSnapshot,
 } from "../../src/shared/ipc.js";
 import { WorkspaceStore } from "../storage/WorkspaceStore.js";
@@ -77,12 +76,14 @@ export class WorkspaceService {
     return this.store.getSnapshot();
   }
 
-  getGitHubPrSettings(): GitHubPrSettings {
-    return this.store.getGitHubPrSettings();
-  }
-
-  setGitHubPrSettings(payload: GitHubPrSettings): void {
-    this.store.setGitHubPrSettings(payload);
+  setProjectGitHubPr(
+    projectId: string,
+    token: string,
+    owner: string,
+    repo: string,
+    retainTokenIfEmpty = false
+  ): void {
+    this.store.setProjectGitHubPr(projectId, token, owner, repo, retainTokenIfEmpty);
   }
 
   addProject(name: string, repoPath: string): Project {
@@ -94,7 +95,10 @@ export class WorkspaceService {
       status: "idle",
       tabOrder: this.store.nextProjectTabOrder(),
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      githubPrTokenConfigured: false,
+      githubPrOwner: "",
+      githubPrRepo: "",
     };
     this.store.upsertProject(project);
     this.store.setActiveState(project.id, null, null);
@@ -308,4 +312,52 @@ export class WorkspaceService {
     }
   }
 
+  private githubAuthHeaders(token: string, accept: string): Record<string, string> {
+    return {
+      Authorization: `Bearer ${token}`,
+      Accept: accept,
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "instrument-app",
+    };
+  }
+
+  async githubListOpenPullRequests(projectId: string): Promise<unknown> {
+    const { token, owner, repo } = this.store.requireGitHubPrAuth(projectId);
+    const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls?state=open&per_page=30`;
+    const res = await fetch(url, {
+      headers: this.githubAuthHeaders(token, "application/vnd.github+json"),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`GitHub API error ${res.status}${detail ? `: ${detail.slice(0, 400)}` : ""}`);
+    }
+    return res.json();
+  }
+
+  async githubFetchPrDiff(projectId: string, prNumber: number): Promise<string> {
+    const { token, owner, repo } = this.store.requireGitHubPrAuth(projectId);
+    const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${prNumber}`;
+    const acceptDiff = "application/vnd.github+json,application/vnd.github.diff";
+    const res = await fetch(url, {
+      headers: this.githubAuthHeaders(token, acceptDiff),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`GitHub API error ${res.status}${detail ? `: ${detail.slice(0, 400)}` : ""}`);
+    }
+    return res.text();
+  }
+
+  async githubFetchPrComments(projectId: string, prNumber: number): Promise<unknown> {
+    const { token, owner, repo } = this.store.requireGitHubPrAuth(projectId);
+    const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${prNumber}/comments?per_page=100`;
+    const res = await fetch(url, {
+      headers: this.githubAuthHeaders(token, "application/vnd.github+json"),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`GitHub API error ${res.status}${detail ? `: ${detail.slice(0, 400)}` : ""}`);
+    }
+    return res.json();
+  }
 }

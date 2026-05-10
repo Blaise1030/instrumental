@@ -19,7 +19,6 @@ import {
   type CreateWorktreeGroupInput,
   type CreateThreadInput,
   type DeleteThreadInput,
-  type GitHubPrSettings,
   type FileAbsolutePathInput,
   type FileReadInput,
   type FileResolveMarkdownImageUrlInput,
@@ -27,7 +26,11 @@ import {
   type RemoveProjectInput,
   type RenameThreadInput,
   type ReorderProjectsInput,
-  type UpdateThreadInput
+  type SetProjectGitHubPrInput,
+  type UpdateThreadInput,
+  type GitHubPrByProjectInput,
+  type GitHubPrDiffByProjectInput,
+  type GitHubPrCommentsByProjectInput
 } from "../src/shared/ipc.js";
 import type { ThreadAgent } from "../src/shared/domain.js";
 import { DiffService } from "./services/diffService.js";
@@ -353,33 +356,28 @@ function registerIpc(workspaceService: WorkspaceService): void {
     workspaceService.setActive(payload.projectId, payload.worktreePath, payload.threadId);
     emitWorkspaceDidChange();
   });
-  ipcMain.handle(IPC_CHANNELS.workspaceGetGitHubPrSettings, () => workspaceService.getGitHubPrSettings());
-  ipcMain.handle(IPC_CHANNELS.workspaceSetGitHubPrSettings, (_, payload: GitHubPrSettings) => {
-    workspaceService.setGitHubPrSettings(payload);
+  ipcMain.handle(IPC_CHANNELS.workspaceSetProjectGitHubPr, (_, payload: SetProjectGitHubPrInput) => {
+    workspaceService.setProjectGitHubPr(
+      payload.projectId,
+      payload.token,
+      payload.owner,
+      payload.repo,
+      payload.retainTokenIfEmpty ?? false
+    );
+    emitWorkspaceDidChange();
   });
+  ipcMain.handle(IPC_CHANNELS.workspaceGithubListOpenPullRequests, (_, payload: GitHubPrByProjectInput) =>
+    workspaceService.githubListOpenPullRequests(payload.projectId)
+  );
   ipcMain.handle(
     IPC_CHANNELS.workspaceGithubFetchPrDiff,
-    async (_, payload: { owner: string; repo: string; prNumber: number; token: string }) => {
-      const url = `https://api.github.com/repos/${payload.owner}/${payload.repo}/pulls/${payload.prNumber}`;
-      // GitHub REST docs: combine JSON + diff Accept so API version negotiation succeeds; diff-only Accept can yield 406 with X-GitHub-Api-Version on some stacks.
-      const acceptDiff =
-        "application/vnd.github+json,application/vnd.github.diff";
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${payload.token}`,
-          Accept: acceptDiff,
-          "X-GitHub-Api-Version": "2022-11-28",
-          "User-Agent": "instrument-app",
-        },
-      });
-      if (!res.ok) {
-        const detail = await res.text().catch(() => "");
-        throw new Error(
-          `GitHub API error ${res.status}${detail ? `: ${detail.slice(0, 400)}` : ""}`
-        );
-      }
-      return res.text();
-    }
+    (_, payload: GitHubPrDiffByProjectInput) =>
+      workspaceService.githubFetchPrDiff(payload.projectId, payload.prNumber)
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.workspaceGithubFetchPrComments,
+    (_, payload: GitHubPrCommentsByProjectInput) =>
+      workspaceService.githubFetchPrComments(payload.projectId, payload.prNumber)
   );
   ipcMain.handle(IPC_CHANNELS.workspaceCreateThread, async (_, payload: CreateThreadInput) => {
     const createdBranchOverride = payload.worktreePath

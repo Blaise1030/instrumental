@@ -7,12 +7,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./styles/globals.css";
 import AppContext from "@/app-context/AppContext.vue";
 import { hydratePersistedToasts } from "@/hooks/useToast";
-import { useGitHubPrStore } from "@/modules/git/stores/githubPrStore";
 
-const githubPrStore = useGitHubPrStore();
 onMounted(() => {
   hydratePersistedToasts();
-  void githubPrStore.syncPersistenceFromMain();
 });
 </script>
 

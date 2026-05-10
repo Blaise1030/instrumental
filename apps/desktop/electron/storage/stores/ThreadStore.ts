@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { AppDatabase } from "../db.js";
-import type { Thread, ThreadAgent, ThreadSession, ThreadSessionLaunchMode, ThreadSessionStatus } from "../../src/shared/domain.js";
+import type { Thread, ThreadAgent, ThreadSession, ThreadSessionLaunchMode, ThreadSessionStatus } from "../../../src/shared/domain.js";
 
 export class ThreadStore {
   constructor(private readonly db: AppDatabase) {}

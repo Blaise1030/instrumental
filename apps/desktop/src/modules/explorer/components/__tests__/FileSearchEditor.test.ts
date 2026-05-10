@@ -379,7 +379,7 @@ describe("FileSearchEditor", () => {
     expect(wrapper.find('[data-testid="file-editor"]').exists()).toBe(true);
   });
 
-  it("toggles editor line numbers", async () => {
+  it("defaults editor line numbers to visible", async () => {
     listFiles.mockResolvedValue([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }]);
     readFile.mockResolvedValue("const value = 1;\n");
 
@@ -392,11 +392,6 @@ describe("FileSearchEditor", () => {
     await flushPromises();
 
     expect(wrapper.get('[data-testid="file-editor"]').attributes("data-line-numbers")).toBe("visible");
-
-    await wrapper.get('[data-testid="toggle-line-numbers"]').trigger("click");
-    await flushPromises();
-
-    expect(wrapper.get('[data-testid="file-editor"]').attributes("data-line-numbers")).toBe("hidden");
   });
 
   it("toggles folders open and closed", async () => {
@@ -935,7 +930,17 @@ describe("FileSearchEditor", () => {
       await flushPromises();
       await wrapper.get('[data-testid="file-node-src/one.ts"]').trigger("click");
       await flushPromises();
-      await wrapper.get('[data-testid="delete-file"]').trigger("click");
+
+      await wrapper.get('[data-testid="file-node-src/one.ts"]').trigger("contextmenu", {
+        clientX: 2,
+        clientY: 2
+      });
+      await flushPromises();
+      await nextTick();
+
+      const del = document.querySelector('[data-testid="ctx-delete-file"]');
+      expect(del).toBeTruthy();
+      (del as HTMLButtonElement).click();
       await flushPromises();
 
       expect(deleteFile).not.toHaveBeenCalled();

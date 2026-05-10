@@ -1,44 +1,78 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ChevronLeft } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { useGitHubPrStore } from "@/modules/git/stores/githubPrStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { detectGitHubRemote } from "@/modules/git/hooks/useGitHubRemote";
 
 const route = useRoute();
 const router = useRouter();
+const workspace = useWorkspaceStore();
 
 const props = defineProps<{
   cwd: string;
+  projectId: string;
 }>();
 
 const emit = defineEmits<{ saved: [] }>();
 
 const store = useGitHubPrStore();
 
-const tokenInput = ref(store.githubToken);
-const ownerInput = ref(store.repoOwner);
-const repoInput = ref(store.repoName);
-const detecting = ref(false);
+const projectRow = computed(() => workspace.projects.find((p) => p.id === props.projectId));
 
-onMounted(async () => {
-  if (ownerInput.value && repoInput.value) return;
-  detecting.value = true;
-  try {
-    const remote = await detectGitHubRemote(props.cwd);
-    if (remote) {
-      if (!ownerInput.value) ownerInput.value = remote.owner;
-      if (!repoInput.value) repoInput.value = remote.repo;
+const tokenInput = ref("");
+const ownerInput = ref("");
+const repoInput = ref("");
+const detecting = ref(false);
+const saving = ref(false);
+
+/** Bumps when owner/repo/cwd watch re-runs so stale `detectGitHubRemote` results are ignored. */
+let remoteDetectGen = 0;
+
+watch(
+  () =>
+    [
+      props.projectId,
+      props.cwd,
+      workspace.projects.find((p) => p.id === props.projectId)?.githubPrOwner ?? "",
+      workspace.projects.find((p) => p.id === props.projectId)?.githubPrRepo ?? "",
+    ] as const,
+  async ([projectId, cwd, persistedOwner, persistedRepo]) => {
+    tokenInput.value = "";
+    ownerInput.value = persistedOwner.trim();
+    repoInput.value = persistedRepo.trim();
+
+    if (ownerInput.value && repoInput.value) return;
+
+    const gen = ++remoteDetectGen;
+    detecting.value = true;
+    try {
+      const remote = await detectGitHubRemote(cwd);
+      if (gen !== remoteDetectGen) return;
+      if (props.projectId !== projectId || props.cwd !== cwd) return;
+      if (remote) {
+        if (!ownerInput.value.trim()) ownerInput.value = remote.owner;
+        if (!repoInput.value.trim()) repoInput.value = remote.repo;
+      }
+    } finally {
+      if (gen === remoteDetectGen) detecting.value = false;
     }
-  } finally {
-    detecting.value = false;
-  }
-});
+  },
+  { immediate: true },
+);
 
 async function save(): Promise<void> {
-  await store.saveConfig(tokenInput.value, ownerInput.value, repoInput.value);
-  emit("saved");
+  saving.value = true;
+  try {
+    await store.saveProjectGitHubPr(props.projectId, tokenInput.value, ownerInput.value, repoInput.value, {
+      retainTokenIfEmpty: Boolean(projectRow.value?.githubPrTokenConfigured) && !tokenInput.value.trim(),
+    });
+    emit("saved");
+  } finally {
+    saving.value = false;
+  }
 }
 
 function goBack(): void {
@@ -64,20 +98,25 @@ function goBack(): void {
         Back
       </Button>
       <div class="space-y-1">
-        <h2 class="text-sm font-semibold text-foreground">Connect to GitHub</h2>
+        <h2 class="text-sm font-semibold text-foreground">GitHub pull requests</h2>
         <p class="text-[11px] text-muted-foreground">
-          Enter a Personal Access Token with <code class="rounded bg-muted px-1">repo</code> scope to browse pull requests.
+          For this workspace project, enter a personal access token with
+          <code class="rounded bg-muted px-1">repo</code>
+          scope and the GitHub
+          <strong class="font-medium text-foreground">owner</strong> and
+          <strong class="font-medium text-foreground">repository</strong>. Other projects can use different credentials.
         </p>
       </div>
 
       <div class="space-y-3">
         <div class="space-y-1">
           <label class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            Personal Access Token
+            Personal access token
           </label>
           <input
             v-model="tokenInput"
             type="password"
+            autocomplete="off"
             placeholder="ghp_xxxxxxxxxxxx"
             class="w-full rounded-md border border-border bg-background px-3 py-1.5 font-mono text-[11px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
           />
@@ -113,10 +152,15 @@ function goBack(): void {
         type="button"
         size="sm"
         class="w-full"
-        :disabled="!tokenInput.trim() || !ownerInput.trim() || !repoInput.trim()"
+        :disabled="
+          saving ||
+          !ownerInput.trim() ||
+          !repoInput.trim() ||
+          (!tokenInput.trim() && !projectRow?.githubPrTokenConfigured)
+        "
         @click="save"
       >
-        Save &amp; Connect
+        {{ saving ? "Saving…" : "Save & connect" }}
       </Button>
     </div>
   </div>

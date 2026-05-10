@@ -8,17 +8,20 @@ import type {
   MarkNotificationReadInput,
   PreviewBounds,
   PreviewDevToolsToggleResult,
-  GitHubPrSettings,
   PreviewNativeLoadResult,
   PreviewProbeResult,
   RemoveProjectInput,
   RenameThreadInput,
   ReorderProjectsInput,
+  SetProjectGitHubPrInput,
   StagedUnifiedDiffResult,
   PreviewNavigationState,
   UpdateThreadInput,
   GitWorktreeListEntry,
-  TerminalTab
+  TerminalTab,
+  GitHubPrByProjectInput,
+  GitHubPrDiffByProjectInput,
+  GitHubPrCommentsByProjectInput
 } from "../src/shared/ipc.js";
 
 /**
@@ -104,9 +107,10 @@ const IPC_CHANNELS = {
   workspaceWorktreeHealth: "workspace:worktreeHealth",
   workspaceSyncWorktrees: "workspace:syncWorktrees",
   workspaceSetAgentSkillSearchRoots: "workspace:setAgentSkillSearchRoots",
-  workspaceGetGitHubPrSettings: "workspace:getGitHubPrSettings",
-  workspaceSetGitHubPrSettings: "workspace:setGitHubPrSettings",
+  workspaceSetProjectGitHubPr: "workspace:setProjectGitHubPr",
   workspaceGithubFetchPrDiff: "workspace:githubFetchPrDiff",
+  workspaceGithubListOpenPullRequests: "workspace:githubListOpenPullRequests",
+  workspaceGithubFetchPrComments: "workspace:githubFetchPrComments",
   uiOpenWorkspaceSettings: "ui:openWorkspaceSettings",
   appGetVersion: "app:getVersion",
   appGetUserHomeDir: "app:getUserHomeDir",
@@ -167,11 +171,14 @@ contextBridge.exposeInMainWorld("workspaceApi", {
   listBranches: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.workspaceListBranches, { projectId }),
   setAgentSkillSearchRoots: (roots: string[]) =>
     ipcRenderer.invoke(IPC_CHANNELS.workspaceSetAgentSkillSearchRoots, roots),
-  getGitHubPrSettings: () => ipcRenderer.invoke(IPC_CHANNELS.workspaceGetGitHubPrSettings) as Promise<GitHubPrSettings>,
-  setGitHubPrSettings: (payload: GitHubPrSettings) =>
-    ipcRenderer.invoke(IPC_CHANNELS.workspaceSetGitHubPrSettings, payload),
-  githubFetchPrDiff: (payload: { owner: string; repo: string; prNumber: number; token: string }) =>
+  setProjectGitHubPr: (payload: SetProjectGitHubPrInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.workspaceSetProjectGitHubPr, payload),
+  githubListOpenPullRequests: (payload: GitHubPrByProjectInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.workspaceGithubListOpenPullRequests, payload),
+  githubFetchPrDiff: (payload: GitHubPrDiffByProjectInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.workspaceGithubFetchPrDiff, payload) as Promise<string>,
+  githubFetchPrComments: (payload: GitHubPrCommentsByProjectInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.workspaceGithubFetchPrComments, payload),
   startRun: (payload: { agent: string; cwd: string; prompt: string }) => ipcRenderer.invoke(IPC_CHANNELS.runStart, payload),
   sendRunInput: (runId: string, input: string) => ipcRenderer.invoke(IPC_CHANNELS.runSendInput, { runId, input }),
   interruptRun: (runId: string) => ipcRenderer.invoke(IPC_CHANNELS.runInterrupt, runId),

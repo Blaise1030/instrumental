@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   ExternalLink,
@@ -54,6 +54,20 @@ const route = useRoute();
 const router = useRouter();
 const store = useGitHubPrStore();
 
+const showSetup = ref(false);
+
+watch(
+  () => route.params.projectId,
+  (pid) => {
+    if (typeof pid !== "string" || !pid) return;
+    store.setActiveProjectContext(pid);
+    store.resetRemotePrStateForProjectChange();
+    showSetup.value = !store.isConfigured;
+    if (store.isConfigured) void store.fetchPrs();
+  },
+  { immediate: true },
+);
+
 function parseRoutePrId(): number | null {
   const raw = route.params.prId;
   const s = Array.isArray(raw) ? raw[0] : raw;
@@ -81,7 +95,6 @@ function navigateToPr(prNumber: number): void {
   });
 }
 
-const showSetup = ref(!store.isConfigured);
 const fileFilter = ref("");
 const fileListPopoverOpen = ref(false);
 
@@ -91,10 +104,6 @@ watch(
     if (v) showSetup.value = false;
   },
 );
-
-onMounted(() => {
-  if (store.isConfigured && store.prs.length === 0) void store.fetchPrs();
-});
 
 watch(
   () => route.name,
@@ -111,8 +120,8 @@ watch(
     [
       route.name,
       route.params.prId,
+      route.params.projectId,
       store.prs.length,
-      store.loading,
       store.isConfigured,
     ] as const,
   async () => {
@@ -120,8 +129,8 @@ watch(
     if (route.name !== "gitPullRequest") return;
     const prId = parseRoutePrId();
     if (prId === null) return;
-    if (store.loading && store.prs.length === 0) return;
-    if (store.prs.length === 0 && !store.loading) {
+    if (store.loading) return;
+    if (store.prs.length === 0) {
       await store.fetchPrs();
     }
     if (!store.prs.some((p) => p.number === prId)) return;
@@ -253,7 +262,13 @@ const filteredFiles = computed(() =>
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
   <section class="flex h-full min-h-0 flex-1 overflow-hidden bg-background text-foreground">
-    <GitHubTokenSetup v-if="showSetup" :cwd="cwd" @saved="onSaved" />
+    <GitHubTokenSetup
+      v-if="showSetup"
+      :key="String(route.params.projectId ?? '')"
+      :cwd="cwd"
+      :project-id="route.params.projectId as string"
+      @saved="onSaved"
+    />
 
     <template v-else>      
       <SidebarProvider

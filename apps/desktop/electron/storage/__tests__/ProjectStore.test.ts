@@ -2,15 +2,18 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { createTestDb } from "./testDb";
 import { ProjectStore } from "../stores/ProjectStore";
 import type { AppDatabase } from "../db";
+import type { Project } from "../../../src/shared/domain";
 
-function makeProject(overrides: Partial<Parameters<ProjectStore["upsert"]>[0]> = {}) {
+function makeProject(overrides: Partial<Project> = {}) {
   return {
     id: "proj-1",
     name: "My Project",
     repoPath: "/home/user/repo",
     status: "idle" as const,
-    lastActiveWorktreeId: null,
     tabOrder: 0,
+    githubPrTokenConfigured: false,
+    githubPrOwner: "",
+    githubPrRepo: "",
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z",
     ...overrides,

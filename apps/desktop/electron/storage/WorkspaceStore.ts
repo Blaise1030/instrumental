@@ -1,6 +1,11 @@
 import { sql } from "drizzle-orm";
 import type { Project, Thread, ThreadSession } from "../../src/shared/domain.js";
 import type { WorkspaceSnapshot } from "../../src/shared/ipc.js";
+import {
+  decryptGitHubTokenFromPersistence,
+  encryptGitHubTokenForPersistence,
+  migrateGithubPrTokensToEncrypted,
+} from "../services/githubPrTokenPersistence.js";
 import type { AppDatabase } from "./db.js";
 import { NotificationStore } from "./stores/NotificationStore.js";
 import { ProjectStore } from "./stores/ProjectStore.js";
@@ -29,6 +34,7 @@ export class WorkspaceStore {
     this.runs.initialize();
     this.notifications.initialize();
     this.settings.initialize();
+    migrateGithubPrTokensToEncrypted(this.db);
     this.repairIntegrity();
   }
 
@@ -260,12 +266,33 @@ export class WorkspaceStore {
   // Settings delegates
   // ---------------------------------------------------------------------------
 
-  getGitHubPrSettings(): { token: string; owner: string; repo: string } {
-    return this.settings.getGitHubPrSettings();
+  setProjectGitHubPr(
+    projectId: string,
+    token: string,
+    owner: string,
+    repo: string,
+    retainTokenIfEmpty = false
+  ): void {
+    const o = owner.trim();
+    const r = repo.trim();
+    if (retainTokenIfEmpty && !token.trim()) {
+      this.projects.setGitHubPrMeta(projectId, o, r);
+      return;
+    }
+    const cipher = token.trim() ? encryptGitHubTokenForPersistence(token) : "";
+    this.projects.setGitHubPr(projectId, cipher, o, r);
   }
 
-  setGitHubPrSettings(payload: { token: string; owner: string; repo: string }): void {
-    this.settings.setGitHubPrSettings(payload);
+  requireGitHubPrAuth(projectId: string): { token: string; owner: string; repo: string } {
+    const row = this.projects.getGitHubPrCipherRow(projectId);
+    if (!row) throw new Error(`Unknown project: ${projectId}`);
+    const token = decryptGitHubTokenFromPersistence(row.cipher);
+    const owner = row.owner.trim();
+    const repo = row.repo.trim();
+    if (!token.trim() || !owner || !repo) {
+      throw new Error("GitHub PR credentials are not fully configured for this project");
+    }
+    return { token, owner, repo };
   }
 
   // ---------------------------------------------------------------------------

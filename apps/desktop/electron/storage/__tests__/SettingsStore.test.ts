@@ -27,19 +27,4 @@ describe("SettingsStore", () => {
     expect(state.activeWorktreePath).toBe("/path/to/wt");
     expect(state.activeThreadId).toBe("t-1");
   });
-
-  it("gets default GitHub PR settings", () => {
-    const s = store.getGitHubPrSettings();
-    expect(s.token).toBe("");
-    expect(s.owner).toBe("");
-    expect(s.repo).toBe("");
-  });
-
-  it("sets and gets GitHub PR settings", () => {
-    store.setGitHubPrSettings({ token: "tok", owner: "me", repo: "my-repo" });
-    const s = store.getGitHubPrSettings();
-    expect(s.token).toBe("tok");
-    expect(s.owner).toBe("me");
-    expect(s.repo).toBe("my-repo");
-  });
 });

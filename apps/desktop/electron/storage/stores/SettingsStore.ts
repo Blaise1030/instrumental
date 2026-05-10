@@ -7,22 +7,10 @@ export interface ActiveState {
   activeThreadId: string | null;
 }
 
-export interface GitHubPrSettings {
-  token: string;
-  owner: string;
-  repo: string;
-}
-
 interface AppStateRaw {
   active_project_id: string | null;
   active_worktree_path: string | null;
   active_thread_id: string | null;
-}
-
-interface GitHubPrSettingsRaw {
-  token: string;
-  owner: string;
-  repo: string;
 }
 
 export class SettingsStore {
@@ -54,6 +42,51 @@ export class SettingsStore {
       INSERT OR IGNORE INTO github_pr_settings (id, token, owner, repo)
       VALUES (1, '', '', '')
     `);
+    this.migrateLegacyGithubPrRepoOntoProjects();
+    this.migrateLegacyGithubTokenOntoProjects();
+  }
+
+  /** One-time: copy legacy global PAT into per-project `github_pr_token`, then clear the global row. */
+  private migrateLegacyGithubTokenOntoProjects(): void {
+    const hasTokenCol = this.db.get<{ v: number }>(sql`
+      SELECT 1 AS v FROM pragma_table_info('projects') WHERE name = 'github_pr_token' LIMIT 1
+    `);
+    if (!hasTokenCol) return;
+    this.db.run(sql`
+      UPDATE projects
+      SET github_pr_token = (SELECT token FROM github_pr_settings WHERE id = 1)
+      WHERE trim(github_pr_token) = ''
+        AND EXISTS (
+          SELECT 1 FROM github_pr_settings WHERE id = 1 AND trim(token) != ''
+        )
+    `);
+    this.db.run(sql`
+      UPDATE github_pr_settings SET token = '' WHERE id = 1
+    `);
+  }
+
+  /** One-time: copy legacy global owner/repo into per-project columns, then clear the global row. */
+  private migrateLegacyGithubPrRepoOntoProjects(): void {
+    const hasOwnerCol = this.db.get<{ v: number }>(sql`
+      SELECT 1 AS v FROM pragma_table_info('projects') WHERE name = 'github_pr_owner' LIMIT 1
+    `);
+    const hasRepoCol = this.db.get<{ v: number }>(sql`
+      SELECT 1 AS v FROM pragma_table_info('projects') WHERE name = 'github_pr_repo' LIMIT 1
+    `);
+    if (!hasOwnerCol || !hasRepoCol) return;
+    this.db.run(sql`
+      UPDATE projects
+      SET github_pr_owner = (SELECT owner FROM github_pr_settings WHERE id = 1),
+          github_pr_repo = (SELECT repo FROM github_pr_settings WHERE id = 1)
+      WHERE trim(github_pr_owner) = '' AND trim(github_pr_repo) = ''
+        AND EXISTS (
+          SELECT 1 FROM github_pr_settings
+          WHERE id = 1 AND (trim(owner) != '' OR trim(repo) != '')
+        )
+    `);
+    this.db.run(sql`
+      UPDATE github_pr_settings SET owner = '', repo = '' WHERE id = 1
+    `);
   }
 
   getActiveState(): ActiveState {
@@ -78,24 +111,6 @@ export class SettingsStore {
           active_worktree_path = ${worktreePath},
           active_thread_id = ${threadId}
       WHERE id = 1
-    `);
-  }
-
-  getGitHubPrSettings(): GitHubPrSettings {
-    const row = this.db.get<GitHubPrSettingsRaw>(
-      sql`SELECT token, owner, repo FROM github_pr_settings WHERE id = 1`
-    );
-    return {
-      token: row?.token ?? "",
-      owner: row?.owner ?? "",
-      repo: row?.repo ?? "",
-    };
-  }
-
-  setGitHubPrSettings(payload: GitHubPrSettings): void {
-    this.db.run(sql`
-      INSERT OR REPLACE INTO github_pr_settings (id, token, owner, repo)
-      VALUES (1, ${payload.token}, ${payload.owner}, ${payload.repo})
     `);
   }
 }

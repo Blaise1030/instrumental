@@ -44,7 +44,7 @@ function onGitScopeTab(value: string): void {
         :model-value="gitScopeTab"
         variant="default"
         size="xs"
-        class="w-full"
+        class="w-full shadow-none"
         :tabs="gitScopeTabs"
         aria-label="Git view"
         @update:model-value="onGitScopeTab"

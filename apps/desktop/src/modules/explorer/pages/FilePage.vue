@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { inject } from "vue";
-import { PanelLeftClose, PanelLeftOpen, RefreshCw, Trash2, X } from "lucide-vue-next";
+import { PanelLeftClose, PanelLeftOpen, RefreshCw, X } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import { badgeVariants } from "@/components/ui/badge/index";
@@ -166,21 +166,6 @@ function setMonacoRef(el: unknown): void {
           class="flex shrink-0 items-center gap-1 border-border bg-background p-1"
         >
           <Button
-            data-testid="toggle-line-numbers"
-            variant="outline"            
-            :disabled="
-              !page.selectedPath ||
-              (page.isImagePreviewFile && page.imageFileViewMode === 'preview')
-            "
-            :aria-pressed="page.showLineNumbers"
-            :title="
-              page.showLineNumbers ? 'Hide line numbers' : 'Show line numbers'
-            "
-            @click="page.toggleLineNumbers"
-          >
-            Lines
-          </Button>
-          <Button
             data-testid="find-in-file"
             variant="outline"            
             :disabled="!page.canFindInFile"
@@ -220,18 +205,6 @@ function setMonacoRef(el: unknown): void {
             @click="page.handleSave"
           >
             Save
-          </Button>
-          <Button
-            data-testid="delete-file"
-            variant="outline"
-            size="icon"
-            class="text-destructive hover:bg-destructive/10 hover:text-destructive"
-            :disabled="!page.selectedPath"
-            :title="'Delete file'"
-            @click="page.handleDeleteFile"
-          >
-            <Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
-            <span class="sr-only">Delete file</span>
           </Button>
         </div>
       </header>

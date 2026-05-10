@@ -26,6 +26,9 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     tabOrder: 0,
     createdAt: "2026-04-06T00:00:00.000Z",
     updatedAt: "2026-04-06T00:00:00.000Z",
+    githubPrTokenConfigured: false,
+    githubPrOwner: "",
+    githubPrRepo: "",
     ...overrides
   };
 }
@@ -341,21 +344,40 @@ describe("WorkspaceStore", () => {
     verifyDb.close();
   });
 
-  it("persists GitHub PR settings in github_pr_settings", () => {
+  it("persists GitHub PR token and repo on the project row (token never in snapshot)", () => {
     const baseDir = makeTempDir();
     const db = openDatabase(baseDir);
     const store = new WorkspaceStore(db);
     store.migrate();
-
-    expect(store.getGitHubPrSettings()).toEqual({ token: "", owner: "", repo: "" });
-
-    store.setGitHubPrSettings({ token: "ghp_secret", owner: "acme", repo: "widget" });
-    expect(store.getGitHubPrSettings()).toEqual({ token: "ghp_secret", owner: "acme", repo: "widget" });
+    store.upsertProject(makeProject());
+    store.setProjectGitHubPr("project-1", "ghp_secret", "me", "my-repo");
+    const p = store.getSnapshot().projects[0];
+    expect(p?.githubPrTokenConfigured).toBe(true);
+    expect(p?.githubPrOwner).toBe("me");
+    expect(p?.githubPrRepo).toBe("my-repo");
 
     const db2 = openDatabase(baseDir);
     const reopened = new WorkspaceStore(db2);
     reopened.migrate();
-    expect(reopened.getGitHubPrSettings()).toEqual({ token: "ghp_secret", owner: "acme", repo: "widget" });
+    const p2 = reopened.getSnapshot().projects[0];
+    expect(p2?.githubPrTokenConfigured).toBe(true);
+    expect(p2?.githubPrOwner).toBe("me");
+    expect(p2?.githubPrRepo).toBe("my-repo");
+  });
+
+  it("upsertProject does not clear stored GitHub PAT", () => {
+    const baseDir = makeTempDir();
+    const db = openDatabase(baseDir);
+    const store = new WorkspaceStore(db);
+    store.migrate();
+    store.upsertProject(makeProject());
+    store.setProjectGitHubPr("project-1", "ghp_keep", "o", "r");
+    store.upsertProject(makeProject({ name: "renamed", githubPrOwner: "o", githubPrRepo: "r" }));
+    const p = store.getSnapshot().projects[0];
+    expect(p?.name).toBe("renamed");
+    expect(p?.githubPrTokenConfigured).toBe(true);
+    expect(p?.githubPrOwner).toBe("o");
+    expect(p?.githubPrRepo).toBe("r");
   });
 
   it("captureResumeId updates an existing session resumeId", () => {

@@ -100,9 +100,10 @@ export const IPC_CHANNELS = {
   workspaceSyncWorktrees: "workspace:syncWorktrees",
   /** Absolute skill-directory roots from renderer (Settings → Agents); used to allow `files:search` outside worktrees. */
   workspaceSetAgentSkillSearchRoots: "workspace:setAgentSkillSearchRoots",
-  workspaceGetGitHubPrSettings: "workspace:getGitHubPrSettings",
-  workspaceSetGitHubPrSettings: "workspace:setGitHubPrSettings",
+  workspaceSetProjectGitHubPr: "workspace:setProjectGitHubPr",
   workspaceGithubFetchPrDiff: "workspace:githubFetchPrDiff",
+  workspaceGithubListOpenPullRequests: "workspace:githubListOpenPullRequests",
+  workspaceGithubFetchPrComments: "workspace:githubFetchPrComments",
   /** macOS often captures ⌘, for the app menu; main sends this so the renderer can open settings. */
   uiOpenWorkspaceSettings: "ui:openWorkspaceSettings",
   /** Running app semver from Electron `app.getVersion()`. */

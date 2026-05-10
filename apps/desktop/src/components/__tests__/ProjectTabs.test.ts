@@ -24,7 +24,10 @@ describe("ProjectTabs", () => {
       status: "idle",
       tabOrder: 0,
       createdAt: "2026-04-05T00:00:00.000Z",
-      updatedAt: "2026-04-05T00:00:00.000Z"
+      updatedAt: "2026-04-05T00:00:00.000Z",
+      githubPrTokenConfigured: false,
+      githubPrOwner: "",
+      githubPrRepo: ""
     },
     {
       id: "proj-2",
@@ -33,7 +36,10 @@ describe("ProjectTabs", () => {
       status: "idle",
       tabOrder: 1,
       createdAt: "2026-04-05T00:00:00.000Z",
-      updatedAt: "2026-04-05T00:00:00.000Z"
+      updatedAt: "2026-04-05T00:00:00.000Z",
+      githubPrTokenConfigured: false,
+      githubPrOwner: "",
+      githubPrRepo: ""
     }
   ];
 

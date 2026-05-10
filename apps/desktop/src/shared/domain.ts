@@ -35,6 +35,12 @@ export interface Project {
   tabOrder: number;
   createdAt: string;
   updatedAt: string;
+  /** True when a GitHub PAT is stored for this project (never exposed to the renderer). */
+  githubPrTokenConfigured: boolean;
+  /** GitHub owner for the in-app PR list (per project). */
+  githubPrOwner: string;
+  /** GitHub repository name for the in-app PR list (per project). */
+  githubPrRepo: string;
 }
 
 export interface Thread {
