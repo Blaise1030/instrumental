@@ -74,4 +74,9 @@ describe("useDomSelectionQueue", () => {
     const item = q.buildItem();
     expect(item.pasteText).toContain("[diff]");
   });
+
+  it("buildItem throws when called before any selection", () => {
+    const q = useDomSelectionQueue({ source: "diff" });
+    expect(() => q.buildItem()).toThrow("buildItem called with no pending selection");
+  });
 });

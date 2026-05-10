@@ -18,6 +18,7 @@ export function useDomSelectionQueue(opts: DomSelectionQueueOpts) {
     const text = sel?.toString().trim() ?? "";
     if (!text || !sel?.rangeCount) {
       visible.value = false;
+      pendingText.value = "";
       return;
     }
     const rect = sel.getRangeAt(0).getBoundingClientRect();
