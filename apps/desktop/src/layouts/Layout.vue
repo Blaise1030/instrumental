@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, provide, ref, watch } from "vue";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -66,6 +66,9 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { rememberRouteBeforeSettings } from "@/modules/settings/settingsExitRoute";
 import type { KeybindingId } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
+import { injectContextToAgentKey, openWorkspaceFileKey } from "@/contextQueue/injectionKeys";
+import { injectContextQueue } from "@/contextQueue/injectContextQueue";
+import type { QueueItem } from "@/contextQueue/types";
 
 const appContext = useAppContext();
 const workspace = useWorkspaceStore();
@@ -86,6 +89,23 @@ const branchId = computed(() => route.params.branch as string);
 const { mutateAsync: removeThreadMutate } = useRemoveThread();
 
 const { activeThreadId, activeWorktreeId } = useActiveWorkspace();
+
+provide(injectContextToAgentKey, async (items: QueueItem[], opts?: { sessionId?: string }) => {
+  const sid = opts?.sessionId ?? activeThreadId.value;
+  if (!sid || !window.workspaceApi) return false;
+  await injectContextQueue({
+    sessionId: sid,
+    items,
+    ptyWrite: (id, data) => window.workspaceApi!.ptyWrite(id, data),
+    delayMs: 50,
+  });
+  return true;
+});
+
+provide(openWorkspaceFileKey, async (path: string) => {
+  await router.push({ name: "fileDetail", params: { ...route.params, filename: path } });
+});
+
 const { navigateToProject: navigateToProjectCore } = useNavigateToProject();
 
 async function navigateToProject(targetProjectId: string): Promise<void> {
@@ -451,7 +471,7 @@ async function onCreateWorktreeGroup(
           :class="{ 'ps-20': !isFullscreen }"
         >
           <SidebarTrigger class="border" />          
-          <ButtonGroup>
+          <ButtonGroup class="bg-background">
             <Button
               type="button"
               variant="outline"
@@ -572,6 +592,7 @@ async function onCreateWorktreeGroup(
                       </CollapsibleTrigger>
                       <div class="min-w-0 flex-1">
                         <BranchSelector
+                          class="bg-background"
                           v-if="projectPath"
                           :cwd="projectPath"
                           @branch-changed="
