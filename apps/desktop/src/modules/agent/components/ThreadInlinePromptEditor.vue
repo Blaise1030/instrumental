@@ -133,7 +133,7 @@ defineExpose({
           Building something great ? <span aria-hidden="true">🛠️</span>
         </h2>
 
-        <div class="relative mx-auto max-w-xl overflow-hidden">
+        <div class="relative mx-auto p-2 max-w-xl overflow-hidden">
           <ThreadAdaptivePromptInput
             ref="promptEditorRef"
             v-model:prompt="prompt"

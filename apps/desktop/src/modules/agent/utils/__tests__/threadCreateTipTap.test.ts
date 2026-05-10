@@ -1,7 +1,12 @@
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ThreadFileBadge, ThreadImageBadge, ThreadQueueContextTag } from "@/modules/agent/utils/threadCreateEditorExtensions";
+import {
+  ThreadFileBadge,
+  ThreadImageBadge,
+  ThreadMention,
+  ThreadQueueContextTag
+} from "@/modules/agent/utils/threadCreateEditorExtensions";
 import { collectDocAttachmentPaths } from "@/modules/agent/utils/threadCreatePromptSerialize";
 import { docPosAtFlatOffset, promptDocFlatText, promptFlatOffsetAtDocPos, replaceFlatRange } from "@/modules/agent/utils/threadCreateTipTap";
 
@@ -106,6 +111,24 @@ describe("threadCreateTipTap", () => {
     ed.destroy();
   });
 
+  it("ThreadFileBadge label uses basename when name duplicates full path", () => {
+    const path = "/tmp/project/README.md";
+    const ed = new Editor({
+      extensions: [StarterKit, ThreadFileBadge],
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "threadFileBadge", attrs: { path, name: path } }]
+          }
+        ]
+      }
+    });
+    expect(ed.getHTML()).toContain(">README.md<");
+    ed.destroy();
+  });
+
   it("setNodeMarkup updates queue context tag without removing an adjacent file badge", () => {
     const path = "/tmp/wt/apps/desktop/src/components/FileSearchEditor.vue";
     const ed = new Editor({
@@ -138,6 +161,33 @@ describe("threadCreateTipTap", () => {
     expect(html).toContain("[File, 2:10]");
     expect(html).toContain("FileSearchEditor.vue");
     expect(collectDocAttachmentPaths(ed.state.doc).filePaths).toContain(path);
+    ed.destroy();
+  });
+
+  it("ThreadMention @ chip shows basename only for nested relative paths", () => {
+    const cwd = "/tmp/repo";
+    const id = `${cwd}/.cursor/plans/Add thread agent picker-825eaba8.plan.md`;
+    const label = ".cursor/plans/Add thread agent picker-825eaba8.plan.md";
+    const ed = new Editor({
+      extensions: [StarterKit, ThreadMention],
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "threadMention",
+                attrs: { id, label, itemKind: "file", sourceTrigger: "at" }
+              }
+            ]
+          }
+        ]
+      }
+    });
+    const html = ed.getHTML();
+    expect(html).toContain(">Add thread agent picker-825eaba8.plan.md<");
+    expect(html).not.toContain(">.cursor/");
     ed.destroy();
   });
 });

@@ -1,7 +1,6 @@
 import type { ComputedRef, InjectionKey, Ref } from "vue";
 import { inject } from "vue";
 import type { ThreadAgent } from "@shared/domain";
-import type { TerminalActivitySensitivity } from "@/terminal/activitySensitivity";
 import type { KeybindingDefinition, KeybindingId } from "@/keybindings/registry";
 import type { useKeybindingsStore } from "@/stores/keybindingsStore";
 
@@ -10,8 +9,8 @@ export type SettingsLayoutContext = {
   draftSkillRoots: Ref<Record<ThreadAgent, string>>;
   preferredAgent: Ref<ThreadAgent>;
   setPreferredAgent: (agent: ThreadAgent) => void;
+  agentPageComposerVisible: Ref<boolean>;
   terminalNotificationsEnabled: Ref<boolean>;
-  terminalActivitySensitivity: Ref<TerminalActivitySensitivity>;
   keyboardBindingsRows: ComputedRef<KeybindingDefinition[]>;
   recordingKeybindingId: Ref<KeybindingId | null>;
   recordError: Ref<string | null>;

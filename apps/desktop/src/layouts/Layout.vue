@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { storeToRefs } from "pinia";
+import { computed, ref } from "vue";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -58,10 +59,7 @@ import {
 import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useToast } from "@/hooks/useToast";
 import { useRemoveThread } from "@/modules/agent/hooks/useThreads";
-import type { LauncherCommandId } from "@/utils/workspaceLauncherSearch";
-import WorkspaceLauncherModal from "@/components/WorkspaceLauncherModal.vue";
-import { eventMatchesShortcut, findDefinitionIn } from "@/keybindings/registry";
-import { useKeybindingsStore } from "@/stores/keybindingsStore";
+import { useWorkspaceShellUiStore } from "@/stores/workspaceShellUiStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { rememberRouteBeforeSettings } from "@/modules/settings/settingsExitRoute";
 
@@ -74,10 +72,9 @@ const route = useRoute();
 const router = useRouter();
 const filterMode = ref(false);
 const terminalPanelOpen = ref(false);
-const workspaceLauncherOpen = ref(false);
-const sidebarOpen = ref(true);
 const projectId = computed(() => route.params.projectId as string);
-const keybindings = useKeybindingsStore();
+const shellUi = useWorkspaceShellUiStore();
+const { sidebarOpen } = storeToRefs(shellUi);
 const branchId = computed(() => route.params.branch as string);
 
 const { mutateAsync: removeThreadMutate } = useRemoveThread();
@@ -275,10 +272,6 @@ const filterByBranch = (
   return threads;
 };
 
-const allSidebarThreads = computed(() =>
-  (threadsGroup.value ?? []).flatMap((g) => g.threads)
-);
-
 /** All threads in the workspace (snapshot); needed so idle attention applies across projects, not only the open one. */
 const allWorkspaceThreads = computed(() => workspace.threads);
 
@@ -324,75 +317,6 @@ function openSettings(): void {
 function openTerminalPanel(): void {
   terminalPanelOpen.value = !terminalPanelOpen.value;
 }
-
-function onLauncherPickThread(threadId: string): void {
-  const pid = projectId.value;
-  const branch = branchId.value;
-  if (!pid || !branch || !threadId) return;
-  void router.push({
-    name: "agent",
-    params: { projectId: pid, branch, threadId }
-  });
-}
-
-function onLauncherPickFile(payload: { relativePath: string; worktreeId: string | null }): void {
-  const pid = projectId.value;
-  const branch = branchId.value;
-  const tid = activeThreadId.value;
-  if (!pid || !branch || !tid || !payload.relativePath) return;
-  void router.push({
-    name: "fileDetail",
-    params: { projectId: pid, branch, threadId: tid, filename: payload.relativePath }
-  });
-}
-
-async function onLauncherPickProject(targetProjectId: string): Promise<void> {
-  await navigateToProject(targetProjectId);
-}
-
-function onLauncherPickWorktree(worktreeId: string): void {
-  const pid = projectId.value;
-  if (!pid || !worktreeId) return;
-  const matched = allSidebarThreads.value.find((t) => t.worktreePath === worktreeId);
-  if (!matched?.createdBranch) return;
-  void router.push({
-    name: "agent",
-    params: {
-      projectId: pid,
-      branch: encodeBranch(matched.createdBranch),
-      threadId: matched.id
-    }
-  });
-}
-
-function onLauncherPickCommand(id: LauncherCommandId): void {
-  if (id === "toggle-thread-sidebar") {
-    sidebarOpen.value = !sidebarOpen.value;
-    return;
-  }
-  if (id === "open-settings") openSettings();
-}
-
-function onGlobalKeydownForWorkspaceLauncher(ev: KeyboardEvent): void {
-  const def = findDefinitionIn(keybindings.effectiveDefinitions, "workspaceLauncher");
-  if (!def || !eventMatchesShortcut(ev, def.shortcut)) return;
-  ev.preventDefault();
-  workspaceLauncherOpen.value = !workspaceLauncherOpen.value;
-}
-
-let unlistenOpenWorkspaceSettings: (() => void) | undefined;
-
-onMounted(() => {
-  window.addEventListener("keydown", onGlobalKeydownForWorkspaceLauncher, { capture: true });
-  unlistenOpenWorkspaceSettings = window.workspaceApi?.onOpenWorkspaceSettings?.(() => {
-    openSettings();
-  });
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("keydown", onGlobalKeydownForWorkspaceLauncher, { capture: true });
-  unlistenOpenWorkspaceSettings?.();
-});
 
 const addWorktreePopoverOpen = ref(false);
 
@@ -452,14 +376,6 @@ async function onCreateWorktreeGroup(
 </script>
 
 <template>  
-  <WorkspaceLauncherModal
-    v-model="workspaceLauncherOpen"
-    @pick-thread="onLauncherPickThread"
-    @pick-file="onLauncherPickFile"
-    @pick-project="(id) => void onLauncherPickProject(id)"
-    @pick-worktree="onLauncherPickWorktree"
-    @pick-command="onLauncherPickCommand"
-  />
   <div
     style="--header-height: 44px"
     class="max-h-screen overflow-hidden relative"

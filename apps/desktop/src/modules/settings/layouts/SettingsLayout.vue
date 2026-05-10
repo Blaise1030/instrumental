@@ -6,6 +6,7 @@ import { useRoute, useRouter, RouterView } from "vue-router";
 import { Bot, ChevronLeft, Keyboard, Settings2, SquareTerminal, type LucideIcon } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { usePreferredThreadAgent } from "@/modules/agent/hooks/usePreferredThreadAgent";
+import { useAgentPageComposerVisible } from "@/modules/agent/hooks/useAgentPageComposerVisible";
 import { useTerminalSoundSettings } from "@/modules/agent/hooks/useTerminalSoundSettings";
 import { useAgentBootstrapCommands } from "@/modules/agent/hooks/useAgentBootstrapCommands";
 import { useAgentSkillRoots } from "@/modules/agent/hooks/useAgentSkillRoots";
@@ -68,7 +69,7 @@ const settingsNavItems: {
   {
     routeName: "settingsTerminal",
     label: "Terminal",
-    description: "Notifications and activity sensitivity",
+    description: "Desktop notifications",
     icon: SquareTerminal
   },
   { routeName: "settingsKeyboard", label: "Keyboard", description: "Workspace keyboard shortcuts", icon: Keyboard }
@@ -167,6 +168,7 @@ function startRecording(id: KeybindingId): void {
   };
 }
 
+const { agentPageComposerVisible } = useAgentPageComposerVisible();
 const { terminalNotificationsEnabled, terminalActivitySensitivity } = useTerminalSoundSettings();
 
 function restoreTerminalDefaults(): void {
@@ -262,6 +264,7 @@ function restoreDefaultsForActiveSection(): void {
   switch (route.name) {
     case "settingsAgents":
       resetDraftToDefaults();
+      agentPageComposerVisible.value = true;
       break;
     case "settingsKeyboard":
       keybindings.resetAll();
@@ -292,8 +295,8 @@ provide(settingsLayoutContextKey, {
   draftSkillRoots,
   preferredAgent,
   setPreferredAgent,
+  agentPageComposerVisible,
   terminalNotificationsEnabled,
-  terminalActivitySensitivity,
   keyboardBindingsRows,
   recordingKeybindingId,
   recordError,

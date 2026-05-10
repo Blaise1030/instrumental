@@ -11,6 +11,7 @@ import TerminalPane from "@/modules/agent/components/TerminalPane.vue";
 import type { LocalFileAttachment } from "@/modules/agent/utils/localFileAttachment";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
 import { useAppContext } from "@/app-context/useAppContext";
+import { useAgentPageComposerVisible } from "@/modules/agent/hooks/useAgentPageComposerVisible";
 import { useThreadMessageDraft, clearThreadMessageDraft } from "@/modules/agent/hooks/useThreadMessageDraft";
 import { takePendingAgentBootstrapForThread } from "@/modules/agent/utils/pendingAgentBootstrapSession";
 
@@ -18,6 +19,7 @@ const route = useRoute();
 const { activeWorktree } = useActiveWorkspace();
 const appContext = useAppContext();
 const { bootstrapCommandFor } = useAgentBootstrapCommands();
+const { agentPageComposerVisible } = useAgentPageComposerVisible();
 
 const threadId = computed(() => route.params.threadId as string);
 const pendingBootstrap = ref<PendingAgentBootstrap | null>(null);
@@ -98,7 +100,7 @@ function submitPrompt(): void {
           @bootstrap-consumed="onBootstrapConsumed"
         />
       </div>
-      <div class="shrink-0 p-2">
+      <div v-if="agentPageComposerVisible" class="shrink-0 p-2">
         <ThreadAdaptivePromptInput
           class="mx-auto w-full"
           ref="promptEditorRef"

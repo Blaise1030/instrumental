@@ -17,6 +17,12 @@ import { promptDocFlatText, promptFlatOffsetAtDocPos } from "@/modules/agent/uti
 export const threadAtSuggestionKey = new PluginKey("threadAtSuggestion");
 export const threadSlashSuggestionKey = new PluginKey("threadSlashSuggestion");
 
+/** Badge label: basename only so chips don't show full paths when `File.name` mirrors the absolute path (Electron). */
+export function attachmentBadgeBasename(path: string, rawName: string): string {
+  const seg = (s: string) => (s ? (s.replace(/[/\\]+$/, "").split(/[/\\]/).pop() ?? "") : "");
+  return seg(path) || seg(rawName) || rawName || path;
+}
+
 /**
  * Default TipTap suggestion matching uses `$position.nodeBefore`, which is often null when the
  * cursor sits at the end of the current text node (normal while typing). Fall back to scanning
@@ -210,8 +216,7 @@ export const ThreadImageBadge = Node.create({
     return [{ tag: "span[data-thread-image-badge]" }];
   },
   renderHTML({ HTMLAttributes, node }) {
-    // Use node.attrs: merged HTMLAttributes only carry DOM keys (e.g. data-name), not `name`.
-    const displayName = String(node.attrs.name ?? "");
+    const displayName = attachmentBadgeBasename(String(node.attrs.path ?? ""), String(node.attrs.name ?? ""));
     return [
       "span",
       mergeAttributes(
@@ -257,7 +262,9 @@ export const ThreadFileBadge = Node.create({
   },
   renderHTML({ HTMLAttributes, node }) {
     const path = String(node.attrs.path ?? "");
-    const name = String(node.attrs.name ?? "") || (path.split(/[\\/]/).pop() ?? path);
+    const rawName = String(node.attrs.name ?? "");
+    const displayName = attachmentBadgeBasename(path, rawName);
+    const titlePath = path || rawName;
     return [
       "span",
       mergeAttributes(
@@ -269,7 +276,7 @@ export const ThreadFileBadge = Node.create({
         HTMLAttributes
       ),
       ["span", { "aria-hidden": "true", class: "text-[13px] leading-none" }, "📎"],
-      ["span", { class: "min-w-0 truncate font-mono font-medium", title: path }, name]
+      ["span", { class: "min-w-0 truncate font-mono font-medium", title: titlePath }, displayName]
     ];
   },
   renderText({ node }) {
@@ -354,6 +361,9 @@ export const ThreadMention = Mention.extend({
         ["span", { class: "min-w-0 truncate" }, label]
       ];
     }
+    const id = String(node.attrs.id ?? "");
+    const displayLabel = attachmentBadgeBasename(id, label);
+    const titleHint = label || id;
     return [
       "span",
       mergeAttributes(
@@ -363,7 +373,7 @@ export const ThreadMention = Mention.extend({
         },
         HTMLAttributes
       ),
-      label
+      ["span", { class: "min-w-0 truncate", title: titleHint }, displayLabel]
     ];
   }
 });
