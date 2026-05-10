@@ -9,11 +9,13 @@ describe("ProjectTabs", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     window.workspaceApi = {} as WorkspaceApi;
+    vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
   afterEach(() => {
     document.body.innerHTML = "";
     delete window.workspaceApi;
+    vi.restoreAllMocks();
   });
 
   const projects: Project[] = [
@@ -124,6 +126,7 @@ describe("ProjectTabs", () => {
     const removeBtn = document.querySelector('[data-testid="project-menu-remove-current"]') as HTMLElement | null;
     expect(removeBtn).toBeTruthy();
     await removeBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await flushPromises();
 
     expect(wrapper.emitted("remove")).toEqual([["proj-1"]]);
     expect(wrapper.emitted("select")).toBeUndefined();

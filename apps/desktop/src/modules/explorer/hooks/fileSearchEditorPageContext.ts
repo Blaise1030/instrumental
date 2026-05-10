@@ -29,6 +29,8 @@ export interface FileSearchEditorPageViewModel {
   imagePreviewSrc: string | null;
   draftContent: string;
   editorLanguage: string | undefined;
+  /** `.md` worktree-relative paths use MarkdownEditor / Monaco markdown toggle. */
+  isMarkdownFile: boolean;
   showLineNumbers: boolean;
   queueSelectionHintsEnabled: boolean;
   monacoEditorRef: InstanceType<typeof MonacoEditor> | null;

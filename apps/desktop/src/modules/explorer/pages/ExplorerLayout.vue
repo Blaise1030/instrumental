@@ -36,16 +36,6 @@ import { useToast } from "@/hooks/useToast";
 import { Input } from "@/components/ui/input";
 import PillTabs, { type PillTabItem } from "@/components/ui/pill-tabs";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -63,6 +53,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   explorerShellKey,
+  type ExplorerConfirmOptions,
   type ExplorerShell,
 } from "@/modules/explorer/services/explorerShellContext";
 import { normalizeExplorerFilenameParam } from "@/modules/explorer/explorerRoute";
@@ -176,16 +167,6 @@ const newEntryDialogKind = ref<"file" | "folder" | null>(null);
 const newEntryPathDraft = ref("");
 const newEntryPathInputRef = ref<InstanceType<typeof Input> | null>(null);
 const newEntryDialogFieldError = ref<string | null>(null);
-
-type ConfirmActionState = {
-  title: string;
-  description: string;
-  confirmLabel: string;
-  variant?: "default" | "destructive";
-  resolve: (confirmed: boolean) => void;
-};
-
-const confirmAction = ref<ConfirmActionState | null>(null);
 
 const newEntryPathInputId = computed(() =>
   newEntryDialogKind.value === "folder"
@@ -314,7 +295,7 @@ const summariesForTree = computed(() => {
 
   const matchingFilePaths: string[] = [];
   for (const f of files) {
-    if (f.kind !== "file") continue;
+    if (f.kind === "directory") continue;
     const rp = f.relativePath;
     if (rp.toLowerCase().includes(qLower) || contentSet.has(rp)) {
       matchingFilePaths.push(rp);
@@ -334,7 +315,7 @@ const summariesForTree = computed(() => {
   return files.filter((f) => {
     const rp = f.relativePath;
     if (rp.toLowerCase().includes(qLower)) return true;
-    if (f.kind === "file") {
+    if (f.kind !== "directory") {
       return contentSet.has(rp);
     }
     if (contentSet.has(rp)) return true;
@@ -730,10 +711,6 @@ async function submitNewEntry(): Promise<void> {
 
 function onGlobalKeydown(e: KeyboardEvent): void {
   if (e.key === "Escape") {
-    if (confirmAction.value) {
-      settleConfirmation(false);
-      return;
-    }
     if (newEntryDialogKind.value) {
       closeNewEntryDialog();
       return;
@@ -923,19 +900,11 @@ async function expandSidebar(): Promise<void> {
 
 // ─── Confirmation dialog ──────────────────────────────────────────────────────
 
-function requestConfirmation(
-  options: Omit<ConfirmActionState, "resolve">,
-): Promise<boolean> {
-  return new Promise((resolve) => {
-    confirmAction.value = { ...options, resolve };
-  });
-}
-
-function settleConfirmation(confirmed: boolean): void {
-  const pending = confirmAction.value;
-  if (!pending) return;
-  confirmAction.value = null;
-  pending.resolve(confirmed);
+function requestConfirmation(options: ExplorerConfirmOptions): Promise<boolean> {
+  const body = options.description.trim()
+    ? `${options.title}\n\n${options.description}`
+    : options.title;
+  return Promise.resolve(window.confirm(body));
 }
 
 async function confirmContextSwitch(
@@ -1361,42 +1330,6 @@ defineExpose({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog :open="confirmAction !== null">
-        <AlertDialogContent data-testid="confirm-action-dialog">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{{ confirmAction?.title }}</AlertDialogTitle>
-            <AlertDialogDescription>{{
-              confirmAction?.description
-            }}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel as-child>
-              <Button
-                type="button"
-                variant="outline"
-                data-testid="confirm-action-cancel"
-                @click="settleConfirmation(false)"
-              >
-                Cancel
-              </Button>
-            </AlertDialogCancel>
-            <AlertDialogAction as-child>
-              <Button
-                type="button"
-                :variant="
-                  confirmAction?.variant === 'destructive'
-                    ? 'destructive'
-                    : 'default'
-                "
-                data-testid="confirm-action-confirm"
-                @click="settleConfirmation(true)"
-              >
-                {{ confirmAction?.confirmLabel ?? "Continue" }}
-              </Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </template>
     <div
       v-else

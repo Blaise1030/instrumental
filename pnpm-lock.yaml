@@ -34,6 +34,9 @@ importers:
       '@tiptap/extension-placeholder':
         specifier: ^3.22.3
         version: 3.22.3(@tiptap/extensions@3.22.3)
+      '@tiptap/markdown':
+        specifier: ^3.22.3
+        version: 3.22.3(@tiptap/core@3.22.3)(@tiptap/pm@3.22.3)
       '@tiptap/pm':
         specifier: ^3.22.3
         version: 3.22.3
@@ -3327,6 +3330,17 @@ packages:
     dependencies:
       '@tiptap/core': 3.22.3(@tiptap/pm@3.22.3)
       '@tiptap/pm': 3.22.3
+    dev: false
+
+  /@tiptap/markdown@3.22.3(@tiptap/core@3.22.3)(@tiptap/pm@3.22.3):
+    resolution: {integrity: sha512-Ajw8AkAae7IET1sxZqNv+dhZQSuLY0AHWocowTny1azyiBtmRRKygkGK0ysVA+k6UxmBD6K+tvnbpjQ0/ACl4A==}
+    peerDependencies:
+      '@tiptap/core': ^3.22.3
+      '@tiptap/pm': ^3.22.3
+    dependencies:
+      '@tiptap/core': 3.22.3(@tiptap/pm@3.22.3)
+      '@tiptap/pm': 3.22.3
+      marked: 17.0.6
     dev: false
 
   /@tiptap/pm@3.22.3:

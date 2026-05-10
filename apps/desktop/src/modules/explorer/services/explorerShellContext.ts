@@ -20,7 +20,7 @@ export interface ExplorerShell {
   collapseSidebar: () => void;
   /** Focus the file search field (sidebar may expand first). */
   focusSearchInput: () => Promise<void>;
-  /** Shared AlertDialog host — editor discard prompts use the same dialog as the shell. */
+  /** Native confirm — discard prompts, deletes, etc. */
   requestConfirmation: (options: ExplorerConfirmOptions) => Promise<boolean>;
   /** Incremented after each worktree transition once file summaries have loaded. */
   worktreeEpoch: Ref<number>;

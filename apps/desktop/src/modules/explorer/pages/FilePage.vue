@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { inject } from "vue";
+import { inject, ref, watch } from "vue";
 import { PanelLeftClose, PanelLeftOpen, RefreshCw, X } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import { badgeVariants } from "@/components/ui/badge/index";
 import { cn } from "@/utils/cn";
 import MonacoEditor from "@/components/MonacoEditor.vue";
+import MarkdownEditor from "@/components/MarkdownEditor.vue";
 import PillTabs from "@/components/ui/pill-tabs";
 import ContextQueueSelectionPopup from "@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue";
 import {
@@ -26,6 +27,19 @@ if (!shell) {
   throw new Error("FilePage requires ExplorerLayout shell (explorerShellKey).");
 }
 const page = useExplorerFilePage(shell);
+
+const markdownViewMode = ref<"rich-text" | "source">("rich-text");
+const markdownViewTabs = [
+  { value: "rich-text", label: "Rich Text" },
+  { value: "source", label: "Source" },
+] as const;
+
+watch(
+  () => page.selectedPath,
+  () => {
+    markdownViewMode.value = "rich-text";
+  },
+);
 
 function setMonacoRef(el: unknown): void {
   page.monacoEditorRef = (el as InstanceType<typeof MonacoEditor> | null) ?? null;
@@ -168,7 +182,10 @@ function setMonacoRef(el: unknown): void {
           <Button
             data-testid="find-in-file"
             variant="outline"            
-            :disabled="!page.canFindInFile"
+            :disabled="
+              !page.canFindInFile ||
+              (page.isMarkdownFile && markdownViewMode === 'rich-text')
+            "
             :title="`Find in file (${page.findInFileShortcutHint})`"
             @click="page.openFindInFile"
           >
@@ -216,7 +233,7 @@ function setMonacoRef(el: unknown): void {
       >
         <div
           v-if="page.isImagePreviewFile && page.selectedPath"
-          class="absolute top-2 right-3 z-20 rounded-lg border border-border/60 /95 p-0.5 shadow-sm backdrop-blur-sm supports-[backdrop-filter]:/80"
+          class="absolute top-2 right-3 z-20 rounded-lg border border-border/60 bg-background/95 p-0.5 shadow-sm backdrop-blur-sm supports-[backdrop-filter]:bg-background/80"
         >
           <PillTabs
             :model-value="page.imageFileViewMode"
@@ -292,6 +309,48 @@ function setMonacoRef(el: unknown): void {
             pane (temp folder is allowed), or copy the image into the repo.
           </p>
         </div>
+        <template v-else-if="page.isMarkdownFile">
+          <div
+            class="absolute top-2 right-3 z-20 rounded-lg border border-border/60 bg-background/95 p-0.5 shadow-sm backdrop-blur-sm supports-[backdrop-filter]:bg-background/80"
+          >
+            <PillTabs
+              :model-value="markdownViewMode"
+              class="min-w-0 shrink-0"
+              aria-label="Markdown view"
+              :tabs="markdownViewTabs"
+              @update:model-value="
+                markdownViewMode = $event as 'rich-text' | 'source'
+              "
+            />
+          </div>
+          <MarkdownEditor
+            v-if="markdownViewMode === 'rich-text'"
+            v-model="page.draftContent"
+            :queue-selection-hints="page.queueSelectionHintsEnabled"
+            :aria-label="
+              page.selectedPath
+                ? `Markdown editor, ${page.selectedPath}`
+                : undefined
+            "
+            @save="page.handleSave"
+            @queueable-text-selection="page.onEditorQueueableSelection"
+          />
+          <MonacoEditor
+            v-else
+            :ref="setMonacoRef"
+            v-model="page.draftContent"
+            language="markdown"
+            :show-line-numbers="page.showLineNumbers"
+            :queue-selection-hints="page.queueSelectionHintsEnabled"
+            :aria-label="
+              page.selectedPath
+                ? `Source code, markdown, ${page.selectedPath}`
+                : undefined
+            "
+            @queueable-text-selection="page.onEditorQueueableSelection"
+            @save="page.handleSave"
+          />
+        </template>
         <MonacoEditor
           v-else
           :ref="setMonacoRef"

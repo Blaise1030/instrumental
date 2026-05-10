@@ -1,7 +1,9 @@
 import { mount, flushPromises, DOMWrapper, type ComponentMountingOptions } from "@vue/test-utils";
+import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import { createPinia, setActivePinia } from "pinia";
-import { defineComponent, h, nextTick } from "vue";
+import { defineComponent, h, nextTick, ref, type Ref } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AppContext } from "@/app-context/type";
 import ExplorerLayout from "@/modules/explorer/pages/ExplorerLayout.vue";
 
 const { mockPush, mockReplace } = vi.hoisted(() => ({
@@ -9,10 +11,41 @@ const { mockPush, mockReplace } = vi.hoisted(() => ({
   mockReplace: vi.fn(),
 }));
 
+function createExplorerAppContext(): Ref<AppContext> {
+  const fileService: AppContext["fileService"] = {
+    listFiles: (cwd) => window.workspaceApi!.listFiles!(cwd),
+    searchFiles: (cwd, query) => window.workspaceApi!.searchFiles!(cwd, query),
+    searchFileContents: (cwd, query) =>
+      window.workspaceApi!.searchFileContents!(cwd, query),
+    readFile: (cwd, path) => window.workspaceApi!.readFile!(cwd, path),
+    writeFile: (cwd, path, content) =>
+      window.workspaceApi!.writeFile!(cwd, path, content),
+    createFile: (cwd, path) => window.workspaceApi!.createFile!(cwd, path),
+    deleteFile: (cwd, path) => window.workspaceApi!.deleteFile!(cwd, path),
+    createFolder: (cwd, path) => window.workspaceApi!.createFolder!(cwd, path),
+    deleteFolder: (cwd, path) => window.workspaceApi!.deleteFolder!(cwd, path),
+    renameEntry: (cwd, from, to) =>
+      window.workspaceApi!.renameEntry!(cwd, from, to),
+    onWorkspaceChanged: (cb) => window.workspaceApi!.onWorkspaceChanged!(cb),
+    onWorkingTreeFilesChanged: (cb) =>
+      window.workspaceApi!.onWorkingTreeFilesChanged!(cb),
+  };
+  return ref({
+    mode: "desktop",
+    threadManagementService: {} as AppContext["threadManagementService"],
+    gitService: {} as AppContext["gitService"],
+    workspaceService: {} as AppContext["workspaceService"],
+    notificationService: {} as AppContext["notificationService"],
+    fileService,
+  });
+}
+
 vi.mock("vue-router", async (importOriginal) => {
   const vue = await import("vue");
-  const FilePageMod = await import("@/modules/explorer/pages/FilePage.vue");
   const actual = await importOriginal<typeof import("vue-router")>();
+  const FilePageLazy = vue.defineAsyncComponent(
+    () => import("@/modules/explorer/pages/FilePage.vue"),
+  );
   return {
     ...actual,
     useRouter: () => ({
@@ -29,19 +62,46 @@ vi.mock("vue-router", async (importOriginal) => {
       setup(_, { slots }) {
         return () =>
           slots.default?.({
-            Component: FilePageMod.default,
+            Component: FilePageLazy,
           });
       },
     }),
   };
 });
 
-function mountFileSearchEditor(
+async function mountFileSearchEditor(
   options?: ComponentMountingOptions<typeof ExplorerLayout>,
 ) {
-  return mount(ExplorerLayout, {
-    ...options,
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
   });
+  const appContextRef = createExplorerAppContext();
+  const wrapper = mount(ExplorerLayout, {
+    ...options,
+    global: {
+      ...options?.global,
+      plugins: [
+        [VueQueryPlugin, { queryClient }],
+        ...(options?.global?.plugins ?? []),
+      ],
+      provide: {
+        ...(options?.global?.provide as Record<string, unknown> | undefined),
+        appContext: appContextRef,
+      },
+    },
+  });
+  await flushPromises();
+  await wrapper.vm.$nextTick();
+  await flushPromises();
+  return wrapper;
+}
+
+/** Path search debounce is ~280ms in ExplorerLayout; wait slightly longer under real timers. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 vi.mock("@/components/ui/Button.vue", () => ({
@@ -73,6 +133,23 @@ vi.mock("@/components/ui/tooltip", () => ({
       return () => h("div", slots.default?.());
     }
   })
+}));
+
+vi.mock("@/components/MarkdownEditor.vue", () => ({
+  default: {
+    name: "MarkdownEditor",
+    props: {
+      modelValue: { type: String, default: "" },
+      ariaLabel: String,
+      queueSelectionHints: { type: Boolean, default: false },
+    },
+    emits: ["update:modelValue", "save", "queueable-text-selection"],
+    template:
+      '<textarea data-testid="markdown-editor" :value="modelValue" readonly />',
+    methods: {
+      openFind(): void {},
+    },
+  },
 }));
 
 vi.mock("@/components/MonacoEditor.vue", () => ({
@@ -108,6 +185,8 @@ vi.mock("@/components/MonacoEditor.vue", () => ({
 }));
 
 describe("FileSearchEditor", () => {
+  let confirmSpy: ReturnType<typeof vi.spyOn>;
+
   const listFiles = vi.fn<WorkspaceApi["listFiles"]>();
   const searchFileContents = vi.fn<NonNullable<WorkspaceApi["searchFileContents"]>>();
   const readFile = vi.fn<WorkspaceApi["readFile"]>();
@@ -123,7 +202,7 @@ describe("FileSearchEditor", () => {
 
   beforeEach(() => {
     setActivePinia(createPinia());
-    vi.useFakeTimers();
+    confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     localStorage.clear();
     listFiles.mockReset();
     searchFileContents.mockReset();
@@ -183,6 +262,7 @@ describe("FileSearchEditor", () => {
       deleteFile,
       createFolder,
       deleteFolder,
+      renameEntry: vi.fn().mockResolvedValue(undefined),
       applyPatch: vi.fn(),
       ptyCreate: vi.fn(),
       ptyWrite: vi.fn(),
@@ -202,7 +282,6 @@ describe("FileSearchEditor", () => {
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
     delete window.workspaceApi;
   });
@@ -213,7 +292,7 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -228,7 +307,7 @@ describe("FileSearchEditor", () => {
   it("does not render workspace context in the file editor header", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -242,7 +321,7 @@ describe("FileSearchEditor", () => {
       .mockResolvedValueOnce([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }])
       .mockResolvedValueOnce([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -260,7 +339,7 @@ describe("FileSearchEditor", () => {
       .mockResolvedValueOnce([{ relativePath: "src/App.vue", size: 11, modifiedAt: 2 }])
       .mockResolvedValueOnce([{ relativePath: "src/App.vue", size: 11, modifiedAt: 3 }]);
 
-    mountFileSearchEditor({
+    await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
     await flushPromises();
@@ -279,7 +358,7 @@ describe("FileSearchEditor", () => {
   it("renders the search input with the updated field styling", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -298,7 +377,7 @@ describe("FileSearchEditor", () => {
   it("renders a thinner editor header", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -311,7 +390,7 @@ describe("FileSearchEditor", () => {
   it("renders the file search header with padded, spaced layout", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -325,7 +404,7 @@ describe("FileSearchEditor", () => {
   it("collapses and expands the file sidebar", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -348,7 +427,7 @@ describe("FileSearchEditor", () => {
   it("renders and emits the thread sidebar expand control when requested", async () => {
     listFiles.mockResolvedValue([]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project", showThreadSidebarExpand: true }
     });
 
@@ -364,7 +443,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }]);
     readFile.mockResolvedValue("const value = 1;\n");
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -383,7 +462,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }]);
     readFile.mockResolvedValue("const value = 1;\n");
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -400,7 +479,7 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -423,7 +502,7 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -446,7 +525,7 @@ describe("FileSearchEditor", () => {
     ]);
     searchFileContents.mockResolvedValue(["src/App.vue"]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -459,7 +538,7 @@ describe("FileSearchEditor", () => {
     await flushPromises();
 
     await wrapper.get('[data-testid="file-search-input"]').setValue("hello");
-    await vi.advanceTimersByTimeAsync(400);
+    await sleep(400);
     await flushPromises();
 
     expect(searchFileContents).toHaveBeenCalledWith("/tmp/project", "hello");
@@ -471,14 +550,14 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
     await flushPromises();
 
     await wrapper.get('[data-testid="file-search-input"]').setValue("hello");
-    await vi.advanceTimersByTimeAsync(400);
+    await sleep(400);
     await flushPromises();
 
     expect(searchFileContents).not.toHaveBeenCalled();
@@ -490,13 +569,13 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
     await flushPromises();
     await wrapper.get('[data-testid="file-search-input"]').setValue("file");
-    await vi.advanceTimersByTimeAsync(350);
+    await sleep(350);
     await flushPromises();
 
     expect(listFiles).toHaveBeenCalledTimes(1);
@@ -512,13 +591,13 @@ describe("FileSearchEditor", () => {
       { relativePath: "src/features/FileSearchEditor.vue", size: 11, modifiedAt: 2 }
     ]);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
     await flushPromises();
     await wrapper.get('[data-testid="file-search-input"]').setValue("file");
-    await vi.advanceTimersByTimeAsync(350);
+    await sleep(350);
     await flushPromises();
 
     expect(wrapper.text()).toContain("FileSearchEditor.vue");
@@ -535,7 +614,7 @@ describe("FileSearchEditor", () => {
     ]);
     readFile.mockResolvedValue("<template />");
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -564,7 +643,7 @@ describe("FileSearchEditor", () => {
     });
     readFile.mockResolvedValue("<template />");
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreeId: "worktree-1", worktreePath: "/tmp/project" }
     });
 
@@ -582,7 +661,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "src/App.vue", size: 11, modifiedAt: 1 }]);
     readFile.mockResolvedValue("const value = 1;\n");
 
-    mountFileSearchEditor({
+    await mountFileSearchEditor({
       props: { worktreeId: "worktree-1", worktreePath: "/tmp/project" }
     });
 
@@ -603,7 +682,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("<template />");
     writeFile.mockResolvedValue();
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -634,7 +713,7 @@ describe("FileSearchEditor", () => {
     ]);
     readFile.mockResolvedValue("<template />");
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -656,7 +735,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "README.md", size: 20, modifiedAt: 1 }]);
     readFile.mockResolvedValue("# Hello\n\n**Bold** text.");
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -674,7 +753,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "shots/clip.png", size: 500, modifiedAt: 1 }]);
     readFile.mockResolvedValue("binary");
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -691,7 +770,7 @@ describe("FileSearchEditor", () => {
     listFiles.mockResolvedValue([{ relativePath: "x.png", size: 4, modifiedAt: 1 }]);
     readFile.mockResolvedValue("fake-utf8");
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -723,7 +802,7 @@ describe("FileSearchEditor", () => {
       .mockResolvedValueOnce("two")
       .mockResolvedValueOnce("one");
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -737,7 +816,7 @@ describe("FileSearchEditor", () => {
       await wrapper.get('[data-testid="file-node-src/two.ts"]').trigger("click");
       await flushPromises();
 
-      expect(document.querySelector('[data-testid="confirm-action-dialog"]')).toBeNull();
+      expect(confirmSpy).not.toHaveBeenCalled();
       expect(wrapper.get('[data-testid="file-editor-active-path"]').text()).toContain("src/two.ts");
       expect(wrapper.get('[data-testid="file-editor-tab-src/one.ts"]').text()).toContain("one.ts");
       expect(wrapper.get('[data-testid="file-editor-tab-src/two.ts"]').text()).toContain("two.ts");
@@ -765,7 +844,7 @@ describe("FileSearchEditor", () => {
     ]);
     readFile.mockImplementation(async (_cwd, relativePath) => relativePath);
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project", worktreeId: "worktree-1" }
     });
 
@@ -791,7 +870,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("original");
     writeFile.mockResolvedValue();
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project-a" },
       attachTo: document.body
     });
@@ -802,6 +881,7 @@ describe("FileSearchEditor", () => {
       await flushPromises();
       await wrapper.get('[data-testid="file-editor"]').setValue("changed");
 
+      confirmSpy.mockReturnValue(false);
       const confirmSwitch = (
         wrapper.vm as unknown as {
           confirmContextSwitch: (nextWorktreePath: string | null) => Promise<boolean>;
@@ -809,13 +889,8 @@ describe("FileSearchEditor", () => {
       ).confirmContextSwitch("/tmp/project-b");
       await flushPromises();
 
-      const cancel = document.querySelector(
-        '[data-testid="confirm-action-cancel"]'
-      ) as HTMLButtonElement;
-      expect(cancel).toBeTruthy();
-      cancel.click();
-
       await expect(confirmSwitch).resolves.toBe(false);
+      expect(confirmSpy).toHaveBeenCalled();
 
       await wrapper.get('[data-testid="save-file"]').trigger("click");
       await flushPromises();
@@ -849,7 +924,7 @@ describe("FileSearchEditor", () => {
           })
       );
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" }
     });
 
@@ -886,7 +961,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("");
     createFile.mockResolvedValue();
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -921,7 +996,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("x");
     deleteFile.mockResolvedValue();
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -938,19 +1013,28 @@ describe("FileSearchEditor", () => {
       await flushPromises();
       await nextTick();
 
+      confirmSpy.mockReturnValueOnce(false);
       const del = document.querySelector('[data-testid="ctx-delete-file"]');
       expect(del).toBeTruthy();
       (del as HTMLButtonElement).click();
       await flushPromises();
 
       expect(deleteFile).not.toHaveBeenCalled();
-      expect(document.querySelector('[data-testid="confirm-action-dialog"]')?.textContent).toContain(
-        "Delete src/one.ts?"
+      expect(confirmSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Delete src/one.ts?"),
       );
 
-      const confirm = document.querySelector('[data-testid="confirm-action-confirm"]') as HTMLButtonElement;
-      expect(confirm).toBeTruthy();
-      confirm.click();
+      confirmSpy.mockReturnValueOnce(true);
+      await wrapper.get('[data-testid="file-node-src/one.ts"]').trigger("contextmenu", {
+        clientX: 2,
+        clientY: 2
+      });
+      await flushPromises();
+      await nextTick();
+
+      const delConfirm = document.querySelector('[data-testid="ctx-delete-file"]');
+      expect(delConfirm).toBeTruthy();
+      (delConfirm as HTMLButtonElement).click();
       await flushPromises();
 
       expect(deleteFile).toHaveBeenCalledWith("/tmp/project", "src/one.ts");
@@ -971,7 +1055,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("");
     createFile.mockResolvedValue();
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -1016,7 +1100,7 @@ describe("FileSearchEditor", () => {
     readFile.mockResolvedValue("");
     createFile.mockResolvedValue();
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -1058,7 +1142,7 @@ describe("FileSearchEditor", () => {
       .mockResolvedValueOnce([]);
     deleteFile.mockResolvedValue();
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -1073,14 +1157,28 @@ describe("FileSearchEditor", () => {
       await flushPromises();
       await nextTick();
 
+      confirmSpy.mockReturnValueOnce(false);
       const del = document.querySelector('[data-testid="ctx-delete-file"]');
       expect(del).toBeTruthy();
       (del as HTMLButtonElement).click();
       await flushPromises();
 
-      const confirm = document.querySelector('[data-testid="confirm-action-confirm"]') as HTMLButtonElement;
-      expect(confirm).toBeTruthy();
-      confirm.click();
+      expect(deleteFile).not.toHaveBeenCalled();
+      expect(confirmSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Delete src/only.ts?"),
+      );
+
+      confirmSpy.mockReturnValueOnce(true);
+      await wrapper.get('[data-testid="file-node-src/only.ts"]').trigger("contextmenu", {
+        clientX: 2,
+        clientY: 2
+      });
+      await flushPromises();
+      await nextTick();
+
+      const delConfirm = document.querySelector('[data-testid="ctx-delete-file"]');
+      expect(delConfirm).toBeTruthy();
+      (delConfirm as HTMLButtonElement).click();
       await flushPromises();
 
       expect(deleteFile).toHaveBeenCalledWith("/tmp/project", "src/only.ts");
@@ -1100,7 +1198,7 @@ describe("FileSearchEditor", () => {
       ]);
     createFolder.mockResolvedValue();
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -1136,7 +1234,7 @@ describe("FileSearchEditor", () => {
       .mockResolvedValueOnce([]);
     deleteFolder.mockResolvedValue();
 
-    const wrapper = mountFileSearchEditor({
+    const wrapper = await mountFileSearchEditor({
       props: { worktreePath: "/tmp/project" },
       attachTo: document.body
     });
@@ -1151,17 +1249,28 @@ describe("FileSearchEditor", () => {
       await flushPromises();
       await nextTick();
 
+      confirmSpy.mockReturnValueOnce(false);
       const del = document.querySelector('[data-testid="ctx-delete-folder"]');
       expect(del).toBeTruthy();
       (del as HTMLButtonElement).click();
       await flushPromises();
 
-      const dialog = document.querySelector('[data-testid="confirm-action-dialog"]');
-      expect(dialog?.textContent).toContain("Delete folder src and its contents?");
+      expect(deleteFolder).not.toHaveBeenCalled();
+      expect(confirmSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Delete folder src and its contents?"),
+      );
 
-      const confirm = document.querySelector('[data-testid="confirm-action-confirm"]') as HTMLButtonElement;
-      expect(confirm).toBeTruthy();
-      confirm.click();
+      confirmSpy.mockReturnValueOnce(true);
+      await wrapper.get('[data-testid="folder-toggle-src"]').trigger("contextmenu", {
+        clientX: 4,
+        clientY: 4
+      });
+      await flushPromises();
+      await nextTick();
+
+      const delConfirm = document.querySelector('[data-testid="ctx-delete-folder"]');
+      expect(delConfirm).toBeTruthy();
+      (delConfirm as HTMLButtonElement).click();
       await flushPromises();
 
       expect(deleteFolder).toHaveBeenCalledWith("/tmp/project", "src");
@@ -1169,5 +1278,28 @@ describe("FileSearchEditor", () => {
     } finally {
       wrapper.unmount();
     }
+  });
+
+  it("opens Markdown files in rich text with Monaco source toggle", async () => {
+    listFiles.mockResolvedValue([{ relativePath: "README.md", size: 4, modifiedAt: 1 }]);
+    readFile.mockResolvedValue("# Hi");
+
+    const wrapper = await mountFileSearchEditor({
+      props: { worktreePath: "/tmp/project" },
+    });
+
+    await flushPromises();
+    await wrapper.get('[data-testid="file-node-README.md"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="markdown-editor"]').exists()).toBe(true);
+
+    const mdTabs = wrapper.get('[aria-label="Markdown view"]');
+    const sourceTab = mdTabs.findAll('[role="tab"]').find((t) => t.text().includes("Source"));
+    expect(sourceTab).toBeDefined();
+    await sourceTab!.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="file-editor"]').attributes("data-language")).toBe("markdown");
   });
 });

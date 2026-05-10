@@ -115,21 +115,32 @@ const tiptapEditor: Ref<Editor | null | undefined> = useEditor({
   }
 });
 
-// ── Adaptive layout (document structure only — no ResizeObserver / DOM wrap heuristics) ──
+// ── Adaptive layout ──────────────────────────────────────────────────────────
+
+// Single line at 13px/leading-snug ≈ 26px (18px text + 8px py-1 padding).
+// Two wrapped lines ≈ 44px. 34px is a safe midpoint.
+const SINGLE_LINE_HEIGHT_THRESHOLD = 34;
 
 let detachDocLayoutListener: (() => void) | null = null;
+let resizeObserver: ResizeObserver | null = null;
+// Tracks whether expansion was triggered by visual wrap (vs. doc structure).
+// Height-based expansion is sticky until text is cleared to avoid the
+// ResizeObserver feedback loop: expand → wider layout → text unwraps →
+// height shrinks → collapse → narrower layout → text wraps → repeat.
+let expandedByHeight = false;
 
-/** True when the doc has structural newlines: multiple top-level blocks, a hard break, or file badges. */
 function updateIsMultiLineFromDoc(): void {
   const ed = tiptapEditor.value;
   if (!ed?.view || ed.isDestroyed) {
     isMultiLine.value = false;
+    expandedByHeight = false;
     return;
   }
   const doc = ed.state.doc;
 
   if (doc.childCount > 1) {
     isMultiLine.value = true;
+    expandedByHeight = false;
     return;
   }
 
@@ -142,12 +153,27 @@ function updateIsMultiLineFromDoc(): void {
     }
   });
 
-  isMultiLine.value = hasHardBreak || hasAttachmentBadge;
+  if (hasHardBreak || hasAttachmentBadge) {
+    isMultiLine.value = true;
+    expandedByHeight = false;
+    return;
+  }
+
+  // Collapse when text is empty, otherwise keep height-based expansion sticky.
+  if (promptDocFlatText(doc).length === 0) {
+    expandedByHeight = false;
+    isMultiLine.value = false;
+    return;
+  }
+
+  isMultiLine.value = expandedByHeight;
 }
 
 function attachDocLayoutListener(): void {
   detachDocLayoutListener?.();
   detachDocLayoutListener = null;
+  resizeObserver?.disconnect();
+  resizeObserver = null;
 
   const ed = tiptapEditor.value;
   if (!ed || ed.isDestroyed) return;
@@ -159,6 +185,17 @@ function attachDocLayoutListener(): void {
   detachDocLayoutListener = () => {
     ed.off("transaction", onTx);
   };
+
+  // Only expand based on height — never collapse — to avoid layout feedback loop.
+  const pm = ed.view.dom as HTMLElement;
+  resizeObserver = new ResizeObserver(() => {
+    if (!isMultiLine.value && pm.scrollHeight > SINGLE_LINE_HEIGHT_THRESHOLD) {
+      expandedByHeight = true;
+      isMultiLine.value = true;
+    }
+  });
+  resizeObserver.observe(pm);
+
   updateIsMultiLineFromDoc();
 }
 
@@ -167,8 +204,11 @@ watch(
   (ed) => {
     detachDocLayoutListener?.();
     detachDocLayoutListener = null;
+    resizeObserver?.disconnect();
+    resizeObserver = null;
     if (!ed || ed.isDestroyed) {
       isMultiLine.value = false;
+      expandedByHeight = false;
       return;
     }
     attachDocLayoutListener();
@@ -251,6 +291,8 @@ watch(
 onBeforeUnmount(() => {
   detachDocLayoutListener?.();
   detachDocLayoutListener = null;
+  resizeObserver?.disconnect();
+  resizeObserver = null;
   const ed = tiptapEditor.value;
   if (ed && !ed.isDestroyed) applyEditorToModels(ed);
 });
@@ -308,6 +350,7 @@ function onSend(): void {
   attachments.value = [];
   skillPaths.value = [];
   isMultiLine.value = false;
+  expandedByHeight = false;
   emit("submit");
   // Defer the editor clear so TipTap finishes handling the current event first
   Promise.resolve().then(() => {

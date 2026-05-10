@@ -50,6 +50,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import NotificationPopover from "@/modules/notification/components/NotificationPopover.vue";
 import BranchPicker from "@/modules/git/components/BranchPicker.vue";
@@ -86,6 +92,8 @@ const shellUi = useWorkspaceShellUiStore();
 const keybindings = useKeybindingsStore();
 const { sidebarOpen, terminalDockTogglePulse, terminalNewTabPulse } = storeToRefs(shellUi);
 const branchId = computed(() => route.params.branch as string);
+
+watch(branchId, () => { filterMode.value = false; });
 
 const { mutateAsync: removeThreadMutate } = useRemoveThread();
 
@@ -330,10 +338,10 @@ const terminalPanelWorktreePath = computed(() => {
 
 const filterByBranch = (
   threads: (Thread & { threadPath: string })[],
-  branch: string,
 ): (Thread & { threadPath: string })[] => {
   if (filterMode.value) {
-    return threads.filter((thread) => thread.createdBranch === branch);
+    const activeBranch = decodeBranch(branchId.value ?? "");
+    return threads.filter((thread) => thread.createdBranch === activeBranch);
   }
   return threads;
 };
@@ -470,6 +478,44 @@ async function onCreateWorktreeGroup(
     );
   }
 }
+
+async function requestDeleteProject(project: Project): Promise<void> {
+  const ok = window.confirm(
+    `Remove “${project.name}” from the workspace? This cannot be undone.`,
+  );
+  if (!ok) return;
+  const api = window.workspaceApi;
+  if (!api?.removeProject) {
+    toast.error("Cannot remove project", "Remove project is not available in this build.");
+    return;
+  }
+  const deletingCurrent = project.id === projectId.value;
+  let nextActiveProjectId: string | null = null;
+  try {
+    await api.removeProject({ projectId: project.id });
+    const ws = appContext.value.workspaceService;
+    if (ws) {
+      const fresh = await ws.getSnapshot();
+      workspace.hydrate(fresh);
+      nextActiveProjectId = fresh.activeProjectId;
+    }
+    void queryClient.invalidateQueries({ queryKey: ["projectTabs"] });
+    void queryClient.invalidateQueries({ queryKey: ["projectPath"] });
+    void queryClient.invalidateQueries({ queryKey: ["worktrees", appContext] });
+    if (deletingCurrent) {
+      if (nextActiveProjectId) {
+        await navigateToProject(nextActiveProjectId);
+      } else {
+        void router.push({ name: "welcome" });
+      }
+    }
+  } catch (e) {
+    toast.error(
+      "Could not remove project",
+      e instanceof Error ? e.message : "Unknown error",
+    );
+  }
+}
 </script>
 
 <template>  
@@ -511,27 +557,40 @@ async function onCreateWorktreeGroup(
           <div
             class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1 [-webkit-overflow-scrolling:touch]"
           >
-            <Button
-              v-for="value in projectTabs ?? []"
-              :key="value.id"
-              type="button"
-              :variant="value.id === projectId ? 'outline' : 'ghost'"
-              :class="[
-                value.id === projectId ? 'bg-background' : '',
-                projectIdsWithIdleAttention.has(value.id)
-                  ? 'bg-blue-500/12 ring-1 ring-inset ring-blue-500/45 dark:bg-blue-400/14 dark:ring-blue-400/50'
-                  : '',
-              ]"
-              :aria-current="value.id === projectId ? 'page' : undefined"
-              :title="
-                projectIdsWithIdleAttention.has(value.id)
-                  ? 'A thread in this project needs attention'
-                  : undefined
-              "
-              @click="navigateToProject(value.id)"
-            >            
-              📁 {{ value.name }}
-            </Button>
+            <ContextMenu v-for="value in projectTabs ?? []" :key="value.id">
+              <ContextMenuTrigger as-child>
+                <Button
+                  type="button"
+                  :variant="value.id === projectId ? 'outline' : 'ghost'"
+                  :class="[
+                    value.id === projectId ? 'bg-background' : '',
+                    projectIdsWithIdleAttention.has(value.id)
+                      ? 'bg-blue-500/12 ring-1 ring-inset ring-blue-500/45 dark:bg-blue-400/14 dark:ring-blue-400/50'
+                      : '',
+                  ]"
+                  :aria-current="value.id === projectId ? 'page' : undefined"
+                  :title="
+                    projectIdsWithIdleAttention.has(value.id)
+                      ? 'A thread in this project needs attention'
+                      : undefined
+                  "
+                  :data-testid="`header-project-tab-${value.id}`"
+                  @click="navigateToProject(value.id)"
+                >
+                  📁 {{ value.name }}
+                </Button>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem
+                  variant="destructive"
+                  class="text-xs"
+                  :data-testid="`header-project-tab-delete-${value.id}`"
+                  @select="void requestDeleteProject(value)"
+                >
+                  Delete "{{ value.name }}"…
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
             <Button
               type="button"
               variant="outline"
@@ -596,7 +655,7 @@ async function onCreateWorktreeGroup(
                         as-child
                       >
                         <Button
-                          size="icon-sm"
+                          size="icon"
                           variant="ghost"
                           class="bg-transparent"
                         >
@@ -619,7 +678,7 @@ async function onCreateWorktreeGroup(
                       </div>
                       <Button
                           type="button"
-                          size="icon-sm"
+                          size="icon"
                           variant="ghost"
                           aria-label="New thread on this branch"
                           title="New thread"
@@ -707,11 +766,8 @@ async function onCreateWorktreeGroup(
                       <SidebarMenu :class="index === 0 ? 'px-1' : ''">
                         <SidebarMenuItem                          
                           v-for="thread in (showMoreToggleState[value?.branch]
-                            ? filterByBranch(value?.threads, value?.branch)
-                            : filterByBranch(
-                                value?.threads,
-                                value?.branch,
-                              ).slice(0, 10))"
+                            ? filterByBranch(value?.threads)
+                            : filterByBranch(value?.threads).slice(0, 10))"
                           :key="thread.id"
                           class="group/thread-item w-full min-w-0"
                         >
@@ -769,7 +825,7 @@ async function onCreateWorktreeGroup(
                         
                         <Button
                           v-if="
-                            filterByBranch(value?.threads, value?.branch)
+                            filterByBranch(value?.threads)
                               .length > 10
                           "
                           size="xs"
@@ -788,10 +844,7 @@ async function onCreateWorktreeGroup(
                           ({{
                             Math.max(
                               0,
-                              filterByBranch(
-                                value?.threads,
-                                value?.branch,
-                              ).length - 10,
+                              filterByBranch(value?.threads).length - 10,
                             )
                           }})
                         </Button>

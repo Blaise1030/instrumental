@@ -134,7 +134,7 @@ async function onModelUpdate(value: unknown): Promise<void> {
         as-child
         :disabled="checkoutBusy"
       >
-        <Button variant="outline" size="sm" class="w-full">
+        <Button variant="outline" class="w-full">
           <CursorLoading
             v-if="checkoutBusy"
             class="inline-block size-3.5 min-h-0 shrink-0 overflow-hidden"

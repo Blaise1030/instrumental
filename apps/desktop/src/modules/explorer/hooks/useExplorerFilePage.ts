@@ -428,6 +428,10 @@ const editorLanguage = computed(() => {
   if (!path) return undefined;
   return monacoLanguageIdFromPath(path);
 });
+
+const isMarkdownFile = computed(
+  () => selectedPath.value?.toLowerCase().endsWith(".md") ?? false,
+);
 async function confirmDiscardForTab(path: string): Promise<boolean> {
   const tab = findTab(path);
   if (!tab || tab.draftContent === tab.loadedContent) return true;
@@ -841,6 +845,7 @@ const page = reactive({
   imagePreviewSrc,
   draftContent,
   editorLanguage,
+  isMarkdownFile,
   showLineNumbers,
   queueSelectionHintsEnabled,
   monacoEditorRef,

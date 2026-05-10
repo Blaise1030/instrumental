@@ -20,16 +20,6 @@ import {
   ContextMenuItem,
   ContextMenuTrigger
 } from "@/components/ui/context-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from "@/components/ui/alert-dialog";
 import type { KeybindingId } from "@/keybindings/registry";
 import { shortcutForModDigitSlot } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
@@ -124,20 +114,13 @@ const activeProjectHasActiveThread = computed(() => {
 
 const projectMenuOpen = ref(false);
 
-const deleteTarget = ref<Project | null>(null);
-const deleteConfirmOpen = ref(false);
-
-function requestDelete(project: Project): void {
-  deleteTarget.value = project;
-  deleteConfirmOpen.value = true;
-}
-
-function confirmDelete(): void {
-  if (deleteTarget.value) {
-    emit("remove", deleteTarget.value.id);
-    projectMenuOpen.value = false;
-  }
-  deleteTarget.value = null;
+async function requestDelete(project: Project): Promise<void> {
+  const ok = window.confirm(
+    `Remove “${project.name}” from the workspace? This cannot be undone.`,
+  );
+  if (!ok) return;
+  emit("remove", project.id);
+  projectMenuOpen.value = false;
 }
 
 /** Browser-style tab strip: inactive = text on chrome; active = muted surface. */
@@ -254,7 +237,7 @@ function onProjectSwitcherChange(projectId: string): void {
                 <ContextMenuItem
                   variant="destructive"
                   class="text-xs"
-                  @select="requestDelete(project)"
+                  @select="void requestDelete(project)"
                 >
                   Delete "{{ project.name }}"…
                 </ContextMenuItem>
@@ -267,7 +250,7 @@ function onProjectSwitcherChange(projectId: string): void {
               variant="destructive"
               class="text-xs"
               data-testid="project-menu-remove-current"
-              @select="requestDelete(activeProject)"
+              @select="void requestDelete(activeProject)"
             >
               Remove "{{ activeProject.name }}"…
             </DropdownMenuItem>
@@ -428,21 +411,6 @@ function onProjectSwitcherChange(projectId: string): void {
       />
     </div>
   </nav>
-
-  <AlertDialog :open="deleteConfirmOpen" @update:open="(v) => (deleteConfirmOpen = v)">
-    <AlertDialogContent>
-      <AlertDialogHeader>
-        <AlertDialogTitle>Delete project?</AlertDialogTitle>
-        <AlertDialogDescription>
-          "{{ deleteTarget?.name }}" will be removed from the workspace. This cannot be undone.
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-      <AlertDialogFooter>
-        <AlertDialogCancel>Cancel</AlertDialogCancel>
-        <AlertDialogAction variant="destructive" @click="confirmDelete">Delete</AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
 </template>
 
 <style scoped>

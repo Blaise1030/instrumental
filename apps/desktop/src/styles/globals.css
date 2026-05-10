@@ -21,6 +21,129 @@
   color: var(--muted-foreground);
 }
 
+/**
+ * Markdown rich-text (TipTap + `@tiptap/markdown`): preflight strips heading sizes,
+ * list markers, and bold weight — without these rules the editor looks like plain text.
+ */
+.markdown-file-editor .ProseMirror {
+  --md-heading-tracking: -0.02em;
+}
+
+.markdown-file-editor .ProseMirror > * + * {
+  margin-top: 0.65rem;
+}
+
+.markdown-file-editor .ProseMirror h1 {
+  margin-top: 1rem;
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: var(--md-heading-tracking);
+  color: var(--foreground);
+}
+
+.markdown-file-editor .ProseMirror h2 {
+  margin-top: 0.85rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: var(--md-heading-tracking);
+  color: var(--foreground);
+}
+
+.markdown-file-editor .ProseMirror h3 {
+  margin-top: 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+
+.markdown-file-editor .ProseMirror h4,
+.markdown-file-editor .ProseMirror h5,
+.markdown-file-editor .ProseMirror h6 {
+  margin-top: 0.65rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.markdown-file-editor .ProseMirror strong,
+.markdown-file-editor .ProseMirror b {
+  font-weight: 650;
+  color: var(--foreground);
+}
+
+.markdown-file-editor .ProseMirror em,
+.markdown-file-editor .ProseMirror i {
+  font-style: italic;
+}
+
+.markdown-file-editor .ProseMirror a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-file-editor .ProseMirror a:hover {
+  color: color-mix(in oklab, var(--primary) 85%, var(--foreground));
+}
+
+.markdown-file-editor .ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.35rem;
+}
+
+.markdown-file-editor .ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.35rem;
+}
+
+.markdown-file-editor .ProseMirror li {
+  margin-top: 0.2rem;
+}
+
+.markdown-file-editor .ProseMirror li > p {
+  margin-top: 0;
+}
+
+.markdown-file-editor .ProseMirror blockquote {
+  margin-left: 0;
+  padding-left: 0.85rem;
+  border-left: 3px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.markdown-file-editor .ProseMirror code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--muted) 65%, transparent);
+}
+
+.markdown-file-editor .ProseMirror pre {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--muted) 55%, transparent);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.markdown-file-editor .ProseMirror pre code {
+  padding: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  background: transparent;
+}
+
+.markdown-file-editor .ProseMirror hr {
+  margin: 1rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
 /* Loaded via index.html (Google Fonts). Sidebar product wordmark. */
 .font-app-brand-title {
   font-family: "Bungee Shade", cursive;
@@ -340,7 +463,7 @@
 }
 
 /*
- * vue-sonner defaults to z-index ~1e9; reka-ui Dialog/AlertDialog overlays use z-50. With that order,
+ * vue-sonner defaults to z-index ~1e9; reka-ui Dialog overlays use z-50. With that order,
  * the toaster stacks above every modal and can steal clicks (especially when the toaster spans full
  * width on narrow viewports). Keep toasts below modal layers and only receive events on the toasts.
  */
