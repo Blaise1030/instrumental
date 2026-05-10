@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { useQueryClient } from "@tanstack/vue-query";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import ContextQueueSelectionPopup from "@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue";
+import { useDomSelectionQueue } from "@/modules/contextQueue/useDomSelectionQueue";
+import { injectContextToAgentKey } from "@/contextQueue/injectionKeys";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -711,6 +714,36 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener("focus", onWindowFocus);
 });
+
+const injectContextToAgent = inject(injectContextToAgentKey, undefined);
+const diffContainerRef = ref<HTMLElement | null>(null);
+const commitTextareaRef = ref<HTMLElement | null>(null);
+
+const diffQueue = useDomSelectionQueue({
+  source: "diff",
+  getFilePath: () => selectedEntry.value?.path ?? null,
+});
+
+const commitQueue = useDomSelectionQueue({
+  source: "file",
+  getFilePath: () => null,
+});
+
+async function onDiffSendToAgent(): Promise<void> {
+  if (!injectContextToAgent) return;
+  let item;
+  try { item = diffQueue.buildItem(); } catch { return; }
+  await injectContextToAgent([item]);
+  diffQueue.dismiss();
+}
+
+async function onCommitSendToAgent(): Promise<void> {
+  if (!injectContextToAgent) return;
+  let item;
+  try { item = commitQueue.buildItem(); } catch { return; }
+  await injectContextToAgent([item]);
+  commitQueue.dismiss();
+}
 </script>
 
 <template>
@@ -721,6 +754,7 @@ onBeforeUnmount(() => {
     :persist-cookie="false"
   >
     <SidebarInset class="min-h-0 min-w-0 flex-1 overflow-hidden">
+    <div ref="diffContainerRef" class="flex min-h-0 flex-1 flex-col overflow-hidden" @mouseup="diffQueue.onMouseUp">
     <GitDiffView
       :path-header="scmPathHeader"
       :file-path="selectedEntry?.path ?? ''"
@@ -746,6 +780,7 @@ onBeforeUnmount(() => {
         </Button>
       </template>
     </GitDiffView>
+    </div>
     </SidebarInset>
 
     <Sidebar
@@ -967,7 +1002,9 @@ onBeforeUnmount(() => {
 
         <div class="relative">
           <textarea
+            ref="commitTextareaRef"
             v-model="commitMessage"
+            @mouseup="commitQueue.onMouseUp"
             rows="4"
             placeholder="Enter commit message"
             aria-label="Commit message draft"
@@ -1034,6 +1071,18 @@ onBeforeUnmount(() => {
       </SidebarFooter>
     </Sidebar>
   </SidebarProvider>
+  <ContextQueueSelectionPopup
+    :visible="diffQueue.visible.value"
+    :anchor="diffQueue.anchor.value"
+    @send-to-agent="onDiffSendToAgent"
+    @dismiss="diffQueue.dismiss"
+  />
+  <ContextQueueSelectionPopup
+    :visible="commitQueue.visible.value"
+    :anchor="commitQueue.anchor.value"
+    @send-to-agent="onCommitSendToAgent"
+    @dismiss="commitQueue.dismiss"
+  />
   </div>
 </template>
 
