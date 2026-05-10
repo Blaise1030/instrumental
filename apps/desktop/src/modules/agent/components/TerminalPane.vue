@@ -3,8 +3,11 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "xterm";
 import "xterm/css/xterm.css";
 import { CursorLoading } from "@/components/ui/cursor-loading";
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
+import ContextQueueSelectionPopup from "@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue";
+import { useTerminalSelectionQueue } from "@/modules/contextQueue/useTerminalSelectionQueue";
+import { injectContextToAgentKey } from "@/contextQueue/injectionKeys";
 
 const props = withDefaults(
   defineProps<{
@@ -19,10 +22,13 @@ const props = withDefaults(
     pendingAgentBootstrap?: PendingAgentBootstrap | null;
     /** Accessible name for the xterm surface. */
     ariaLabel?: string;
+    /** Pass true when this pane is inside AgentPane; changes the paste label to [Agent Tab]. */
+    agentTab?: boolean;
   }>(),
   {
     pendingAgentBootstrap: null,
-    ariaLabel: "Terminal"
+    ariaLabel: "Terminal",
+    agentTab: false,
   }
 );
 
@@ -34,6 +40,19 @@ const emit = defineEmits<{
 }>();
 
 const containerRef = ref<HTMLElement | null>(null);
+
+const injectContextToAgent = inject(injectContextToAgentKey, undefined);
+
+const termQueue = useTerminalSelectionQueue({
+  getTerminal: () => terminal,
+  agentTab: props.agentTab,
+});
+
+async function onQueueSendToAgent(): Promise<void> {
+  if (!injectContextToAgent) return;
+  await injectContextToAgent([termQueue.buildItem()]);
+  termQueue.dismiss();
+}
 const ptyBusy = ref(false);
 const activeSessionId = ref("");
 let terminal: Terminal | null = null;
@@ -364,6 +383,7 @@ defineExpose({
     class="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background px-3 pt-1 pb-0 text-xs text-card-foreground"
     role="document"
     :aria-label="ariaLabel"
+    @mouseup="termQueue.onMouseUp"
   >
     <div class="relative min-h-0 min-w-0 flex-1 overflow-hidden">
       <div ref="containerRef" class="terminal-pane h-full min-h-0 w-full overflow-hidden" />
@@ -376,6 +396,12 @@ defineExpose({
     >
       <CursorLoading class="h-full min-h-0 w-full" />
     </div>
+    <ContextQueueSelectionPopup
+      :visible="termQueue.visible.value"
+      :anchor="termQueue.anchor.value"
+      @send-to-agent="onQueueSendToAgent"
+      @dismiss="termQueue.dismiss"
+    />
   </section>
 </template>
 
