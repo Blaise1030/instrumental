@@ -57,6 +57,8 @@ export const IPC_CHANNELS = {
   filesDelete: "files:delete",
   filesCreateFolder: "files:createFolder",
   filesDeleteFolder: "files:deleteFolder",
+  /** Rename or move a file/folder within the same worktree root. */
+  filesRename: "files:rename",
   editApplyPatch: "edit:applyPatch",
   /** Main process: probe a URL (no CORS) for HTTP status after iframe navigation. */
   previewProbeUrl: "preview:probeUrl",

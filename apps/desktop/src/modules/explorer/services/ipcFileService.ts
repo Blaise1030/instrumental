@@ -46,6 +46,12 @@ export class IpcFileService implements FileService {
     return api.deleteFolder(cwd, relativePath);
   }
 
+  renameEntry(cwd: string, from: string, to: string): Promise<void> {
+    const api = window.workspaceApi;
+    if (!api?.renameEntry) return Promise.reject(new Error("renameEntry is not supported in this build."));
+    return api.renameEntry(cwd, from, to);
+  }
+
   onWorkingTreeFilesChanged(callback: () => void): () => void {
     return window.workspaceApi?.onWorkingTreeFilesChanged?.(callback) ?? (() => {});
   }

@@ -77,7 +77,7 @@ export function resetTerminalSoundSettingsForTests(): void {
   );
 }
 
-/** Master toggle for terminal attention sounds (bell, background output, idle ping, etc.). */
+/** Persisted `instrument.terminalNotificationsEnabled` — surfaced in Settings ▸ Terminal. */
 export function useTerminalSoundSettings(): {
   terminalNotificationsEnabled: typeof terminalNotificationsEnabled;
   terminalActivitySensitivity: typeof terminalActivitySensitivity;

@@ -98,6 +98,8 @@ interface WorkspaceApi {
   deleteFile: (cwd: string, relativePath: string) => Promise<void>;
   createFolder: (cwd: string, relativePath: string) => Promise<void>;
   deleteFolder: (cwd: string, relativePath: string) => Promise<void>;
+  /** Rename or move a file/folder within the worktree; optional on older preload builds. */
+  renameEntry?: (cwd: string, from: string, to: string) => Promise<void>;
   applyPatch: (payload: { cwd: string; relativeFilePath: string; content: string }) => Promise<void>;
   /** @param sessionId Thread id or `__wt:${worktreeId}` when no thread is selected. */
   ptyCreate: (sessionId: string, cwd: string, worktreeId: string) => Promise<{ buffer: string; created?: boolean }>;

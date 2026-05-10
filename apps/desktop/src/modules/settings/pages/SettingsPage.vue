@@ -20,6 +20,7 @@ import { useTerminalSoundSettings } from "@/modules/agent/hooks/useTerminalSound
 import { useAgentBootstrapCommands } from "@/modules/agent/hooks/useAgentBootstrapCommands";
 import { useAgentSkillRoots } from "@/modules/agent/hooks/useAgentSkillRoots";
 import type { TerminalActivitySensitivity } from "@/terminal/activitySensitivity";
+import { DEFAULT_TERMINAL_ACTIVITY_SENSITIVITY } from "@/terminal/activitySensitivity";
 import {
   conflictingBindingId,
   findDefinitionIn,
@@ -34,9 +35,11 @@ import { useKeybindingsStore } from "@/stores/keybindingsStore";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -61,13 +64,26 @@ const activeSection = ref<SettingsSection>("agents");
 const settingsNavItems: {
   id: SettingsSection;
   label: string;
-  hint: string;
+  description: string;
   icon: LucideIcon;
 }[] = [
-  { id: "agents", label: "Agents", hint: "CLI lines & skill roots", icon: Bot },
-  { id: "terminal", label: "Terminal", hint: "Sounds & activity", icon: SquareTerminal },
-  { id: "keyboard", label: "Keyboard", hint: "Workspace shortcuts", icon: Keyboard }
+  { id: "agents", label: "Agents", description: "CLI bootstrap lines and skill directories", icon: Bot },
+  { id: "terminal", label: "Terminal", description: "Notifications and activity sensitivity", icon: SquareTerminal },
+  { id: "keyboard", label: "Keyboard", description: "Workspace keyboard shortcuts", icon: Keyboard }
 ];
+
+const sectionKicker = computed(() => {
+  switch (activeSection.value) {
+    case "agents":
+      return "Agents";
+    case "terminal":
+      return "Terminal";
+    case "keyboard":
+      return "Keyboard";
+    default:
+      return "Settings";
+  }
+});
 
 const settingsPanelAgentsId = "workspace-settings-panel-agents";
 const settingsPanelTerminalId = "workspace-settings-panel-terminal";
@@ -99,7 +115,7 @@ const categoryOrderIndex = new Map(
 );
 
 const keyboardBindingsRows = computed(() =>
-  [...keybindings.effectiveDefinitions].filter((d) => !d.hidden).sort((a, b) => {
+  [...keybindings.effectiveDefinitions].sort((a, b) => {
     const ca = categoryOrderIndex.get(a.category) ?? 99;
     const cb = categoryOrderIndex.get(b.category) ?? 99;
     if (ca !== cb) return ca - cb;
@@ -153,6 +169,11 @@ function startRecording(id: KeybindingId): void {
 }
 
 const { terminalNotificationsEnabled, terminalActivitySensitivity } = useTerminalSoundSettings();
+
+function restoreTerminalDefaults(): void {
+  terminalNotificationsEnabled.value = true;
+  terminalActivitySensitivity.value = DEFAULT_TERMINAL_ACTIVITY_SENSITIVITY;
+}
 const TERMINAL_ACTIVITY_SENSITIVITY_OPTIONS: {
   value: TerminalActivitySensitivity;
   label: string;
@@ -227,6 +248,12 @@ function resetDraftToDefaults(): void {
   draftSkillRoots.value = { ...THREAD_AGENT_SKILL_ROOT_DEFAULT };
 }
 
+function restoreDefaultsForActiveSection(): void {
+  if (activeSection.value === "agents") resetDraftToDefaults();
+  else if (activeSection.value === "keyboard") keybindings.resetAll();
+  else restoreTerminalDefaults();
+}
+
 function save(): void {
   agentCmd.applySaved({ ...draft.value });
   agentRoots.applySaved({ ...draftSkillRoots.value });
@@ -236,7 +263,7 @@ function save(): void {
 
 <template>
   <SidebarProvider
-    class="flex h-full min-h-0 min-w-0 flex-1 flex-col"
+    class="flex h-svh min-h-0 min-w-0 w-full flex-col bg-muted/45 text-card-foreground dark:bg-muted/15"
     :keyboard-shortcut="false"
     :persist-cookie="false"
     :default-open="true"
@@ -244,90 +271,91 @@ function save(): void {
     <div
       ref="panelRef"
       tabindex="-1"
-      class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background text-card-foreground outline-none"
+      class="flex h-full min-h-0 min-w-0 flex-1 flex-row overflow-hidden outline-none"
       aria-labelledby="workspace-settings-page-title"
     >
-      <header class="shrink-0 border-b border-border bg-background px-4 py-2.5">
-        <div class="flex items-center gap-3">
+      <Sidebar
+        collapsible="none"
+        layout="nested"
+        side="left"
+        class="h-full min-h-0 shrink-0 border-r border-sidebar-border bg-sidebar"
+        :style="{ '--sidebar-width': '15.5rem' }"
+        aria-label="Settings categories"
+      >
+        <SidebarHeader>          
+        </SidebarHeader>
+        <SidebarContent class="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto">
+          <SidebarGroup>
+            <SidebarGroupLabel
+            >
+              Preferences
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu role="tablist" class="gap-0.5">
+                <SidebarMenuItem v-for="item in settingsNavItems" :key="item.id">
+                  <SidebarMenuButton
+                    type="button"
+                    role="tab"
+                    :title="item.description"
+                    :is-active="activeSection === item.id"
+                    :aria-selected="activeSection === item.id"
+                    :tabindex="activeSection === item.id ? 0 : -1"
+                    :aria-controls="
+                      item.id === 'agents'
+                        ? settingsPanelAgentsId
+                        : item.id === 'terminal'
+                          ? settingsPanelTerminalId
+                          : settingsPanelKeyboardId
+                    "
+                    @click="activeSection = item.id"
+                  >
+                    <component
+                      :is="item.icon"
+                      class="size-[18px] shrink-0 opacity-90"
+                      :stroke-width="1.75"
+                      aria-hidden="true"
+                    />
+                    <span class="truncate text-sm font-medium">{{ item.label }}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter>
           <Button
             type="button"
-            variant="outline"
-            size="icon-sm"
-            class="shrink-0"
-            aria-label="Back"
+            variant="ghost"    
+            size="lg"        
+            class="w-full justify-start"
             @click="goBack"
           >
-            <ChevronLeft class="size-4" />
+            <ChevronLeft class="size-4 shrink-0" aria-hidden="true" />
+            Back
           </Button>
-          <div class="min-w-0 flex-1">
-            <h1 id="workspace-settings-page-title" class="text-sm font-semibold tracking-tight text-foreground">
-              Settings
-            </h1>
-            <p class="text-xs text-muted-foreground">
-              Agent commands use Save; terminal &amp; keyboard changes apply as you edit.
-            </p>
-          </div>
-        </div>
-      </header>
+        </SidebarFooter>
+      </Sidebar>
 
-      <div class="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
-        <Sidebar
-          collapsible="none"
-          layout="nested"
-          side="left"
-          class="h-full min-h-0 border-r border-sidebar-border bg-sidebar"
-          :style="{ '--sidebar-width': '13.5rem' }"
-          aria-label="Settings sections"
-        >
-          <SidebarContent class="gap-0">
-            <SidebarGroup class="py-2">
-              <SidebarGroupLabel
-                class="h-auto py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-sidebar-foreground/70"
-              >
-                Preferences
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu role="tablist" class="gap-0.5">
-                  <SidebarMenuItem v-for="item in settingsNavItems" :key="item.id">
-                    <SidebarMenuButton
-                      type="button"
-                      role="tab"
-                      :is-active="activeSection === item.id"
-                      :aria-selected="activeSection === item.id"
-                      :tabindex="activeSection === item.id ? 0 : -1"
-                      :aria-controls="
-                        item.id === 'agents'
-                          ? settingsPanelAgentsId
-                          : item.id === 'terminal'
-                            ? settingsPanelTerminalId
-                            : settingsPanelKeyboardId
-                      "
-                      class="h-auto min-h-11 items-start gap-2.5 py-2.5 text-left"
-                      @click="activeSection = item.id"
-                    >
-                      <component
-                        :is="item.icon"
-                        class="mt-0.5 size-[18px] shrink-0 opacity-90"
-                        :stroke-width="1.75"
-                        aria-hidden="true"
-                      />
-                      <div class="flex min-w-0 flex-1 flex-col gap-0.5 leading-tight">
-                        <span class="text-sm font-medium text-sidebar-foreground">{{ item.label }}</span>
-                        <span class="text-[11px] text-sidebar-foreground/70">{{ item.hint }}</span>
-                      </div>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-        </Sidebar>
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header class="flex shrink-0 items-center justify-between gap-4 px-8 pt-8 pb-3">          
+          <Button type="button" variant="outline" size="sm" class="shrink-0" @click="restoreDefaultsForActiveSection">
+            Restore defaults
+          </Button>
+        </header>
 
-        <div class="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
+        <div class="flex min-h-0 flex-1 flex-col px-8 pb-8">
           <div
-            class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4"
-            data-testid="workspace-settings-scroll-body"
+            class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/70 bg-card text-card-foreground shadow-sm dark:border-border"
           >
+            <p
+              class="shrink-0 border-b border-border/60 px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground"
+            >
+              {{ sectionKicker }}
+            </p>
+            <div
+              class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5"
+              data-testid="workspace-settings-scroll-body"
+            >
       <div
         v-show="activeSection === 'agents'"
         :id="settingsPanelAgentsId"
@@ -384,30 +412,34 @@ function save(): void {
           </div>
         </div>
 
-        <div class="mt-6 border-t border-border pt-4">
-          <label class="mb-1 block text-sm font-medium text-foreground" for="preferred-thread-agent"
-            >Default agent for new threads</label
-          >
-          <p class="mb-2 text-xs text-muted-foreground">
-            Pre-selected in the add-thread overlay. You can still pick another agent before starting.
-          </p>
-          <Select
-            id="preferred-thread-agent"
-            :model-value="preferredAgent"
-            @update:model-value="(v) => setPreferredAgent(v as ThreadAgent)"
-          >
-            <SelectTrigger class="h-9 w-full max-w-md bg-background text-sm sm:max-w-lg">
-              <SelectValue placeholder="Choose agent" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="row in AGENT_ROWS" :key="row.agent" :value="row.agent">
-                <span class="flex items-center gap-2">
-                  <AgentIcon :agent="row.agent" :size="16" class="shrink-0" />
-                  {{ row.label }}
-                </span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
+        <div
+          class="mt-8 flex flex-col gap-3 border-t border-border/70 pt-6 sm:flex-row sm:items-start sm:justify-between sm:gap-10"
+        >
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-medium text-foreground">Default agent for new threads</p>
+            <p class="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+              Pre-selected in the add-thread overlay. You can still pick another agent before starting.
+            </p>
+          </div>
+          <div class="w-full min-w-48 max-w-xs shrink-0 sm:w-56">
+            <Select
+              id="preferred-thread-agent"
+              :model-value="preferredAgent"
+              @update:model-value="(v) => setPreferredAgent(v as ThreadAgent)"
+            >
+              <SelectTrigger class="h-9 w-full bg-background text-sm">
+                <SelectValue placeholder="Choose agent" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="row in AGENT_ROWS" :key="row.agent" :value="row.agent">
+                  <span class="flex items-center gap-2">
+                    <AgentIcon :agent="row.agent" :size="16" class="shrink-0" />
+                    {{ row.label }}
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -418,44 +450,59 @@ function save(): void {
         tabindex="0"
         aria-label="Terminal settings"
       >
-        <p class="text-sm leading-relaxed text-muted-foreground">
-          Optional audio feedback: terminal bell, output while this workspace is in the background, and when a thread
-          goes idle after activity. Threads that may need your attention are highlighted until you open them.
-        </p>
-        <div class="mt-3 flex items-start gap-2.5 text-sm">
-          <Checkbox id="settings-terminal-notifications" v-model="terminalNotificationsEnabled" class="mt-0.5" />
-          <label class="cursor-pointer leading-snug text-foreground select-none" for="settings-terminal-notifications">
-            Enable notifications
-          </label>
-        </div>
-        <div class="mt-4 space-y-1.5">
-          <label class="block text-sm font-medium text-foreground" for="settings-terminal-sensitivity">
-            Activity sensitivity
-          </label>
-          <p class="text-xs text-muted-foreground">
-            Controls when output is treated as activity for both idle highlighting and away-tab sounds.
-          </p>
-          <Select
-            id="settings-terminal-sensitivity"
-            :model-value="terminalActivitySensitivity"
-            @update:model-value="(v) => (terminalActivitySensitivity = v as TerminalActivitySensitivity)"
-          >
-            <SelectTrigger class="h-9 w-full max-w-md bg-background text-sm sm:max-w-lg">
-              <SelectValue placeholder="Choose sensitivity" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="opt in TERMINAL_ACTIVITY_SENSITIVITY_OPTIONS"
-                :key="opt.value"
-                :value="opt.value"
+        <div class="divide-y divide-border/70">
+          <div class="pb-6">
+            <p class="text-sm leading-relaxed text-muted-foreground">
+              When a thread finishes, needs approval, or fails, entries appear in the in-app notification center and the
+              app may show a system notification when your OS allows it—sound and banner behavior follow system
+              notification settings. Threads that may need your attention stay highlighted until you open them.
+            </p>
+          </div>
+          <div class="flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between sm:gap-10">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium text-foreground">Desktop notifications</p>
+              <p class="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                Show banners and play sounds when Instrument needs your attention while in the background.
+              </p>
+            </div>
+            <div class="flex shrink-0 items-center gap-2.5">
+              <Checkbox id="settings-terminal-notifications" v-model="terminalNotificationsEnabled" />
+              <label class="cursor-pointer text-sm text-foreground select-none" for="settings-terminal-notifications">
+                Enable
+              </label>
+            </div>
+          </div>
+          <div class="flex flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between sm:gap-10">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium text-foreground">Activity sensitivity</p>
+              <p class="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                Controls when terminal output is treated as meaningful activity for attention-related behavior.
+              </p>
+            </div>
+            <div class="w-full min-w-48 max-w-xs shrink-0 sm:w-60">
+              <Select
+                id="settings-terminal-sensitivity"
+                :model-value="terminalActivitySensitivity"
+                @update:model-value="(v) => (terminalActivitySensitivity = v as TerminalActivitySensitivity)"
               >
-                <span class="flex flex-col">
-                  <span>{{ opt.label }}</span>
-                  <span class="text-xs text-muted-foreground">{{ opt.hint }}</span>
-                </span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
+                <SelectTrigger class="h-9 w-full bg-background text-sm">
+                  <SelectValue placeholder="Choose sensitivity" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem
+                    v-for="opt in TERMINAL_ACTIVITY_SENSITIVITY_OPTIONS"
+                    :key="opt.value"
+                    :value="opt.value"
+                  >
+                    <span class="flex flex-col">
+                      <span>{{ opt.label }}</span>
+                      <span class="text-xs text-muted-foreground">{{ opt.hint }}</span>
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -525,35 +572,12 @@ function save(): void {
           </table>
         </div>
       </div>
-        </div>
-
-        <footer
-          class="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-5 py-3"
-          :class="activeSection === 'agents' || activeSection === 'keyboard' ? 'justify-between' : 'justify-end'"
-        >
-          <Button
-            v-if="activeSection === 'agents'"
-            type="button"
-            variant="outline"
-            size="sm"
-            @click="resetDraftToDefaults"
-          >
-            Reset to app defaults
-          </Button>
-          <Button
-            v-if="activeSection === 'keyboard'"
-            type="button"
-            variant="outline"
-            size="sm"
-            @click="keybindings.resetAll()"
-          >
-            Reset keyboard to defaults
-          </Button>
-          <div class="flex gap-2">
-            <Button type="button" variant="outline" size="sm" @click="goBack"> Cancel </Button>
-            <Button type="button" size="sm" @click="save"> Save </Button>
+            </div>
+            <footer class="flex shrink-0 justify-end gap-2 border-t border-border/60 bg-card px-6 py-4">
+              <Button type="button" variant="outline" size="sm" @click="goBack">Cancel</Button>
+              <Button type="button" size="sm" @click="save">Save</Button>
+            </footer>
           </div>
-        </footer>
         </div>
       </div>
     </div>

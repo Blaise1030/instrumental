@@ -63,6 +63,7 @@ import WorkspaceLauncherModal from "@/components/WorkspaceLauncherModal.vue";
 import { eventMatchesShortcut, findDefinitionIn } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { rememberRouteBeforeSettings } from "@/modules/settings/settingsExitRoute";
 
 const appContext = useAppContext();
 const workspace = useWorkspaceStore();
@@ -112,7 +113,6 @@ const panelTabs = [
 
 const activeTab = computed<string>(() => {
   const name = route.name as string;
-  if (name === "workspaceSettings") return "settings";
   if (
     name === "gitPanel" ||
     name === "gitPullRequests" ||
@@ -284,7 +284,7 @@ const allWorkspaceThreads = computed(() => workspace.threads);
 
 const { runStatusByThreadId, idleAttentionByThreadId, clearIdleAttention } = useThreadPtyRunStatus(
   allWorkspaceThreads,
-  { activeThreadId, notificationsEnabled: ref(true), workspaceService: computed(() => appContext.value?.workspaceService) }
+  { activeThreadId, workspaceService: computed(() => appContext.value?.workspaceService) }
 );
 
 const projectIdsWithIdleAttention = computed(() => {
@@ -314,8 +314,9 @@ function openSettings(): void {
   const pid = projectId.value;
   const branch = branchId.value;
   if (!pid || !branch) return;
+  rememberRouteBeforeSettings(route);
   void router.push({
-    name: "workspaceSettings",
+    name: "settingsAgents",
     params: { projectId: pid, branch }
   });
 }

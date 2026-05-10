@@ -1,13 +1,10 @@
 import { onBeforeUnmount, onMounted, ref, watch, type ComputedRef, type Ref } from "vue";
 import type { RunStatus, Thread } from "@shared/domain";
-import { playTerminalChirp } from "@/terminal/playTerminalChirp";
 import type { WorkspaceService } from "@/app-context/workspaceService";
 
 export type UseThreadPtyRunStatusOpts = {
-  /** Thread the user is focused on; idle attention and chirps use this. */
+  /** Thread the user is focused on; idle attention highlighting uses this. */
   activeThreadId: Ref<string | null>;
-  /** When false, completion does not play the attention chirp (row may still highlight). */
-  notificationsEnabled: Ref<boolean>;
   /** Service used to subscribe to run-state events; abstracted so non-desktop modes can provide their own. */
   workspaceService: Ref<WorkspaceService | undefined> | ComputedRef<WorkspaceService | undefined>;
 };
@@ -17,7 +14,7 @@ export type UseThreadPtyRunStatusOpts = {
  * Replaces PTY-output heuristics — state is now authoritative from agent lifecycle hooks.
  *
  * When a thread transitions to done/needsReview/failed while not the active thread,
- * marks `idleAttentionByThreadId` (blue highlight) and plays one chirp.
+ * marks `idleAttentionByThreadId` (blue highlight). System / in-app notifications are handled in the main process.
  */
 export function useThreadPtyRunStatus(
   threads: Ref<readonly Thread[]> | ComputedRef<readonly Thread[]>,
@@ -52,12 +49,9 @@ export function useThreadPtyRunStatus(
     if (status === "running") {
       clearIdleAttention(threadId);
     } else {
-      // done / needsReview / failed — highlight + chirp when not in focus
+      // done / needsReview / failed — highlight when not in focus
       if (!inFocus) {
         idleAttentionByThreadId.value = { ...idleAttentionByThreadId.value, [threadId]: true };
-        if (opts.notificationsEnabled.value) {
-          playTerminalChirp();
-        }
       }
     }
 

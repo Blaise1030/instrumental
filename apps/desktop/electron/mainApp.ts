@@ -566,6 +566,11 @@ function registerIpc(workspaceService: WorkspaceService): void {
     await fileService.deleteFolder(payload.cwd, payload.relativePath);
     emitWorkingTreeFilesDidChange();
   });
+  ipcMain.handle(IPC_CHANNELS.filesRename, async (_, payload: { cwd: string; from: string; to: string }) => {
+    assertCwdIsRegistered(payload.cwd);
+    await fileService.renameEntry(payload.cwd, payload.from, payload.to);
+    emitWorkingTreeFilesDidChange();
+  });
   ipcMain.handle(IPC_CHANNELS.editApplyPatch, async (_, payload) => {
     assertCwdIsRegistered(payload.cwd);
     await editService.applyPatch(payload);

@@ -19,8 +19,8 @@ import {
   Search,
 } from "lucide-vue-next";
 import type { FileSummary } from "@shared/ipc";
-import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { FileTree } from "@pierre/trees";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
+import { FileTree, type FileTreeBatchOperation, type FileTreeDropResult, type FileTreeRenameEvent } from "@pierre/trees";
 import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import {
@@ -364,6 +364,7 @@ function onSearchModeRequest(next: string): void {
 
 const treeContainerRef = ref<HTMLDivElement | null>(null);
 let fileTreeInstance: FileTree | null = null;
+const treePaths = ref<string[]>([]);
 
 // Context menu state — populated on right-click from trees' focused item
 const ctxMenuPath = ref<string | null>(null);
@@ -371,9 +372,10 @@ const ctxMenuIsFolder = ref<boolean | null>(null);
 
 function onTreeContextMenu(): void {
   const item = fileTreeInstance?.getFocusedItem() ?? null;
-  if (item) {
-    ctxMenuPath.value = item.path;
-    ctxMenuIsFolder.value = item.isDirectory();
+  const itemPath = item ? item.getPath() : null;
+  if (itemPath) {
+    ctxMenuPath.value = itemPath;
+    ctxMenuIsFolder.value = item!.isDirectory();
   } else {
     ctxMenuPath.value = null;
     ctxMenuIsFolder.value = null;
@@ -383,9 +385,22 @@ function onTreeContextMenu(): void {
 function mountFileTree(): void {
   if (!treeContainerRef.value || fileTreeInstance) return;
 
+  const initialPaths = summariesForTree.value
+    .filter((f) => f.kind !== "directory")
+    .map((f) => f.relativePath);
+  treePaths.value = initialPaths;
+
   fileTreeInstance = new FileTree({
     density: "compact",
-    paths: summariesForTree.value.filter((f) => f.kind !== "directory").map((f) => f.relativePath),
+    paths: initialPaths,
+    renaming: {
+      onRename: (event: FileTreeRenameEvent) => { void onPierreRename(event); },
+      onError: (err: string) => toast.error("Rename failed", err),
+    },
+    dragAndDrop: {
+      onDropComplete: (event: FileTreeDropResult) => { void onPierreDrop(event); },
+      onDropError: (err: string) => toast.error("Move failed", err),
+    },
     onSelectionChange: (paths) => {
       const p = paths[0];
       if (p && !fileTreeInstance?.getItem(p)?.isDirectory()) handleSelectFile(p);
@@ -410,10 +425,23 @@ function getAncestorPaths(filePaths: string[]): string[] {
 }
 
 watch(summariesForTree, (summaries) => {
-  const paths = summaries.filter((f) => f.kind !== "directory").map((f) => f.relativePath);
+  const newPaths = summaries.filter((f) => f.kind !== "directory").map((f) => f.relativePath);
   const isFiltered = !!debouncedQuery.value.trim();
-  const initialExpandedPaths = isFiltered ? getAncestorPaths(paths) : undefined;
-  fileTreeInstance?.resetPaths(paths, initialExpandedPaths ? { initialExpandedPaths } : undefined);
+
+  if (isFiltered) {
+    // In search mode: reset with expansion (expansion loss is acceptable; we expand matches)
+    fileTreeInstance?.resetPaths(newPaths, { initialExpandedPaths: getAncestorPaths(newPaths) });
+  } else {
+    // Normal mode: apply only the diff so folder expansion state is preserved
+    const oldSet = new Set(treePaths.value);
+    const newSet = new Set(newPaths);
+    const ops: FileTreeBatchOperation[] = [];
+    for (const p of newPaths) if (!oldSet.has(p)) ops.push({ type: "add", path: p });
+    for (const p of treePaths.value) if (!newSet.has(p)) ops.push({ type: "remove", path: p });
+    if (ops.length > 0) fileTreeInstance?.batch(ops);
+  }
+
+  treePaths.value = newPaths;
 });
 
 watch(selectedPath, (path) => {
@@ -422,16 +450,68 @@ watch(selectedPath, (path) => {
   }
 });
 
-/** Expand folders for visible file paths after content search results arrive. */
-watch(
-  contentMatchPaths,
-  () => {
-    if (searchMode.value !== "contents") return;
-    if (!debouncedQuery.value.trim()) return;
-    // trees handles expansion internally when resetPaths is called
-  },
-  { flush: "post" },
-);
+// ─── Pierre rename / drag-and-drop handlers ───────────────────────────────────
+
+async function onPierreRename(event: FileTreeRenameEvent): Promise<void> {
+  const svc = fileService.value;
+  const cwd = wtPath.value;
+  if (!svc?.renameEntry || !cwd) return;
+
+  try {
+    await svc.renameEntry(cwd, event.sourcePath, event.destinationPath);
+
+    // Update treePaths to match what pierre already shows
+    treePaths.value = treePaths.value.map((p) => {
+      if (event.isFolder) {
+        const prefix = event.sourcePath + "/";
+        if (p.startsWith(prefix)) return event.destinationPath + "/" + p.slice(prefix.length);
+      }
+      return p === event.sourcePath ? event.destinationPath : p;
+    });
+
+    // Navigate to new path if the renamed/moved item was open
+    if (!event.isFolder) {
+      const openPath = normalizeExplorerFilenameParam(route.params.filename);
+      if (openPath === event.sourcePath) navigateToExplorerFile(event.destinationPath);
+    }
+
+    void queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
+  } catch (err) {
+    toast.error("Rename failed", err instanceof Error ? err.message : "Could not rename.");
+  }
+}
+
+async function onPierreDrop(event: FileTreeDropResult): Promise<void> {
+  const svc = fileService.value;
+  const cwd = wtPath.value;
+  if (!svc?.renameEntry || !cwd) return;
+
+  const targetDir = event.target.directoryPath ?? "";
+  const openPath = normalizeExplorerFilenameParam(route.params.filename);
+
+  try {
+    for (const draggedPath of event.draggedPaths) {
+      const basename = draggedPath.split("/").pop() ?? draggedPath;
+      const toPath = targetDir ? `${targetDir}/${basename}` : basename;
+      if (toPath === draggedPath) continue;
+
+      await svc.renameEntry(cwd, draggedPath, toPath);
+
+      // Update treePaths for what pierre already moved
+      treePaths.value = treePaths.value.map((p) => {
+        const prefix = draggedPath + "/";
+        if (p.startsWith(prefix)) return toPath + "/" + p.slice(prefix.length);
+        return p === draggedPath ? toPath : p;
+      });
+
+      if (openPath === draggedPath) navigateToExplorerFile(toPath);
+    }
+
+    void queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
+  } catch (err) {
+    toast.error("Move failed", err instanceof Error ? err.message : "Could not move files.");
+  }
+}
 
 // ─── Agent queue ──────────────────────────────────────────────────────────────
 
@@ -612,15 +692,16 @@ async function submitNewEntry(): Promise<void> {
     try {
       await svc.createFile(cwd, normalized);
       closeNewEntryDialog();
-      await queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
+      // Optimistic tree update: add the new file without resetting expansion
+      fileTreeInstance?.add(normalized);
+      treePaths.value = [...treePaths.value, normalized];
+      void queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
       const bridge = getExplorerEditorBridge();
       if (bridge && !(await bridge.confirmDiscardIfDirty())) return;
       navigateToExplorerFile(normalized);
     } catch (createError) {
-      error.value =
-        createError instanceof Error
-          ? createError.message
-          : "Could not create the file.";
+      newEntryDialogFieldError.value =
+        createError instanceof Error ? createError.message : "Could not create the file.";
     }
     return;
   }
@@ -637,17 +718,14 @@ async function submitNewEntry(): Promise<void> {
   }
 
   newEntryDialogFieldError.value = null;
-  error.value = null;
 
   try {
     await svc.createFolder(cwd, normalized);
     closeNewEntryDialog();
-    await queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
+    void queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
   } catch (createError) {
-    error.value =
-      createError instanceof Error
-        ? createError.message
-        : "Could not create the folder.";
+    newEntryDialogFieldError.value =
+      createError instanceof Error ? createError.message : "Could not create the folder.";
   }
 }
 
@@ -682,7 +760,58 @@ function pathIsUnderOrEqualFolder(parentRel: string, childRel: string): boolean 
   return c === p || c.startsWith(`${p}/`);
 }
 
+const deleteFolderMutation = useMutation({
+  mutationFn: async (relativePath: string) => {
+    const svc = fileService.value;
+    const cwd = wtPath.value;
+    if (!svc?.deleteFolder || !cwd) throw new Error("No workspace");
+    await svc.deleteFolder(cwd, relativePath);
+    return { relativePath, cwd };
+  },
+  onSuccess: ({ relativePath, cwd }) => {
+    const bridge = getExplorerEditorBridge();
+    bridge?.pruneTabsUnderFolder(relativePath);
+    const removedPaths = treePaths.value.filter((p) => pathIsUnderOrEqualFolder(relativePath, p));
+    if (removedPaths.length > 0) {
+      fileTreeInstance?.batch(removedPaths.map((p) => ({ type: "remove" as const, path: p })));
+      treePaths.value = treePaths.value.filter((p) => !pathIsUnderOrEqualFolder(relativePath, p));
+    }
+    void queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
+    const openRel = normalizeExplorerFilenameParam(route.params.filename);
+    const p = explorerNavParams();
+    if (openRel && pathIsUnderOrEqualFolder(relativePath, openRel) && p) {
+      void router.replace({
+        name: "filesPanel",
+        params: { projectId: p.projectId, branch: p.branch, threadId: p.threadId },
+      });
+    }
+  },
+  onError: (err) => {
+    toast.error("Delete failed", err instanceof Error ? err.message : "Could not delete the folder.");
+  },
+});
+
+const deleteFileMutation = useMutation({
+  mutationFn: async (relativePath: string) => {
+    const svc = fileService.value;
+    const cwd = wtPath.value;
+    if (!svc || !cwd) throw new Error("No workspace");
+    await svc.deleteFile(cwd, relativePath);
+    return { relativePath, cwd };
+  },
+  onSuccess: ({ relativePath, cwd }) => {
+    getExplorerEditorBridge()?.closeTabForDeletedFile(relativePath);
+    fileTreeInstance?.remove(relativePath);
+    treePaths.value = treePaths.value.filter((p) => p !== relativePath);
+    void queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
+  },
+  onError: (err) => {
+    toast.error("Delete failed", err instanceof Error ? err.message : "Could not delete the file.");
+  },
+});
+
 async function deleteFolderAtPath(relativePath: string): Promise<void> {
+  if (!relativePath) return;
   const svc = fileService.value;
   const cwd = wtPath.value;
   if (!svc?.deleteFolder || !cwd) return;
@@ -702,41 +831,18 @@ async function deleteFolderAtPath(relativePath: string): Promise<void> {
     return;
   }
 
-  error.value = null;
-
-  try {
-    await svc.deleteFolder(cwd, relativePath);
-    bridge?.pruneTabsUnderFolder(relativePath);
-    await queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
-    const openRel = normalizeExplorerFilenameParam(route.params.filename);
-    const p = explorerNavParams();
-    if (openRel && pathIsUnderOrEqualFolder(relativePath, openRel) && p) {
-      void router.replace({
-        name: "filesPanel",
-        params: {
-          projectId: p.projectId,
-          branch: p.branch,
-          threadId: p.threadId,
-        },
-      });
-    }
-  } catch (deleteError) {
-    error.value =
-      deleteError instanceof Error
-        ? deleteError.message
-        : "Could not delete the folder.";
-  }
+  deleteFolderMutation.mutate(relativePath);
 }
 
 async function deleteFileAtPath(relativePath: string): Promise<void> {
+  if (!relativePath) return;
   const svc = fileService.value;
   const cwd = wtPath.value;
   if (!svc || !cwd) return;
 
   const openRel = normalizeExplorerFilenameParam(route.params.filename);
   const isOpen = openRel === relativePath;
-  const loseEdits =
-    isOpen && (getExplorerEditorBridge()?.isActiveFileDirty() ?? false);
+  const loseEdits = isOpen && (getExplorerEditorBridge()?.isActiveFileDirty() ?? false);
   if (
     !(await requestConfirmation({
       title: `Delete ${relativePath}?`,
@@ -750,18 +856,11 @@ async function deleteFileAtPath(relativePath: string): Promise<void> {
     return;
   }
 
-  error.value = null;
+  deleteFileMutation.mutate(relativePath);
+}
 
-  try {
-    await svc.deleteFile(cwd, relativePath);
-    getExplorerEditorBridge()?.closeTabForDeletedFile(relativePath);
-    await queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
-  } catch (deleteError) {
-    error.value =
-      deleteError instanceof Error
-        ? deleteError.message
-        : "Could not delete the file.";
-  }
+function startRenamingItem(path: string | null): void {
+  if (path) fileTreeInstance?.startRenaming(path);
 }
 
 // ─── Selection & navigation ───────────────────────────────────────────────────
@@ -787,6 +886,7 @@ watch(
     closeNewEntryDialog();
 
     if (!nextPath) {
+      treePaths.value = [];
       worktreeEpoch.value += 1;
       return;
     }
@@ -904,6 +1004,7 @@ onUnmounted(() => {
   document.removeEventListener("keydown", onGlobalKeydown);
   fileTreeInstance?.cleanUp();
   fileTreeInstance = null;
+  treePaths.value = [];
 });
 
 defineExpose({
@@ -1080,6 +1181,13 @@ defineExpose({
                   <!-- Folder context menu -->
                   <template v-if="ctxMenuIsFolder">
                     <ContextMenuItem
+                      data-testid="ctx-rename-folder"
+                      class="text-xs"
+                      @select="startRenamingItem(ctxMenuPath)"
+                    >
+                      Rename
+                    </ContextMenuItem>
+                    <ContextMenuItem
                       data-testid="ctx-add-file"
                       class="text-xs"
                       @select="handleAddFile(ctxMenuPath!)"
@@ -1111,6 +1219,13 @@ defineExpose({
                   </template>
                   <!-- File context menu -->
                   <template v-else>
+                    <ContextMenuItem
+                      data-testid="ctx-rename-file"
+                      class="text-xs"
+                      @select="startRenamingItem(ctxMenuPath)"
+                    >
+                      Rename
+                    </ContextMenuItem>
                     <ContextMenuItem
                       data-testid="ctx-delete-file"
                       variant="destructive"

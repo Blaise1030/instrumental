@@ -3,7 +3,6 @@ import { agentRoutes } from "@/modules/agent/agentRoute";
 import { browserRoutes } from "@/modules/browser/browserRoute";
 import { explorerRoutes } from "@/modules/explorer/explorerRoute";
 import { gitRoutes } from "@/modules/git/gitRoute";
-import { settingsRoute } from "@/modules/settings/settingsRoute";
 
 const [agentThreadNewRoute, agentThreadParamShell] = agentRoutes;
 
@@ -11,6 +10,7 @@ const [agentThreadNewRoute, agentThreadParamShell] = agentRoutes;
  * Workspace shell for `/:projectId/:branch`.
  * Git, preview, and file explorer routes are nested under `thread/:threadId` (not siblings of
  * `thread/new`) so URLs stay `.../thread/<id>/git` etc. — see `agentRoute`.
+ * Settings live outside this shell — see `workspaceSettingsRoute` in `router/index.ts`.
  */
 export const workspaceRoute = {
   path: "/:projectId/:branch",
@@ -27,6 +27,5 @@ export const workspaceRoute = {
         explorerRoutes,
       ],
     },
-    settingsRoute,
   ],
 };

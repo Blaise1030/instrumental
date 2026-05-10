@@ -76,6 +76,7 @@ const IPC_CHANNELS = {
   filesDelete: "files:delete",
   filesCreateFolder: "files:createFolder",
   filesDeleteFolder: "files:deleteFolder",
+  filesRename: "files:rename",
   editApplyPatch: "edit:applyPatch",
   previewProbeUrl: "preview:probeUrl",
   previewOpenUrlExternally: "preview:openUrlExternally",
@@ -230,6 +231,8 @@ contextBridge.exposeInMainWorld("workspaceApi", {
     ipcRenderer.invoke(IPC_CHANNELS.filesCreateFolder, { cwd, relativePath }),
   deleteFolder: (cwd: string, relativePath: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.filesDeleteFolder, { cwd, relativePath }),
+  renameEntry: (cwd: string, from: string, to: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.filesRename, { cwd, from, to }),
   applyPatch: (payload: { cwd: string; relativeFilePath: string; content: string }) => ipcRenderer.invoke(IPC_CHANNELS.editApplyPatch, payload),
   ptyCreate: (sessionId: string, cwd: string, worktreeId: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.terminalPtyCreate, { sessionId, cwd, worktreeId }),

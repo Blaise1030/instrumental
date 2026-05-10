@@ -1,4 +1,5 @@
 import { createMemoryHistory, createRouter } from "vue-router";
+import { workspaceSettingsRoute } from "@/modules/settings/settingsRoute";
 import { welcomeRoutes } from "@/modules/welcome/welcomeRoute";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { persistWorkspaceRouteFromNavigation } from "./workspaceRouteMemory";
@@ -6,7 +7,7 @@ import { workspaceRoute } from "./workspaceRoute";
 
 export const router = createRouter({
   history: createMemoryHistory(),
-  routes: [welcomeRoutes, workspaceRoute],
+  routes: [welcomeRoutes, workspaceSettingsRoute, workspaceRoute],
 });
 
 router.beforeEach((to) => {

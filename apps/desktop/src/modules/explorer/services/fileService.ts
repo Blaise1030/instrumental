@@ -10,6 +10,7 @@ export interface FileService {
   deleteFile(cwd: string, relativePath: string): Promise<void>;
   createFolder?(cwd: string, relativePath: string): Promise<void>;
   deleteFolder?(cwd: string, relativePath: string): Promise<void>;
+  renameEntry?(cwd: string, from: string, to: string): Promise<void>;
   onWorkingTreeFilesChanged?(callback: () => void): () => void;
   onWorkspaceChanged?(callback: () => void): () => void;
 }

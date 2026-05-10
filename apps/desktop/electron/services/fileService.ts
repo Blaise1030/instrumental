@@ -479,6 +479,18 @@ export class FileService {
     this.invalidateSearchFilesSummaryCache(root);
   }
 
+  async renameEntry(root: string, from: string, to: string): Promise<void> {
+    const normalizedFrom = normalizeRelativePath(from.trim()).replace(/^\/+|\/+$/g, "");
+    const normalizedTo = normalizeRelativePath(to.trim()).replace(/^\/+|\/+$/g, "");
+    if (!normalizedFrom || !normalizedTo) throw new Error("Invalid path");
+    if (normalizedFrom === normalizedTo) return;
+    const absoluteFrom = assertPathWithinRoot(root, normalizedFrom);
+    const absoluteTo = assertPathWithinRoot(root, normalizedTo);
+    await fs.mkdir(path.dirname(absoluteTo), { recursive: true });
+    await fs.rename(absoluteFrom, absoluteTo);
+    this.invalidateSearchFilesSummaryCache(root);
+  }
+
   async createFile(root: string, relativePath: string): Promise<void> {
     const normalized = normalizeRelativePath(relativePath.trim()).replace(/^\/+/, "");
     if (!normalized || normalized.endsWith("/")) {
