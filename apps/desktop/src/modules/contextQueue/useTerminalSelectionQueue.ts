@@ -29,9 +29,13 @@ export function useTerminalSelectionQueue(opts: TerminalSelectionQueueOpts) {
   function dismiss(): void {
     visible.value = false;
     anchor.value = null;
+    pendingText.value = "";
   }
 
   function buildItem(): QueueItem {
+    if (!pendingText.value) {
+      throw new Error("buildItem called with no pending selection");
+    }
     const capture: QueueCapture = {
       source: "terminal",
       selectedText: pendingText.value,

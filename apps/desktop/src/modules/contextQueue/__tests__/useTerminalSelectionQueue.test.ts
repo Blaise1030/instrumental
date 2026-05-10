@@ -53,4 +53,16 @@ describe("useTerminalSelectionQueue", () => {
     const item = q.buildItem();
     expect(item.pasteText).toContain("[Agent Tab]");
   });
+
+  it("dismiss clears pendingText so buildItem throws after dismiss", () => {
+    const q = useTerminalSelectionQueue({ getTerminal: () => makeTerminal("hello") });
+    q.onMouseUp(new MouseEvent("mouseup", { clientX: 0, clientY: 0 }));
+    q.dismiss();
+    expect(() => q.buildItem()).toThrow("no pending selection");
+  });
+
+  it("buildItem throws when called before any selection", () => {
+    const q = useTerminalSelectionQueue({ getTerminal: () => makeTerminal("") });
+    expect(() => q.buildItem()).toThrow("no pending selection");
+  });
 });
