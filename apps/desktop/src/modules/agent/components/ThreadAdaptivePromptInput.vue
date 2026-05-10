@@ -316,10 +316,17 @@ function onSend(): void {
   });
 }
 
+function insertText(text: string): void {
+  const editor = tiptapEditor.value;
+  if (!editor) return;
+  editor.chain().focus().insertContent(text).run();
+}
+
 defineExpose({
   flushToModels: () => { const ed = tiptapEditor.value; if (ed) applyEditorToModels(ed); },
   openFilePicker: () => fileInputRef.value?.click(),
-  focus: () => tiptapEditor.value?.commands.focus()
+  focus: () => tiptapEditor.value?.commands.focus(),
+  insertText,
 });
 </script>
 

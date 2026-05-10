@@ -69,6 +69,7 @@ import { useKeybindingsStore } from "@/stores/keybindingsStore";
 import { injectContextToAgentKey, openWorkspaceFileKey } from "@/contextQueue/injectionKeys";
 import { injectContextQueue } from "@/contextQueue/injectContextQueue";
 import type { QueueItem } from "@/contextQueue/types";
+import { getPromptInsertFn } from "@/modules/contextQueue/activePromptInsert";
 
 const appContext = useAppContext();
 const workspace = useWorkspaceStore();
@@ -93,12 +94,26 @@ const { activeThreadId, activeWorktreeId } = useActiveWorkspace();
 provide(injectContextToAgentKey, async (items: QueueItem[], opts?: { sessionId?: string }) => {
   const sid = opts?.sessionId ?? activeThreadId.value;
   if (!sid || !window.workspaceApi) return false;
-  await injectContextQueue({
-    sessionId: sid,
-    items,
-    ptyWrite: (id, data) => window.workspaceApi!.ptyWrite(id, data),
-    delayMs: 50,
-  });
+
+  const promptInsert = getPromptInsertFn();
+  if (promptInsert) {
+    for (const item of items) {
+      promptInsert(item.pasteText);
+    }
+  } else {
+    await injectContextQueue({
+      sessionId: sid,
+      items,
+      ptyWrite: (id, data) => window.workspaceApi!.ptyWrite(id, data),
+      delayMs: 50,
+    });
+  }
+
+  const p = workspaceNavParams.value;
+  if (p) {
+    await router.push({ name: "agent", params: p });
+  }
+
   return true;
 });
 

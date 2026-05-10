@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
 import { buildThreadCreatePromptWithAttachmentBlocks } from "@/modules/agent/utils/threadCreatePromptAssembly";
@@ -14,6 +14,7 @@ import { useAppContext } from "@/app-context/useAppContext";
 import { useAgentPageComposerVisible } from "@/modules/agent/hooks/useAgentPageComposerVisible";
 import { useThreadMessageDraft, clearThreadMessageDraft } from "@/modules/agent/hooks/useThreadMessageDraft";
 import { takePendingAgentBootstrapForThread } from "@/modules/agent/utils/pendingAgentBootstrapSession";
+import { registerPromptInsert, unregisterPromptInsert } from "@/modules/contextQueue/activePromptInsert";
 
 const route = useRoute();
 const { activeWorktree } = useActiveWorkspace();
@@ -30,6 +31,14 @@ const promptEditorRef = ref<InstanceType<typeof ThreadAdaptivePromptInput> | nul
 const terminalRef = ref<InstanceType<typeof TerminalPane> | null>(null);
 
 useThreadMessageDraft(threadId, prompt);
+
+onMounted(() => {
+  registerPromptInsert((text) => promptEditorRef.value?.insertText(text));
+});
+
+onUnmounted(() => {
+  unregisterPromptInsert();
+});
 
 watch(
   threadId,
