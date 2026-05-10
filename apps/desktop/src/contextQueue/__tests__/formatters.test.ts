@@ -3,7 +3,7 @@ import { buildPasteText } from "../formatters";
 import type { QueueCapture } from "../types";
 
 describe("buildPasteText", () => {
-  it("formats diff capture", () => {
+  it("formats diff capture with line numbers", () => {
     const c: QueueCapture = {
       source: "diff",
       filePath: "src/a.ts",
@@ -11,8 +11,16 @@ describe("buildPasteText", () => {
       lineStart: 2,
       lineEnd: 3,
     };
-    expect(buildPasteText(c)).toContain("src/a.ts");
-    expect(buildPasteText(c)).toContain("foo");
+    expect(buildPasteText(c)).toBe("src/a.ts:2:3");
+  });
+
+  it("formats diff capture without line numbers", () => {
+    const c: QueueCapture = {
+      source: "diff",
+      filePath: "src/a.ts",
+      selectedText: "foo",
+    };
+    expect(buildPasteText(c)).toBe("src/a.ts");
   });
 
   it("formats folder with listing", () => {
@@ -26,7 +34,7 @@ describe("buildPasteText", () => {
     expect(t).toContain("a");
   });
 
-  it("formats file capture with path and selection", () => {
+  it("formats file capture with line numbers", () => {
     const c: QueueCapture = {
       source: "file",
       filePath: "lib/b.ts",
@@ -35,10 +43,17 @@ describe("buildPasteText", () => {
       lineEnd: 12,
     };
     const t = buildPasteText(c);
-    expect(t).toContain("[file]");
-    expect(t).toContain("lib/b.ts");
-    expect(t).toContain("Lines: 10-12");
-    expect(t).toContain("export const x = 1;");
+    expect(t).toBe("lib/b.ts:10:12");
+  });
+
+  it("formats file capture without line numbers", () => {
+    const c: QueueCapture = {
+      source: "file",
+      filePath: "lib/b.ts",
+      selectedText: "export const x = 1;",
+    };
+    const t = buildPasteText(c);
+    expect(t).toBe("lib/b.ts");
   });
 
   it("formats agent tab terminal capture without [terminal] header", () => {

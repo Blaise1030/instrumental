@@ -3,27 +3,13 @@ import type { QueueCapture } from "./types";
 export function buildPasteText(c: QueueCapture): string {
   switch (c.source) {
     case "diff":
-      return [
-        "[diff]",
-        `File: ${c.filePath}`,
-        c.lineStart != null && c.lineEnd != null ? `Lines: ${c.lineStart}-${c.lineEnd}` : "",
-        "```",
-        c.selectedText,
-        "```",
-      ]
-        .filter(Boolean)
-        .join("\n");
-    case "file":
-      return [
-        "[file]",
-        `Path: ${c.filePath}`,
-        c.lineStart != null && c.lineEnd != null ? `Lines: ${c.lineStart}-${c.lineEnd}` : "",
-        "```",
-        c.selectedText,
-        "```",
-      ]
-        .filter(Boolean)
-        .join("\n");
+    case "file": {
+      const fileRef =
+        c.lineStart != null && c.lineEnd != null
+          ? `${c.filePath}:${c.lineStart}:${c.lineEnd}`
+          : c.filePath;
+      return fileRef;
+    }
     case "folder":
       return [`[folder]`, `Path: ${c.folderPath}`, "", c.listingText].join("\n");
     case "terminal":
