@@ -10,16 +10,19 @@ export const gitRoutes = {
       path: "",
       name: "gitPanel",
       component: SourceControlPanel,
+      meta: { gitTab: "local" },
     },
     {
       path: "pull-requests",
       name: "gitPullRequests",
       component: RemotePrPanel,
+      meta: { gitTab: "prs" },
     },
     {
       path: "pull-requests/:prId",
       name: "gitPullRequest",
       component: RemotePrPanel,
+      meta: { gitTab: "prs" },
     },
   ],
 };

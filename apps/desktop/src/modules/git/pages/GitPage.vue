@@ -14,20 +14,15 @@ const tabs: PillTabItem[] = [
   { value: "prs", label: "Pull Requests" },
 ];
 
+const TAB_ROUTES: Record<string, string> = { prs: "gitPullRequests", local: "gitPanel" };
+
 const activeTab = computed({
-  get: () =>
-    route.name === "gitPullRequests" || route.name === "gitPullRequest"
-      ? "prs"
-      : "local",
+  get: () => (route.meta.gitTab as string) ?? "local",
   set: (v: string) => {
     const projectId = route.params.projectId as string;
     const branch = route.params.branch as string;
     const threadId = route.params.threadId as string;
-    if (v === "prs") {
-      void router.push({ name: "gitPullRequests", params: { projectId, branch, threadId } });
-    } else {
-      void router.push({ name: "gitPanel", params: { projectId, branch, threadId } });
-    }
+    void router.push({ name: TAB_ROUTES[v] ?? "gitPanel", params: { projectId, branch, threadId } });
   },
 });
 </script>

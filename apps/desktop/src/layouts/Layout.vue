@@ -479,7 +479,9 @@ async function onCreateWorktreeGroup(
           </ButtonGroup>
         </div>
         <div class="flex min-w-0 flex-1 items-center gap-1">
-          <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">            
+          <div
+            class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1 [-webkit-overflow-scrolling:touch]"
+          >
             <Button
               v-for="value in projectTabs ?? []"
               :key="value.id"
@@ -488,7 +490,7 @@ async function onCreateWorktreeGroup(
               :class="[
                 value.id === projectId ? 'bg-background' : '',
                 projectIdsWithIdleAttention.has(value.id)
-                  ? 'bg-blue-500/12 ring-1 ring-blue-500/45 dark:bg-blue-400/14 dark:ring-blue-400/50'
+                  ? 'bg-blue-500/12 ring-1 ring-inset ring-blue-500/45 dark:bg-blue-400/14 dark:ring-blue-400/50'
                   : '',
               ]"
               :aria-current="value.id === projectId ? 'page' : undefined"
@@ -699,7 +701,7 @@ async function onCreateWorktreeGroup(
                             class="min-w-0 group-item"
                             :class="
                               idleAttentionByThreadId[thread.id]
-                                ? 'bg-blue-500/12 ring-1 ring-blue-500/45 dark:bg-blue-400/14 dark:ring-blue-400/50'
+                                ? 'bg-blue-500/12 ring-1 ring-inset ring-blue-500/45 dark:bg-blue-400/14 dark:ring-blue-400/50'
                                 : ''
                             "
                             :is-active="
