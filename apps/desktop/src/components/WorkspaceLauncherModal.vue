@@ -322,6 +322,7 @@ function launcherRowTestId(row: LauncherRow): string {
     <DialogContent
       aria-label="Workspace search"
       :show-close-button="false"
+      overlay-class="workspace-launcher-scrim"
       class="workspace-launcher-panel top-[15vh] z-[60] w-full max-w-lg translate-y-0 gap-0 p-0 text-popover-foreground ring-0 sm:max-w-lg"
     >
       <DialogHeader class="sr-only">

@@ -13,6 +13,8 @@ import { useRegisterGlobalKeybindings } from "@/hooks/useRegisterGlobalKeybindin
 
 useRegisterGlobalKeybindings();
 
+const showLinkHoverStatus = import.meta.env.DEV;
+
 onMounted(() => {
   hydratePersistedToasts();
 });
@@ -22,7 +24,7 @@ onMounted(() => {
   <TooltipProvider>
     <AppContext mode="desktop">
       <WorkspaceLauncherGlobal />
-      <LinkHoverStatus />
+      <LinkHoverStatus v-if="showLinkHoverStatus" />
       <RouterView />
     </AppContext>
     <Toaster />

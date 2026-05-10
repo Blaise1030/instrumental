@@ -379,3 +379,18 @@ export function isTypingSurface(target: EventTarget | null): boolean {
   if (el.isContentEditable) return true;
   return false;
 }
+
+/**
+ * ⌘J / Ctrl+J toggles the terminal dock — defer when typing in the agent/editor so we do not steal focus,
+ * but still allow when focus is inside the integrated PTY (`data-instrument-terminal`).
+ */
+export function shouldDeferToggleTerminalPanelShortcut(ev: KeyboardEvent): boolean {
+  const t = ev.target;
+  if (!(t instanceof Element)) return false;
+  if (t.closest("[data-instrument-terminal]")) return false;
+  if (t.closest(".cm-editor")) return true;
+  if (t.closest(".ProseMirror")) return true;
+  const tag = t.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return (t as HTMLElement).isContentEditable;
+}

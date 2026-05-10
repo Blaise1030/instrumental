@@ -68,6 +68,12 @@ function runQuickScript(command: string): void {
   const pane = paneByTabId.get(tid) as { injectScript?: (text: string) => void } | undefined;
   pane?.injectScript?.(command);
 }
+
+function addTerminalTab(): Promise<void> {
+  return createTab();
+}
+
+defineExpose({ addTerminalTab });
 </script>
 
 <template>

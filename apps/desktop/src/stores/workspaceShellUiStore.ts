@@ -8,6 +8,9 @@ import { ref } from "vue";
 export const useWorkspaceShellUiStore = defineStore("workspaceShellUi", () => {
   const workspaceLauncherOpen = ref(false);
   const sidebarOpen = ref(true);
+  /** Incremented so `Layout.vue` can react outside nested routes / lifecycle quirks. */
+  const terminalDockTogglePulse = ref(0);
+  const terminalNewTabPulse = ref(0);
 
   function toggleWorkspaceLauncher(): void {
     workspaceLauncherOpen.value = !workspaceLauncherOpen.value;
@@ -17,10 +20,22 @@ export const useWorkspaceShellUiStore = defineStore("workspaceShellUi", () => {
     sidebarOpen.value = !sidebarOpen.value;
   }
 
+  function requestTerminalDockToggle(): void {
+    terminalDockTogglePulse.value += 1;
+  }
+
+  function requestTerminalNewTab(): void {
+    terminalNewTabPulse.value += 1;
+  }
+
   return {
     workspaceLauncherOpen,
     sidebarOpen,
+    terminalDockTogglePulse,
+    terminalNewTabPulse,
     toggleWorkspaceLauncher,
-    toggleSidebar
+    toggleSidebar,
+    requestTerminalDockToggle,
+    requestTerminalNewTab
   };
 });

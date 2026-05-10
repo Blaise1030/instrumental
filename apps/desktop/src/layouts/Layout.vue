@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -37,6 +37,7 @@ import type { Project, Thread } from "@/shared/domain";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useRoute, useRouter } from "vue-router";
 import { decodeBranch, encodeBranch } from "@/router/branchParam";
+import { resolveThreadScopedWorkspaceParams } from "@/router/workspaceNavParams";
 import AgentIcon from "@/components/ui/AgentIcon.vue";
 import { Button } from "@/components/ui/button";
 import PillTabs, { type PillTabItem } from "@/components/ui/pill-tabs";
@@ -63,6 +64,8 @@ import { useRemoveThread } from "@/modules/agent/hooks/useThreads";
 import { useWorkspaceShellUiStore } from "@/stores/workspaceShellUiStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { rememberRouteBeforeSettings } from "@/modules/settings/settingsExitRoute";
+import type { KeybindingId } from "@/keybindings/registry";
+import { useKeybindingsStore } from "@/stores/keybindingsStore";
 
 const appContext = useAppContext();
 const workspace = useWorkspaceStore();
@@ -73,9 +76,11 @@ const route = useRoute();
 const router = useRouter();
 const filterMode = ref(false);
 const terminalPanelOpen = ref(false);
+const terminalsPanelRef = ref<InstanceType<typeof TerminalsPanel> | null>(null);
 const projectId = computed(() => route.params.projectId as string);
 const shellUi = useWorkspaceShellUiStore();
-const { sidebarOpen } = storeToRefs(shellUi);
+const keybindings = useKeybindingsStore();
+const { sidebarOpen, terminalDockTogglePulse, terminalNewTabPulse } = storeToRefs(shellUi);
 const branchId = computed(() => route.params.branch as string);
 
 const { mutateAsync: removeThreadMutate } = useRemoveThread();
@@ -109,22 +114,36 @@ const panelTabs = [
   { value: "filesPanel", label: "📁 Files" },
 ] as const;
 
-/** Params for workspace panel routes (`agent`, `gitPanel`, …) when a thread is active. */
-const workspaceNavParams = computed(() => {
-  const tid = activeThreadId.value;
-  const pid = projectId.value;
-  const branch = branchId.value;
-  if (!tid || !pid || !branch) return null;
-  return { projectId: pid, branch, threadId: tid };
-});
+/** Params for workspace panel routes (`agent`, `gitPanel`, …); resolves thread when URL omits `threadId`. */
+const workspaceNavParams = computed(() => resolveThreadScopedWorkspaceParams(route));
+
+function workspacePanelKeybindingId(tabValue: string): KeybindingId | null {
+  switch (tabValue) {
+    case "agent":
+      return "focusAgentTab";
+    case "gitPanel":
+      return "focusGitPanel";
+    case "previewPanel":
+      return "focusPreviewPanel";
+    case "filesPanel":
+      return "focusFilesPanel";
+    default:
+      return null;
+  }
+}
 
 const workspacePanelPills = computed<PillTabItem[]>(() => {
   const p = workspaceNavParams.value;
-  return panelTabs.map((tab) => ({
-    value: tab.value,
-    label: tab.label,
-    ...(p ? { to: { name: tab.value, params: p } } : {})
-  }));
+  return panelTabs.map((tab) => {
+    const kbId = workspacePanelKeybindingId(tab.value);
+    const shortcutHint = kbId ? keybindings.shortcutLabelForId(kbId) : "";
+    return {
+      value: tab.value,
+      label: tab.label,
+      ...(shortcutHint ? { shortcutHint } : {}),
+      ...(p ? { to: { name: tab.value, params: p } } : {})
+    };
+  });
 });
 
 function onWorkspacePanelTabNavigate(value: string): void {
@@ -330,6 +349,37 @@ function openTerminalPanel(): void {
   terminalPanelOpen.value = !terminalPanelOpen.value;
 }
 
+function handleToggleTerminalShortcut(): void {
+  const p = workspaceNavParams.value;
+  if (!p) return;
+  if (activeTab.value !== "agent") {
+    void router.push({ name: "agent", params: p });
+    terminalPanelOpen.value = true;
+    return;
+  }
+  openTerminalPanel();
+}
+
+async function handleAddTerminalShortcut(): Promise<void> {
+  const p = workspaceNavParams.value;
+  if (!p) return;
+  if (activeTab.value !== "agent") {
+    await router.push({ name: "agent", params: p });
+  }
+  terminalPanelOpen.value = true;
+  await nextTick();
+  await nextTick();
+  await terminalsPanelRef.value?.addTerminalTab?.();
+}
+
+watch(terminalDockTogglePulse, () => {
+  handleToggleTerminalShortcut();
+});
+
+watch(terminalNewTabPulse, () => {
+  void handleAddTerminalShortcut();
+});
+
 const addWorktreePopoverOpen = ref(false);
 
 const canCreateWorktree = computed(() => {
@@ -465,7 +515,7 @@ async function onCreateWorktreeGroup(
         <div class="flex shrink-0 items-center gap-1 pe-2 ps-1">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="icon-sm"
             aria-label="Raise feedback"
             title="Raise an issue on GitHub"
@@ -477,14 +527,14 @@ async function onCreateWorktreeGroup(
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"         
             size="icon-sm"
             aria-label="Settings"
             @click="openSettings"
           >
             <Settings :stroke-width="1.9" />
           </Button>
-          <ThemeToggle variant="outline" size="icon-sm" />
+          <ThemeToggle variant="ghost" size="icon-sm" />
         </div>
       </nav>
       <div class="flex min-h-0 flex-1 bg-sidebar">
@@ -770,7 +820,9 @@ async function onCreateWorktreeGroup(
                   <Terminal class="size-3" aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top"> Show terminal </TooltipContent>
+              <TooltipContent side="top">
+                {{ keybindings.titleWithShortcut("Show terminal", "toggleTerminalPanel") }}
+              </TooltipContent>
             </Tooltip>
           </SidebarFooter>          
         </Sidebar>
@@ -791,6 +843,7 @@ async function onCreateWorktreeGroup(
                 class="bg-border absolute left-1/2 -translate-x-1/2 top-1 active:bg-foreground w-6 mx-auto h-1 rounded-lg z-10 flex shrink-0"              
               />
               <TerminalsPanel
+                ref="terminalsPanelRef"
                 :worktree-id="terminalPanelWorktreePath"
                 :cwd="terminalPanelWorktreePath"
                 @close="terminalPanelOpen = false"
