@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, inject, nextTick, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   ExternalLink,
@@ -47,6 +47,9 @@ import {
 } from "@/modules/git/stores/githubPrStore";
 import GitHubTokenSetup from "@/modules/git/components/GitHubTokenSetup.vue";
 import Label from "@/components/ui/label/Label.vue";
+import ContextQueueSelectionPopup from "@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue";
+import { useDomSelectionQueue } from "@/modules/contextQueue/useDomSelectionQueue";
+import { injectContextToAgentKey } from "@/contextQueue/injectionKeys";
 
 defineProps<{ cwd: string; contextLabel?: string | null }>();
 
@@ -257,6 +260,29 @@ const filteredFiles = computed(() =>
       : true,
   ),
 );
+
+const injectContextToAgent = inject(injectContextToAgentKey, undefined);
+
+const prDiffContainerRef = ref<HTMLElement | null>(null);
+
+const prDiffQueue = useDomSelectionQueue({
+  source: "diff",
+  getFilePath: () => {
+    const sel = window.getSelection();
+    if (!sel?.rangeCount) return null;
+    const node = sel.getRangeAt(0).commonAncestorContainer;
+    const el = node instanceof Element ? node : node.parentElement;
+    return el?.closest("[data-file-path]")?.getAttribute("data-file-path") ?? null;
+  },
+});
+
+async function onPrDiffSendToAgent(): Promise<void> {
+  if (!injectContextToAgent) return;
+  let item;
+  try { item = prDiffQueue.buildItem(); } catch { return; }
+  await injectContextToAgent([item]);
+  prDiffQueue.dismiss();
+}
 </script>
 
 <template>
@@ -598,6 +624,7 @@ const filteredFiles = computed(() =>
                   </div>
 
                   <ScrollArea class="h-full min-h-0 flex-1 overflow-hidden">
+                    <div ref="prDiffContainerRef" @mouseup="prDiffQueue.onMouseUp">
                     <div
                       v-if="filteredFiles.length === 0"
                       class="flex min-h-48 items-center justify-center px-3 py-8 text-xs text-muted-foreground"
@@ -615,6 +642,7 @@ const filteredFiles = computed(() =>
                     >
                       <article
                         :id="fileAnchorId(file.displayName)"
+                        :data-file-path="file.displayName"
                         class="scroll-mt-24 border-b border-border last:border-b-0"
                       >
                         <div
@@ -725,6 +753,7 @@ const filteredFiles = computed(() =>
                         </DiffView>
                       </article>
                     </template>
+                    </div>
                   </ScrollArea>
                 </div>
               </template>
@@ -733,6 +762,12 @@ const filteredFiles = computed(() =>
       </SidebarProvider>
     </template>
   </section>
+  <ContextQueueSelectionPopup
+    :visible="prDiffQueue.visible.value"
+    :anchor="prDiffQueue.anchor.value"
+    @send-to-agent="onPrDiffSendToAgent"
+    @dismiss="prDiffQueue.dismiss"
+  />
   </div>
 </template>
 
