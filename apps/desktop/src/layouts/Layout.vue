@@ -39,6 +39,7 @@ import { useRoute, useRouter } from "vue-router";
 import { decodeBranch, encodeBranch } from "@/router/branchParam";
 import AgentIcon from "@/components/ui/AgentIcon.vue";
 import { Button } from "@/components/ui/button";
+import PillTabs, { type PillTabItem } from "@/components/ui/pill-tabs";
 import Switch from "@/components/ui/Switch.vue";
 import Label from "@/components/ui/label/Label.vue";
 import BranchSelector from "@/modules/git/components/BranchSelector.vue";
@@ -108,6 +109,30 @@ const panelTabs = [
   { value: "filesPanel", label: "📁 Files" },
 ] as const;
 
+/** Params for workspace panel routes (`agent`, `gitPanel`, …) when a thread is active. */
+const workspaceNavParams = computed(() => {
+  const tid = activeThreadId.value;
+  const pid = projectId.value;
+  const branch = branchId.value;
+  if (!tid || !pid || !branch) return null;
+  return { projectId: pid, branch, threadId: tid };
+});
+
+const workspacePanelPills = computed<PillTabItem[]>(() => {
+  const p = workspaceNavParams.value;
+  return panelTabs.map((tab) => ({
+    value: tab.value,
+    label: tab.label,
+    ...(p ? { to: { name: tab.value, params: p } } : {})
+  }));
+});
+
+function onWorkspacePanelTabNavigate(value: string): void {
+  const p = workspaceNavParams.value;
+  if (!p) return;
+  void router.push({ name: value, params: p });
+}
+
 const activeTab = computed<string>(() => {
   const name = route.name as string;
   if (
@@ -120,19 +145,6 @@ const activeTab = computed<string>(() => {
   if (name === "filesPanel" || name === "fileDetail") return "filesPanel";
   return "agent";
 });
-
-function onTabChange(value: string): void {
-  const tid = activeThreadId.value;
-  if (!tid) return;
-  void router.push({
-    name: value,
-    params: {
-      projectId: projectId.value,
-      branch: branchId.value,
-      threadId: tid,
-    },
-  });
-}
 
 function onNavigateBack() {
   router.back();
@@ -410,7 +422,7 @@ async function onCreateWorktreeGroup(
             </Button>
           </ButtonGroup>
         </div>
-        <div class="flex min-w-0 flex-1 items-center gap-1">
+        <div class="flex min-w-0 flex-1 items-center gap-1">          
           <div
             class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1 [-webkit-overflow-scrolling:touch]"
           >
@@ -593,24 +605,15 @@ async function onCreateWorktreeGroup(
                           Threads from this branch only
                         </Label>
                       </div>
-                      <div
-                        v-if="branchId === value.branch"
-                        class="pb-1 flex flex-wrap gap-0.5"
-                      >
-                        <Button
-                          v-for="tab in panelTabs"
-                          :key="tab.value"
-                          size="sm"
-                          :variant="
-                            activeTab === tab.value ? 'outline' : 'ghost'
-                          "
-                          :class="
-                            activeTab === tab.value ? 'bg-background' : ''
-                          "
-                          @click="onTabChange(tab.value)"
-                        >
-                          {{ tab.label }}
-                        </Button>
+                      <div v-if="branchId === value.branch" class="pb-1">
+                        <PillTabs
+                          :model-value="activeTab"
+                          size="default"
+                          wrap
+                          aria-label="Workspace panels"
+                          :tabs="workspacePanelPills"
+                          @update:model-value="onWorkspacePanelTabNavigate"
+                        />
                       </div>
                     </div>
 

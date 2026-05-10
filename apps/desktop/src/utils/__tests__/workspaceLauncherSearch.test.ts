@@ -9,7 +9,7 @@ import {
 
 const baseThread = (partial: Partial<Thread> & Pick<Thread, "id" | "title" | "agent">): Thread => ({
   projectId: "p1",
-  worktreeId: "wt1",
+  worktreePath: "wt1",
   createdBranch: null,
   createdAt: "",
   updatedAt: "",
@@ -40,22 +40,41 @@ describe("parseLauncherQuery", () => {
   it("@WT is not a token (case-sensitive)", () => {
     expect(parseLauncherQuery("@WT x")).toEqual({ mode: "default", query: "@WT x" });
   });
+
+  it("trailing @ switches to files mode with stripped query", () => {
+    expect(parseLauncherQuery("parser@")).toEqual({ mode: "files", query: "parser" });
+    expect(parseLauncherQuery("parser @")).toEqual({ mode: "files", query: "parser" });
+  });
+
+  it("trailing @ alone is files mode with empty query", () => {
+    expect(parseLauncherQuery("@")).toEqual({ mode: "files", query: "" });
+  });
+
+  it("strips trailing @ after prefix modes", () => {
+    expect(parseLauncherQuery("@wt foo@")).toEqual({ mode: "worktree", query: "foo" });
+    expect(parseLauncherQuery("@files bar@")).toEqual({ mode: "files", query: "bar" });
+  });
 });
 
 describe("searchLauncherCommands", () => {
   it("lists built-in commands when search is empty", () => {
     const rows = searchLauncherCommands("", {
-      "toggle-thread-sidebar": "⌘B",
       "open-settings": "⌘,"
     });
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
     expect(rows[0]).toMatchObject({
       section: "commands",
       kind: "command",
-      id: "toggle-thread-sidebar",
-      shortcutHint: "⌘B"
+      id: "new-thread",
+      shortcutHint: ""
     });
     expect(rows[1]).toMatchObject({
+      section: "commands",
+      kind: "command",
+      id: "add-project",
+      shortcutHint: ""
+    });
+    expect(rows[2]).toMatchObject({
       section: "commands",
       kind: "command",
       id: "open-settings",
@@ -63,9 +82,9 @@ describe("searchLauncherCommands", () => {
     });
   });
 
-  it("matches sidebar keyword", () => {
-    const rows = searchLauncherCommands("collapse rail", {});
-    expect(rows.some((r) => r.kind === "command" && r.id === "toggle-thread-sidebar")).toBe(true);
+  it("matches new thread keywords", () => {
+    const rows = searchLauncherCommands("compose start chat", {});
+    expect(rows.some((r) => r.kind === "command" && r.id === "new-thread")).toBe(true);
   });
 
   it("matches settings keyword", () => {
@@ -75,6 +94,20 @@ describe("searchLauncherCommands", () => {
 });
 
 describe("searchLauncherRows", () => {
+  it("returns thread but not file hits in default mode with empty query", () => {
+    const threads = [
+      baseThread({ id: "t1", title: "parser bugfix", agent: "claude" })
+    ];
+    const rows = searchLauncherRows(
+      { mode: "default", query: "" },
+      threads,
+      [{ relativePath: "src/parser.ts" }],
+      []
+    );
+    expect(rows.some((r) => r.kind === "thread")).toBe(true);
+    expect(rows.some((r) => r.kind === "file")).toBe(false);
+  });
+
   it("returns thread and branch file hits in default mode", () => {
     const threads = [
       baseThread({ id: "t1", title: "parser bugfix", agent: "claude" })

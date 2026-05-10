@@ -2,6 +2,7 @@
 import { onMounted } from "vue";
 import { RouterView } from "vue-router";
 import "vue-sonner/style.css";
+import LinkHoverStatus from "@/components/LinkHoverStatus.vue";
 import WorkspaceLauncherGlobal from "@/components/WorkspaceLauncherGlobal.vue";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,6 +22,7 @@ onMounted(() => {
   <TooltipProvider>
     <AppContext mode="desktop">
       <WorkspaceLauncherGlobal />
+      <LinkHoverStatus />
       <RouterView />
     </AppContext>
     <Toaster />

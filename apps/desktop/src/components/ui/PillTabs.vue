@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { X } from "lucide-vue-next";
+import type { RouteLocationRaw } from "vue-router";
+import { RouterLink } from "vue-router";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -19,6 +21,8 @@ export type PillTabItem = {
   shortcutHint?: string;
   /** Extra classes when this tab is selected (e.g. accent border). */
   activeClass?: string;
+  /** When set, the pill renders as `RouterLink` for SPA navigation. */
+  to?: RouteLocationRaw;
 };
 
 const props = withDefaults(
@@ -30,8 +34,10 @@ const props = withDefaults(
     size?: PillTabSize;
     /** Full-width segmented control (e.g. sidebar center panel). */
     variant?: "default" | "segmented";
+    /** When true, tab row wraps (e.g. narrow sidebar workspace pills). */
+    wrap?: boolean;
   }>(),
-  { ariaLabel: "Tabs", size: "xs", variant: "default" }
+  { ariaLabel: "Tabs", size: "xs", variant: "default", wrap: false }
 );
 
 const isSegmented = computed(() => props.variant === "segmented");
@@ -110,7 +116,26 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
     <template v-for="(tab, index) in tabs" :key="tab.value">
       <Tooltip :delay-duration="400">
         <TooltipTrigger as-child>
+          <RouterLink
+            v-if="tab.to"
+            :to="tab.to"
+            role="tab"
+            :aria-selected="modelValue === tab.value"
+            :tabindex="modelValue === tab.value ? 0 : -1"
+            class="min-w-0 cursor-pointer px-2 rounded-sm min-h-6 text-center leading-tight font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 text-[10px] no-underline"
+            :class="
+              modelValue === tab.value
+                ? 'bg-background border border-border text-foreground'
+                : 'border border-transparent text-muted-foreground hover:bg-accent hover:text-foreground'
+            "
+            @keydown="onTabKeydown($event, index)"
+          >
+            <span class="flex min-w-0 flex-col items-center justify-center gap-0.5">
+              <span class="min-w-0 truncate">{{ tab.label }}</span>
+            </span>
+          </RouterLink>
           <button
+            v-else
             type="button"
             role="tab"
             :aria-selected="modelValue === tab.value"
@@ -141,7 +166,8 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
     data-slot="button-group"
     :aria-label="ariaLabel"
     :class="[
-      'flex min-w-0 max-w-full flex-nowrap select-none items-center gap-0.5 overflow-x-auto overflow-y-hidden px-1 [scrollbar-width:thin]',
+      'flex min-w-0 max-w-full select-none items-center gap-0.5 overflow-x-auto overflow-y-hidden px-1 [scrollbar-width:thin]',
+      wrap ? 'flex-wrap' : 'flex-nowrap',
       tablistPaddingClass
     ]"
   >
@@ -149,7 +175,35 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
       <div class="inline-flex max-w-full shrink-0 items-center gap-0.5">
         <Tooltip :delay-duration="400">
           <TooltipTrigger as-child>
+            <RouterLink
+              v-if="tab.to"
+              :to="tab.to"
+              role="tab"
+              :aria-selected="modelValue === tab.value"
+              :tabindex="modelValue === tab.value ? 0 : -1"
+              class="inline-flex max-w-full items-center justify-center whitespace-nowrap no-underline ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              :class="[
+                tabTriggerSizeClass,
+                modelValue === tab.value
+                  ? 'bg-muted font-medium text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/50',
+                modelValue === tab.value ? tab.activeClass : undefined
+              ]"
+              @keydown="onTabKeydown($event, index)"
+            >
+              <span class="flex min-w-0 text-xs max-w-full items-center gap-1">
+                <span
+                  v-if="tab.tag"
+                  class="rounded border border-border bg-background px-1 py-0 text-[10px] font-semibold leading-none text-muted-foreground"
+                  data-testid="pill-tab-tag"
+                >
+                  {{ tab.tag }}
+                </span>                
+                <span class="min-w-0 truncate">{{ tab.label }}</span>
+              </span>
+            </RouterLink>
             <Button
+              v-else
               type="button"
               variant="ghost"
               role="tab"

@@ -8,6 +8,7 @@ import { useNavigateToProject } from "@/hooks/useNavigateToProject";
 import { rememberRouteBeforeSettings } from "@/modules/settings/settingsExitRoute";
 import { encodeBranch } from "@/router/branchParam";
 import type { LauncherCommandId } from "@/utils/workspaceLauncherSearch";
+import { useAddProjectFromDirectoryPick } from "@/hooks/useAddProjectFromDirectoryPick";
 import { useWorkspaceShellUiStore } from "@/stores/workspaceShellUiStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
@@ -20,6 +21,10 @@ const queryClient = useQueryClient();
 const workspace = useWorkspaceStore();
 const { activeThreadId } = useActiveWorkspace();
 const { navigateToProject: navigateToProjectCore } = useNavigateToProject();
+
+const { pickAndAddProject } = useAddProjectFromDirectoryPick({
+  navigateToProject: (id) => navigateToProjectCore(id)
+});
 
 const projectId = computed(() => route.params.projectId as string);
 const branchId = computed(() => route.params.branch as string);
@@ -86,8 +91,18 @@ function onLauncherPickWorktree(worktreeId: string): void {
 }
 
 function onLauncherPickCommand(id: LauncherCommandId): void {
-  if (id === "toggle-thread-sidebar") {
-    shellUi.toggleSidebar();
+  if (id === "new-thread") {
+    const pid = projectId.value;
+    const branch = branchId.value;
+    if (!pid || !branch) return;
+    void router.push({
+      name: "threadNew",
+      params: { projectId: pid, branch }
+    });
+    return;
+  }
+  if (id === "add-project") {
+    void pickAndAddProject();
     return;
   }
   if (id === "open-settings") openSettings();

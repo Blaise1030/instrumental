@@ -34,8 +34,7 @@ Migrate the workspace from the monolithic `WorkspaceLayout.vue` to a fully route
     agent → AgentPage.vue   [src/modules/agent/AgentPage.vue]
     git → GitPage.vue       [src/modules/git/GitPage.vue]
     preview → BrowserPage.vue [src/modules/browser/BrowserPage.vue]
-    files → ExplorerPage.vue  [src/modules/explorer/ExplorerPage.vue]
-    files/:filename+ → ExplorerPage.vue (same, reads :filename param)
+    files → ExplorerLayout.vue + FilePage.vue  [explorerRoute.ts: `files` → layout, children `""` / `:filename(.*)` → FilePage]
 ```
 
 **Rule:** Every module page calls `useAppContext()` to load services. No props passed down from parent layouts. No reuse of WorkspaceLayout internals.
@@ -61,11 +60,11 @@ Migrate the workspace from the monolithic `WorkspaceLayout.vue` to a fully route
         { path: "preview", name: "previewPanel", component: BrowserPage },
         {
           path: "files",
-          name: "filesPanel",
-          component: ExplorerPage,
+          component: ExplorerLayout,
           children: [
-            { path: ":filename+", name: "fileDetail", component: ExplorerPage }
-          ]
+            { path: "", name: "filesPanel", component: FilePage },
+            { path: ":filename(.*)", name: "fileDetail", component: FilePage },
+          ],
         }
       ]
     }
@@ -109,9 +108,9 @@ Owns the source control diff view. Calls `useAppContext()` to get `gitService`. 
 
 Owns the embedded browser/preview webview. Calls `useAppContext()` to get `gitService` (for worktree path resolution). Reads `projectId` + `branch` from route params. Renders preview iframe/webview. No props.
 
-### 5. `src/modules/explorer/ExplorerPage.vue` — REPLACE stub
+### 5. `src/modules/explorer/pages/ExplorerLayout.vue` + `FilePage.vue` — implemented
 
-Owns the file tree and editor. Calls `useAppContext()` to get `gitService`. Reads `projectId`, `branch`, and optional `filename` param from route. Renders file search + editor pane. No props.
+Layout owns the file tree / sidebar shell and provides `explorerShellKey`. `FilePage` owns tabs + Monaco editor via `useExplorerFilePage`. Routed in `explorerRoute.ts`.
 
 ### 6. `src/app-context/type.ts` — Extend if needed
 
@@ -149,7 +148,7 @@ No cross-panel communication via props or provide/inject from a parent layout. I
 3. **AgentPage.vue** — Implement agent terminal panel via `useAppContext()`.
 4. **GitPage.vue** — Implement git diff panel via `useAppContext()`.
 5. **BrowserPage.vue** — Implement preview panel via `useAppContext()`.
-6. **ExplorerPage.vue** — Implement file explorer panel via `useAppContext()`.
+6. **Explorer files panel** — `ExplorerLayout.vue` + `FilePage.vue` (+ `useAppContext()` / shell context as wired today).
 7. **Smoke test** — Verify each route renders correctly, tab navigation works, no WorkspaceLayout references remain.
 8. **Delete WorkspaceLayout.vue** — Remove file and all imports.
 

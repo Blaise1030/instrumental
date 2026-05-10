@@ -12,6 +12,9 @@ export interface ParsedLauncherQuery {
 /**
  * `@wt` at start (case-sensitive) switches to worktree-only file search per design spec.
  * Strips one space after `@wt` when present.
+ *
+ * Appending `@` toggles **files-only mode** (same as `@files` prefix): e.g. `parser@` searches files
+ * for `parser`. Trailing `@` is stripped from the search text. Works after `@wt foo@` as well.
  */
 const PREFIX_MAP: { prefix: string; mode: LauncherSearchMode }[] = [
   { prefix: "@wt", mode: "worktree" },
@@ -20,13 +23,23 @@ const PREFIX_MAP: { prefix: string; mode: LauncherSearchMode }[] = [
   { prefix: "@files", mode: "files" }
 ];
 
+function stripTrailingAtToggle(rest: string): string {
+  if (!rest.endsWith("@")) return rest;
+  return rest.slice(0, -1).trimEnd();
+}
+
 export function parseLauncherQuery(raw: string): ParsedLauncherQuery {
   for (const { prefix, mode } of PREFIX_MAP) {
     if (raw.startsWith(prefix)) {
       let rest = raw.slice(prefix.length);
       if (rest.startsWith(" ")) rest = rest.slice(1);
+      rest = stripTrailingAtToggle(rest);
       return { mode, query: rest };
     }
+  }
+  const trimmedEnd = raw.trimEnd();
+  if (trimmedEnd.endsWith("@")) {
+    return { mode: "files", query: trimmedEnd.slice(0, -1).trimEnd() };
   }
   return { mode: "default", query: raw };
 }
@@ -39,16 +52,21 @@ export type LauncherSectionId =
   | "agents"
   | "files";
 
-export const LAUNCHER_COMMAND_IDS = ["toggle-thread-sidebar", "open-settings"] as const;
+export const LAUNCHER_COMMAND_IDS = ["new-thread", "add-project", "open-settings"] as const;
 export type LauncherCommandId = (typeof LAUNCHER_COMMAND_IDS)[number];
 
 type CommandDoc = { id: LauncherCommandId; label: string; keywords: string };
 
 const COMMAND_DOCS: readonly CommandDoc[] = [
   {
-    id: "toggle-thread-sidebar",
-    label: "Toggle threads sidebar",
-    keywords: "sidebar threads collapse expand panel rail narrow strip icons hide show"
+    id: "new-thread",
+    label: "New thread in…",
+    keywords: "create compose start chat agent branch worktree"
+  },
+  {
+    id: "add-project",
+    label: "Add project",
+    keywords: "workspace folder repository repo open import tab plus"
   },
   {
     id: "open-settings",
@@ -322,9 +340,9 @@ export function searchLauncherRows(
 
   const includeThreads = parsed.mode === "default" || parsed.mode === "threads";
   const includeFiles = parsed.mode === "default" || parsed.mode === "files";
-
-  // For scoped modes with no query, show defaults; for default mode, only show on query
-  if (!q && parsed.mode === "default") return [];
+  /** In default mode, listing every indexed file with no query clutters the palette; files appear once the user types (or via @wt / @files). */
+  const includeFilesRow =
+    includeFiles && !(parsed.mode === "default" && !q);
 
   const rows: LauncherRow[] = [];
 
@@ -349,7 +367,7 @@ export function searchLauncherRows(
     }
   }
 
-  if (includeFiles) {
+  if (includeFilesRow) {
     if (!q) {
       for (const f of branchFiles.slice(0, MAX_BRANCH_FILE_RESULTS)) {
         rows.push({ section: "files", kind: "file", relativePath: f.relativePath, worktreeId: null, worktreeLabel: null, score: 0 });

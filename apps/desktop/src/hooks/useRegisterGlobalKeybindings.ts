@@ -1,5 +1,10 @@
-import { onBeforeUnmount, onMounted } from "vue";
-import { eventMatchesBinding, findDefinitionIn } from "@/keybindings/registry";
+import { onBeforeUnmount } from "vue";
+import {
+  eventMatchesBinding,
+  findDefinitionIn,
+  KEYBINDING_DEFINITIONS,
+  mergeKeybindingOverrides
+} from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
 import { useWorkspaceShellUiStore } from "@/stores/workspaceShellUiStore";
 
@@ -11,17 +16,20 @@ export function useRegisterGlobalKeybindings(): void {
   const shellUi = useWorkspaceShellUiStore();
 
   function onWorkspaceLauncherKeydown(ev: KeyboardEvent): void {
-    const def = findDefinitionIn(keybindings.effectiveDefinitions, "workspaceLauncher");
+    const defs = mergeKeybindingOverrides(KEYBINDING_DEFINITIONS, keybindings.overrides);
+    const def = findDefinitionIn(defs, "workspaceLauncher");
     if (!def || !eventMatchesBinding(ev, def)) return;
     ev.preventDefault();
     shellUi.toggleWorkspaceLauncher();
   }
 
-  onMounted(() => {
+  if (typeof window !== "undefined") {
     window.addEventListener("keydown", onWorkspaceLauncherKeydown, { capture: true });
-  });
+  }
 
   onBeforeUnmount(() => {
-    window.removeEventListener("keydown", onWorkspaceLauncherKeydown, { capture: true });
+    if (typeof window !== "undefined") {
+      window.removeEventListener("keydown", onWorkspaceLauncherKeydown, { capture: true });
+    }
   });
 }

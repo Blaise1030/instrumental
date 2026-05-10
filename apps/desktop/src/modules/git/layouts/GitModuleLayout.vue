@@ -8,10 +8,22 @@ const { activeWorktree } = useActiveWorkspace();
 const route = useRoute();
 const router = useRouter();
 
-const gitScopeTabs: PillTabItem[] = [
-  { value: "local", label: "Local" },
-  { value: "remote", label: "Remote PRs" },
-];
+const gitScopeTabs = computed<PillTabItem[]>(() => {
+  const projectId = route.params.projectId;
+  const branch = route.params.branch;
+  const threadId = route.params.threadId;
+  if (typeof projectId !== "string" || typeof branch !== "string" || typeof threadId !== "string") {
+    return [
+      { value: "local", label: "Local" },
+      { value: "remote", label: "Remote PRs" }
+    ];
+  }
+  const params = { projectId, branch, threadId };
+  return [
+    { value: "local", label: "Local", to: { name: "gitPanel", params } },
+    { value: "remote", label: "Remote PRs", to: { name: "gitPullRequests", params } }
+  ];
+});
 
 const gitScopeTab = computed(() => {
   const name = route.name as string;
