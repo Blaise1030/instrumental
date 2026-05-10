@@ -20,7 +20,7 @@ export function resolveThreadScopedWorkspaceParams(
   if (typeof pid !== "string" || typeof branchParam !== "string") return null;
 
   let tid = typeof route.params.threadId === "string" ? route.params.threadId : "";
-  if (!tid && route.name !== "threadNew") {
+  if (!tid) {
     const decoded = decodeBranch(branchParam);
     const ws = useWorkspaceStore();
     const thread = ws.threads.find((t) => t.projectId === pid && t.createdBranch === decoded);

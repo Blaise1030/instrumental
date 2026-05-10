@@ -100,7 +100,7 @@ function submitPrompt(): void {
           @bootstrap-consumed="onBootstrapConsumed"
         />
       </div>
-      <div v-if="agentPageComposerVisible" class="shrink-0 p-2">
+      <div v-if="agentPageComposerVisible" class="shrink-0 px-2 pb-2">
         <ThreadAdaptivePromptInput
           class="mx-auto w-full"
           ref="promptEditorRef"

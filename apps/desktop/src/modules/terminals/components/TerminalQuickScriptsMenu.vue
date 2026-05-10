@@ -10,13 +10,13 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import Label from "@/components/ui/label/Label.vue";
 import { Textarea } from "@/components/ui/textarea";
@@ -96,11 +96,12 @@ function runScript(command: string): void {
         >
           {{ s.name }}
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
       </template>
       <DropdownMenuItem v-else class="text-xs text-muted-foreground" disabled>
         No saved commands
       </DropdownMenuItem>
+      <DropdownMenuSeparator />
       <DropdownMenuItem class="text-xs" @select="manageOpen = true">
         <Settings2 class="mr-2 size-3.5 shrink-0 opacity-70" aria-hidden="true" />
         Manage commands…
@@ -108,20 +109,18 @@ function runScript(command: string): void {
     </DropdownMenuContent>
   </DropdownMenu>
 
-  <Dialog :open="manageOpen" @update:open="(v) => (manageOpen = v)">
-    <DialogContent
-      class="flex max-h-[min(85vh,calc(100dvh-2rem))] w-full max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
-      aria-labelledby="terminal-scripts-dialog-title"
+  <Sheet :open="manageOpen" @update:open="(v) => (manageOpen = v)">
+    <SheetContent
+      side="right"
+      class="flex w-full max-w-sm flex-col gap-0 overflow-hidden p-0 sm:max-w-sm"
     >
-      <DialogHeader class="shrink-0 border-b border-border px-4 py-3 text-left">
-        <DialogTitle id="terminal-scripts-dialog-title" class="text-base">
-          Terminal quick commands
-        </DialogTitle>
-        <DialogDescription class="text-left text-sm text-muted-foreground">
+      <SheetHeader class="shrink-0 border-b border-border px-4 py-3 text-left">
+        <SheetTitle class="text-base">Terminal quick commands</SheetTitle>
+        <SheetDescription class="text-left text-sm text-muted-foreground">
           Each line of a command is sent to the active terminal as if you typed it and pressed Enter. Names appear in
           the run menu.
-        </DialogDescription>
-      </DialogHeader>
+        </SheetDescription>
+      </SheetHeader>
 
       <div class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3">
         <div
@@ -164,16 +163,16 @@ function runScript(command: string): void {
           </div>
         </div>
 
-        <Button type="button" variant="outline" size="sm" class="w-full gap-1 text-xs" @click="addRow">
+        <Button type="button" variant="outline" size="sm" class="gap-1 text-xs" @click="addRow">
           <Plus class="size-3.5" aria-hidden="true" />
           Add command
         </Button>
       </div>
 
-      <DialogFooter class="shrink-0 gap-2 border-t border-border px-4 py-3 sm:justify-end">
+      <SheetFooter class="shrink-0 flex-row gap-2 border-t border-border px-4 py-3 sm:justify-end">
         <Button type="button" variant="outline" size="sm" @click="manageOpen = false"> Cancel </Button>
         <Button type="button" size="sm" @click="saveManage"> Save </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
+      </SheetFooter>
+    </SheetContent>
+  </Sheet>
 </template>

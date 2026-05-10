@@ -4,7 +4,7 @@ import type { AppUpdateAvailability } from "@shared/ipc";
 import { ChevronDown, Download, FileText, Plus, Settings, X, PanelRightClose } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
-import {Button} from "@/components/ui/button";;
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger
+} from "@/components/ui/context-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import type { KeybindingId } from "@/keybindings/registry";
 import { shortcutForModDigitSlot } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
@@ -107,6 +123,22 @@ const activeProjectHasActiveThread = computed(() => {
 });
 
 const projectMenuOpen = ref(false);
+
+const deleteTarget = ref<Project | null>(null);
+const deleteConfirmOpen = ref(false);
+
+function requestDelete(project: Project): void {
+  deleteTarget.value = project;
+  deleteConfirmOpen.value = true;
+}
+
+function confirmDelete(): void {
+  if (deleteTarget.value) {
+    emit("remove", deleteTarget.value.id);
+    projectMenuOpen.value = false;
+  }
+  deleteTarget.value = null;
+}
 
 /** Browser-style tab strip: inactive = text on chrome; active = muted surface. */
 const tabChrome =
@@ -207,16 +239,27 @@ function onProjectSwitcherChange(projectId: string): void {
             :model-value="activeProjectId ?? ''"
             @update:model-value="onProjectSwitcherChange"
           >
-            <DropdownMenuRadioItem
-              v-for="(project, projectIndex) in projects"
-              :key="project.id"
-              :value="project.id"
-              :title="tabButtonTitle(project.name, project.id, projectIndex)"
-              :class="['text-xs', projectAttentionTabClass(project.id)]"
-              :data-testid="`project-menu-item-${project.id}`"
-            >
-              <span class="min-w-0 truncate">{{ project.name }}</span>
-            </DropdownMenuRadioItem>
+            <ContextMenu v-for="(project, projectIndex) in projects" :key="project.id">
+              <ContextMenuTrigger as-child>
+                <DropdownMenuRadioItem
+                  :value="project.id"
+                  :title="tabButtonTitle(project.name, project.id, projectIndex)"
+                  :class="['text-xs', projectAttentionTabClass(project.id)]"
+                  :data-testid="`project-menu-item-${project.id}`"
+                >
+                  <span class="min-w-0 truncate">{{ project.name }}</span>
+                </DropdownMenuRadioItem>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem
+                  variant="destructive"
+                  class="text-xs"
+                  @select="requestDelete(project)"
+                >
+                  Delete "{{ project.name }}"…
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           </DropdownMenuRadioGroup>
           <template v-if="activeProject && projects.length > 1">
             <DropdownMenuSeparator />
@@ -224,7 +267,7 @@ function onProjectSwitcherChange(projectId: string): void {
               variant="destructive"
               class="text-xs"
               data-testid="project-menu-remove-current"
-              @select="emit('remove', activeProject.id)"
+              @select="requestDelete(activeProject)"
             >
               Remove "{{ activeProject.name }}"…
             </DropdownMenuItem>
@@ -385,6 +428,21 @@ function onProjectSwitcherChange(projectId: string): void {
       />
     </div>
   </nav>
+
+  <AlertDialog :open="deleteConfirmOpen" @update:open="(v) => (deleteConfirmOpen = v)">
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Delete project?</AlertDialogTitle>
+        <AlertDialogDescription>
+          "{{ deleteTarget?.name }}" will be removed from the workspace. This cannot be undone.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction variant="destructive" @click="confirmDelete">Delete</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 </template>
 
 <style scoped>

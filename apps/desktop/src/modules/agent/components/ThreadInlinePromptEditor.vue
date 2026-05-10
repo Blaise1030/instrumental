@@ -115,7 +115,7 @@ defineExpose({
   >
     <div
       aria-hidden="true"
-      class="thread-inline-prompt-editor__shader pointer-events-none absolute inset-y-0 right-0 overflow-hidden"
+      class="thread-inline-prompt-editor__shader pointer-events-none absolute inset-0 overflow-hidden"
     >
       <img
         :src="ditherImageSrc"

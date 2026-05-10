@@ -471,7 +471,7 @@ async function onCreateWorktreeGroup(
           :class="{ 'ps-20': !isFullscreen }"
         >
           <SidebarTrigger class="border" />          
-          <ButtonGroup class="bg-background">
+          <ButtonGroup class="bg-background rounded-[9px]">
             <Button
               type="button"
               variant="outline"
@@ -592,7 +592,7 @@ async function onCreateWorktreeGroup(
                       </CollapsibleTrigger>
                       <div class="min-w-0 flex-1">
                         <BranchSelector
-                          class="bg-background"
+                          class="bg-background rounded-[9px]"
                           v-if="projectPath"
                           :cwd="projectPath"
                           @branch-changed="
