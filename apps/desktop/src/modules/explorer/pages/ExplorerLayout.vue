@@ -14,7 +14,6 @@ import { RouterView, useRoute, useRouter } from "vue-router";
 import {
   FilePlus,
   FolderPlus,
-  PanelLeftOpen,
   RefreshCw,
   Search,
 } from "lucide-vue-next";
@@ -956,6 +955,7 @@ const shell: ExplorerShell = {
   allFiles: allFiles as unknown as import("vue").Ref<FileSummary[]>,
   sidebarCollapsed,
   expandSidebar,
+  collapseSidebar,
   focusSearchInput,
   requestConfirmation,
   worktreeEpoch,
@@ -1023,10 +1023,10 @@ defineExpose({
 </script>
 
 <template>
-  <div class="flex min-h-0 min-w-0 flex-1 flex-row w-full">
+  <div class="flex h-full min-h-0 min-w-0 flex-1 flex-row overflow-hidden w-full">
     <template v-if="wtPath">
       <SidebarProvider
-        class="flex-1 w-full"
+        class="flex h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden"
         v-model:open="explorerSidebarOpen"
         sidebar-scope="fileExplorer"
         :persist-cookie="false"
@@ -1038,7 +1038,7 @@ defineExpose({
           layout="nested"
           class="border-e"
         >
-          <SidebarHeader data-testid="file-search-header" class="gap-1">
+          <SidebarHeader data-testid="file-search-header" class="shrink-0 gap-1">
             <div class="relative min-w-0">
               <Search
                 class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -1107,25 +1107,15 @@ defineExpose({
                   <FolderPlus aria-hidden="true" />
                   <span class="sr-only">Add folder</span>
                 </Button>
-                <Button
-                  data-testid="file-search-sidebar-collapse"
-                  variant="outline"
-                  size="icon-sm"
-                  title="Hide file explorer"
-                  @click="collapseSidebar()"
-                >
-                  <PanelLeftOpen aria-hidden="true" />
-                  <span class="sr-only">Hide file explorer</span>
-                </Button>
               </div>
             </div>
           </SidebarHeader>
-          <SidebarContent class="p-0">
+          <SidebarContent class="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
             <ContextMenu>
               <ContextMenuTrigger as-child>
                 <div
                   data-testid="file-tree-scroll"
-                  class="min-h-0 flex-1 overflow-auto px-2 py-2"
+                  class="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto px-2 py-2"
                   @contextmenu="onTreeContextMenu"
                 >
                   <p
@@ -1262,7 +1252,7 @@ defineExpose({
             </ContextMenu>
           </SidebarContent>
         </Sidebar>
-        <SidebarInset class="flex-1 w-full">
+        <SidebarInset class="min-h-0 min-w-0 flex-1 overflow-hidden">
           <RouterView v-slot="{ Component }">
             <component
               :is="Component"

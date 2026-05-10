@@ -670,8 +670,8 @@ async function onCreateWorktreeGroup(
                     </div>
                   </SidebarGroupLabel>
                   <CollapsibleContent>
-                    <div class="gap-2 py-1 flex flex-col px-1.5">
-                      <div class="flex gap-1" v-if="index === 0">
+                    <div class="gap-2 py-1 flex flex-col">
+                      <div class="flex gap-1 px-1.5" v-if="index === 0">
                         <Switch v-model="filterMode" />
                         <Label class="text-muted-foreground">
                           Threads from this branch only

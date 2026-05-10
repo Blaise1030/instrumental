@@ -17,6 +17,7 @@ export interface ExplorerShell {
   allFiles: Ref<FileSummary[]>;
   sidebarCollapsed: Ref<boolean | undefined>;
   expandSidebar: () => Promise<void>;
+  collapseSidebar: () => void;
   /** Focus the file search field (sidebar may expand first). */
   focusSearchInput: () => Promise<void>;
   /** Shared AlertDialog host — editor discard prompts use the same dialog as the shell. */

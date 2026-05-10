@@ -252,11 +252,13 @@ const filteredFiles = computed(() =>
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-  <section class="flex h-full min-h-0 flex-1 bg-background text-foreground">
+  <section class="flex h-full min-h-0 flex-1 overflow-hidden bg-background text-foreground">
     <GitHubTokenSetup v-if="showSetup" :cwd="cwd" @saved="onSaved" />
 
     <template v-else>      
-      <SidebarProvider class="flex h-full flex-1 border-t overflow-hidden">        
+      <SidebarProvider
+        class="flex h-full min-h-0 w-full flex-1 flex-row overflow-hidden border-t"
+      >
           <Sidebar collapsible="none" class="h-full min-h-0 border-e">
             <SidebarHeader
               class="flex flex-col gap-1"
@@ -377,8 +379,8 @@ const filteredFiles = computed(() =>
             </SidebarContent>
           </Sidebar>
 
-          <SidebarInset>
-            <div class="flex min-h-0 min-w-0 flex-1 flex-col pb-[80px]">
+          <SidebarInset class="min-h-0 min-w-0 flex-1 overflow-hidden">
+            <div class="flex min-h-0 min-w-0 flex-1 flex-col">
               <!-- No PR selected -->
               <div
                 v-if="!store.selectedPrNumber"
@@ -580,7 +582,7 @@ const filteredFiles = computed(() =>
                     </div>
                   </div>
 
-                  <ScrollArea class="min-h-0 flex-1">
+                  <ScrollArea class="h-full min-h-0 flex-1 overflow-hidden">
                     <div
                       v-if="filteredFiles.length === 0"
                       class="flex min-h-48 items-center justify-center px-3 py-8 text-xs text-muted-foreground"

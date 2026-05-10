@@ -865,6 +865,7 @@ const page = reactive({
   isSaving,
   sidebarCollapsed: shell.sidebarCollapsed,
   expandSidebar: shell.expandSidebar,
+  collapseSidebar: shell.collapseSidebar,
   onImageDropFromOs,
   fileEditorQueueVisible,
   fileEditorQueueAnchor,

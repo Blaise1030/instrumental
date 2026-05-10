@@ -42,21 +42,55 @@ function setMonacoRef(el: unknown): void {
         data-testid="file-editor-header"
         class="flex min-h-9 min-w-0 items-stretch border-b py-0"
       >
-        <Button
-          v-if="showThreadSidebarExpand"
-          data-testid="file-editor-thread-sidebar-expand"
-          variant="outline"
-          size="icon-sm"
-          class="my-auto ml-20 shrink-0 self-center"
-          title="Show thread sidebar"
-          aria-label="Show thread sidebar"
-          @click="emit('expandThreadSidebar')"
-        >
-          <PanelLeftOpen class="h-4 w-4" aria-hidden="true" />
-          <span class="sr-only">Show thread sidebar</span>
-        </Button>
         <div
-          class="min-h-9 min-w-0 flex-1 overflow-x-auto overflow-y-hidden border-e py-1 [-webkit-overflow-scrolling:touch]"
+          class="flex shrink-0 items-center gap-1 border-e py-1 ps-2 pe-1"
+          role="toolbar"
+          aria-label="Sidebar and file tabs"
+        >
+          <Button
+            v-if="showThreadSidebarExpand"
+            data-testid="file-editor-thread-sidebar-expand"
+            variant="outline"
+            size="icon-sm"
+            class="ms-20 shrink-0"
+            title="Show thread sidebar"
+            aria-label="Show thread sidebar"
+            @click="emit('expandThreadSidebar')"
+          >
+            <PanelLeftOpen class="h-4 w-4" aria-hidden="true" />
+            <span class="sr-only">Show thread sidebar</span>
+          </Button>
+          <Button
+            v-if="page.sidebarCollapsed"
+            data-testid="file-search-sidebar-expand"
+            variant="outline"
+            size="icon-sm"
+            class="shrink-0"
+            title="Show file explorer"
+            aria-label="Show file explorer"
+            :aria-expanded="false"
+            aria-controls="file-search-sidebar"
+            @click="page.expandSidebar()"
+          >
+            <PanelLeftClose class="h-3.5 w-3.5" aria-hidden="true" />
+            <span class="sr-only">Show file explorer</span>
+          </Button>
+          <Button
+            v-else
+            data-testid="file-search-sidebar-collapse"
+            variant="outline"
+            size="icon-sm"
+            class="shrink-0"
+            title="Hide file explorer"
+            aria-label="Hide file explorer"
+            @click="page.collapseSidebar()"
+          >
+            <PanelLeftOpen class="h-4 w-4" aria-hidden="true" />
+            <span class="sr-only">Hide file explorer</span>
+          </Button>
+        </div>
+        <div
+          class="min-h-9 min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-1 [-webkit-overflow-scrolling:touch]"
         >
           <div class="flex items-center h-full w-max min-w-0 gap-1 px-2">
             <template v-if="page.selectedPath">
@@ -198,20 +232,6 @@ function setMonacoRef(el: unknown): void {
           >
             <Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
             <span class="sr-only">Delete file</span>
-          </Button>
-          <Button
-            v-if="page.sidebarCollapsed"
-            data-testid="file-search-sidebar-expand"
-            variant="outline"
-            size="icon"
-            title="Show file explorer"
-            aria-label="Show file explorer"
-            :aria-expanded="false"
-            aria-controls="file-search-sidebar"
-            @click="page.expandSidebar()"
-          >
-            <PanelLeftClose class="h-3.5 w-3.5" aria-hidden="true" />
-            <span class="sr-only">Show file explorer</span>
           </Button>
         </div>
       </header>
