@@ -5,6 +5,7 @@ import "xterm/css/xterm.css";
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
+import type { QueueItem } from "@/contextQueue/types";
 import ContextQueueSelectionPopup from "@/modules/agent/components/contextQueue/ContextQueueSelectionPopup.vue";
 import { useTerminalSelectionQueue } from "@/modules/contextQueue/useTerminalSelectionQueue";
 import { injectContextToAgentKey } from "@/contextQueue/injectionKeys";
@@ -43,6 +44,7 @@ const containerRef = ref<HTMLElement | null>(null);
 
 const injectContextToAgent = inject(injectContextToAgentKey, undefined);
 
+// agentTab is stable after mount; props.agentTab does not change at runtime
 const termQueue = useTerminalSelectionQueue({
   getTerminal: () => terminal,
   agentTab: props.agentTab,
@@ -50,7 +52,13 @@ const termQueue = useTerminalSelectionQueue({
 
 async function onQueueSendToAgent(): Promise<void> {
   if (!injectContextToAgent) return;
-  await injectContextToAgent([termQueue.buildItem()]);
+  let item: QueueItem;
+  try {
+    item = termQueue.buildItem();
+  } catch {
+    return;
+  }
+  await injectContextToAgent([item]);
   termQueue.dismiss();
 }
 const ptyBusy = ref(false);
