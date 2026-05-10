@@ -3,6 +3,7 @@ import { agentRoutes } from "@/modules/agent/agentRoute";
 import { browserRoutes } from "@/modules/browser/browserRoute";
 import { explorerRoutes } from "@/modules/explorer/explorerRoute";
 import { gitRoutes } from "@/modules/git/gitRoute";
+import { settingsRoute } from "@/modules/settings/settingsRoute";
 
 const [agentThreadNewRoute, agentThreadParamShell] = agentRoutes;
 
@@ -26,5 +27,6 @@ export const workspaceRoute = {
         explorerRoutes,
       ],
     },
+    settingsRoute,
   ],
 };

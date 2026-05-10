@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Project, Thread, Worktree } from "@shared/domain";
+import type { Project, Thread } from "@shared/domain";
 import {
   parseLauncherQuery,
   searchLauncherCommands,
@@ -43,20 +43,34 @@ describe("parseLauncherQuery", () => {
 });
 
 describe("searchLauncherCommands", () => {
-  it("lists toggle sidebar when search is empty", () => {
-    const rows = searchLauncherCommands("", { "toggle-thread-sidebar": "⌘B" });
-    expect(rows).toHaveLength(1);
+  it("lists built-in commands when search is empty", () => {
+    const rows = searchLauncherCommands("", {
+      "toggle-thread-sidebar": "⌘B",
+      "open-settings": "⌘,"
+    });
+    expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
       section: "commands",
       kind: "command",
       id: "toggle-thread-sidebar",
       shortcutHint: "⌘B"
     });
+    expect(rows[1]).toMatchObject({
+      section: "commands",
+      kind: "command",
+      id: "open-settings",
+      shortcutHint: "⌘,"
+    });
   });
 
   it("matches sidebar keyword", () => {
     const rows = searchLauncherCommands("collapse rail", {});
     expect(rows.some((r) => r.kind === "command" && r.id === "toggle-thread-sidebar")).toBe(true);
+  });
+
+  it("matches settings keyword", () => {
+    const rows = searchLauncherCommands("open preferences", {});
+    expect(rows.some((r) => r.kind === "command" && r.id === "open-settings")).toBe(true);
   });
 });
 
@@ -127,24 +141,28 @@ const sampleProject = (partial: Partial<Project> & Pick<Project, "id" | "name" |
   ...partial
 });
 
-const sampleWorktree = (
-  partial: Partial<Worktree> & Pick<Worktree, "id" | "projectId" | "name" | "branch" | "path">
-): Worktree => ({
-  isActive: true,
-  createdAt: "",
-  updatedAt: "",
-  ...partial
-});
-
 describe("searchLauncherWorkspaceSwitch", () => {
   const projects: Project[] = [
     sampleProject({ id: "p1", name: "Alpha", repoPath: "/repos/alpha" }),
     sampleProject({ id: "p2", name: "Beta", repoPath: "/repos/beta" })
   ];
 
-  const worktrees: Worktree[] = [
-    sampleWorktree({ id: "wt1", projectId: "p1", name: "main checkout", branch: "main", path: "/repos/alpha/main" }),
-    sampleWorktree({ id: "wt2", projectId: "p1", name: "feature checkout", branch: "feature/x", path: "/repos/alpha/f" })
+  /** Threads on two worktrees in p1 — `searchLauncherWorkspaceSwitch` derives switch rows from threads. */
+  const threadsForSwitch: Thread[] = [
+    baseThread({
+      id: "t-main",
+      title: "main thread",
+      agent: "claude",
+      worktreePath: "/repos/alpha/main",
+      createdBranch: "main"
+    }),
+    baseThread({
+      id: "t-feat",
+      title: "feature thread",
+      agent: "claude",
+      worktreePath: "/repos/alpha/f",
+      createdBranch: "feature/x"
+    })
   ];
 
   it("lists other workspaces and other worktrees when query is empty", () => {
@@ -153,8 +171,8 @@ describe("searchLauncherWorkspaceSwitch", () => {
       "",
       projects,
       "p1",
-      worktrees,
-      "wt1"
+      threadsForSwitch,
+      "/repos/alpha/main"
     );
     expect(rows.filter((r) => r.kind === "project")).toHaveLength(1);
     expect(rows.find((r) => r.kind === "project")).toMatchObject({
@@ -165,14 +183,21 @@ describe("searchLauncherWorkspaceSwitch", () => {
     expect(rows.filter((r) => r.kind === "worktree")).toHaveLength(1);
     expect(rows.find((r) => r.kind === "worktree")).toMatchObject({
       section: "worktrees",
-      worktreeId: "wt2",
+      worktreeId: "/repos/alpha/f",
       branch: "feature/x"
     });
   });
 
   it("returns nothing in worktree file mode", () => {
     expect(
-      searchLauncherWorkspaceSwitch({ mode: "worktree", query: "x" }, "x", projects, "p1", worktrees, "wt1")
+      searchLauncherWorkspaceSwitch(
+        { mode: "worktree", query: "x" },
+        "x",
+        projects,
+        "p1",
+        threadsForSwitch,
+        "/repos/alpha/main"
+      )
     ).toEqual([]);
   });
 
@@ -182,8 +207,8 @@ describe("searchLauncherWorkspaceSwitch", () => {
       "beta",
       projects,
       "p1",
-      worktrees,
-      "wt1"
+      threadsForSwitch,
+      "/repos/alpha/main"
     );
     expect(rows.some((r) => r.kind === "project" && r.projectId === "p2")).toBe(true);
     const feat = searchLauncherWorkspaceSwitch(
@@ -191,9 +216,9 @@ describe("searchLauncherWorkspaceSwitch", () => {
       "feature",
       projects,
       "p1",
-      worktrees,
-      "wt1"
+      threadsForSwitch,
+      "/repos/alpha/main"
     );
-    expect(feat.some((r) => r.kind === "worktree" && r.worktreeId === "wt2")).toBe(true);
+    expect(feat.some((r) => r.kind === "worktree" && r.worktreeId === "/repos/alpha/f")).toBe(true);
   });
 });

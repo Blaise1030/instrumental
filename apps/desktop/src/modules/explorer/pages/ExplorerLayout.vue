@@ -19,6 +19,8 @@ import {
   Search,
 } from "lucide-vue-next";
 import type { FileSummary } from "@shared/ipc";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
+import { FileTree } from "@pierre/trees";
 import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
 import {
@@ -27,9 +29,6 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import FileTreeNode, {
-  type FileTreeNodeData,
-} from "@/modules/explorer/components/FileTreeNode.vue";
 import { buildPasteText } from "@/contextQueue/formatters";
 import { formatFolderListingFromFiles } from "@/contextQueue/folderListing";
 import { threadContextQueueKey } from "@/contextQueue/injectionKeys";
@@ -70,6 +69,7 @@ import {
 import { normalizeExplorerFilenameParam } from "@/modules/explorer/explorerRoute";
 import { getExplorerEditorBridge } from "@/modules/explorer/services/explorerEditorBridge";
 import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
+import { useAppContext } from "@/app-context/useAppContext";
 
 const props = defineProps<{
   worktreeId?: string | null;
@@ -79,6 +79,8 @@ const props = defineProps<{
 }>();
 
 const { activeWorktree, activeThreadId: routeThreadId } = useActiveWorkspace();
+const appContext = useAppContext();
+const fileService = computed(() => appContext.value?.fileService);
 
 const wtPath = computed(
   () => props.worktreePath ?? activeWorktree.value?.path ?? null,
@@ -105,7 +107,7 @@ const emit = defineEmits<{
 
 const threadQueue = inject(threadContextQueueKey, undefined);
 const toast = useToast();
-
+const queryClient = useQueryClient();
 const router = useRouter();
 const route = useRoute();
 
@@ -117,14 +119,11 @@ const searchInput = ref<InstanceType<typeof SidebarInput> | null>(null);
 const query = ref("");
 const SEARCH_INPUT_DEBOUNCE_MS = 280;
 const debouncedQuery = ref("");
-const allFiles = ref<FileSummary[]>([]);
 const contentMatchPaths = ref<string[]>([]);
 const contentSearchError = ref<string | null>(null);
 const isContentSearching = ref(false);
 let contentSearchSeq = 0;
-const expandedFolders = ref<Set<string>>(new Set());
 const error = ref<string | null>(null);
-const isSearching = ref(false);
 
 const SEARCH_MODE_KEY = "instrument.fileSearchSearchMode";
 
@@ -203,10 +202,6 @@ const routeSelectedFile = computed(() =>
 
 const worktreeEpoch = ref(1);
 
-let disposeWorkspaceChanged: (() => void) | null = null;
-let disposeWorkingTreeFilesChanged: (() => void) | null = null;
-let fileSummariesSeq = 0;
-
 watchDebounced(
   () => query.value,
   (v) => {
@@ -229,134 +224,87 @@ watch(
   },
 );
 
-function getApi() {
-  return window.workspaceApi ?? null;
-}
+// ─── Tanstack Query: file listing ────────────────────────────────────────────
 
-function compareTreeNodes(a: FileTreeNodeData, b: FileTreeNodeData): number {
-  if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1;
-  return a.name.localeCompare(b.name);
-}
+const filesQuery = useQuery({
+  queryKey: computed(() => ["explorer", "files", wtPath.value]),
+  queryFn: async () => {
+    const svc = fileService.value;
+    const cwd = wtPath.value;
+    if (!svc || !cwd) return [] as FileSummary[];
+    return svc.listFiles(cwd);
+  },
+  enabled: computed(() => !!wtPath.value && !!fileService.value),
+});
 
-function buildFileTree(files: FileSummary[]): FileTreeNodeData[] {
-  const roots: FileTreeNodeData[] = [];
-  const folderMap = new Map<
-    string,
-    Extract<FileTreeNodeData, { kind: "folder" }>
-  >();
+const allFiles = computed<FileSummary[]>(() => filesQuery.data.value ?? []);
+const isSearching = computed(() => filesQuery.isFetching.value);
 
-  for (const file of files) {
-    const segments = file.relativePath.split("/").filter(Boolean);
-    let currentChildren = roots;
-    let currentPath = "";
+// ─── Content search ───────────────────────────────────────────────────────────
 
-    for (const [index, segment] of segments.entries()) {
-      const nextPath = currentPath ? `${currentPath}/${segment}` : segment;
-      const isLeaf = index === segments.length - 1;
-
-      if (isLeaf) {
-        if (file.kind === "directory") {
-          let folder = folderMap.get(nextPath);
-          if (!folder) {
-            folder = {
-              kind: "folder",
-              name: segment,
-              path: nextPath,
-              children: [],
-            };
-            folderMap.set(nextPath, folder);
-            currentChildren.push(folder);
-          }
-        } else {
-          currentChildren.push({
-            kind: "file",
-            name: segment,
-            path: nextPath,
-          });
-        }
-        continue;
-      }
-
-      let folder = folderMap.get(nextPath);
-      if (!folder) {
-        folder = {
-          kind: "folder",
-          name: segment,
-          path: nextPath,
-          children: [],
-        };
-        folderMap.set(nextPath, folder);
-        currentChildren.push(folder);
-      }
-
-      currentChildren = folder.children;
-      currentPath = nextPath;
+watch(
+  [
+    () => debouncedQuery.value,
+    () => wtPath.value,
+    () => searchMode.value,
+  ],
+  async () => {
+    const svc = fileService.value;
+    if (!svc || !wtPath.value) {
+      contentMatchPaths.value = [];
+      contentSearchError.value = null;
+      isContentSearching.value = false;
+      contentSearchSeq += 1;
+      return;
     }
-  }
 
-  function sortNodes(nodes: FileTreeNodeData[]): FileTreeNodeData[] {
-    nodes.sort(compareTreeNodes);
-    for (const node of nodes) {
-      if (node.kind === "folder") {
-        sortNodes(node.children);
+    const q = debouncedQuery.value.trim();
+    if (!q || searchMode.value !== "contents") {
+      contentMatchPaths.value = [];
+      contentSearchError.value = null;
+      isContentSearching.value = false;
+      contentSearchSeq += 1;
+      return;
+    }
+
+    if (!svc.searchFileContents) {
+      contentMatchPaths.value = [];
+      contentSearchError.value = "Full-text search is not available in this build.";
+      return;
+    }
+
+    const cwd = wtPath.value;
+    const seq = ++contentSearchSeq;
+    contentSearchError.value = null;
+    contentMatchPaths.value = [];
+    isContentSearching.value = true;
+
+    try {
+      const paths = await svc.searchFileContents(cwd, q);
+      if (seq !== contentSearchSeq || wtPath.value !== cwd) return;
+      contentMatchPaths.value = paths;
+    } catch (searchErr) {
+      if (seq !== contentSearchSeq || wtPath.value !== cwd) return;
+      contentMatchPaths.value = [];
+      contentSearchError.value =
+        searchErr instanceof Error
+          ? searchErr.message
+          : "Could not search file contents.";
+    } finally {
+      if (seq === contentSearchSeq) {
+        isContentSearching.value = false;
       }
     }
-    return nodes;
-  }
+  },
+  { flush: "post" },
+);
 
-  return sortNodes(roots);
-}
-
-function collectFilePathsFromTree(nodes: FileTreeNodeData[]): string[] {
-  const out: string[] = [];
-  for (const node of nodes) {
-    if (node.kind === "file") out.push(node.path);
-    else out.push(...collectFilePathsFromTree(node.children));
-  }
-  return out;
-}
-
-function ancestorFolderPathsForFile(relativePath: string): string[] {
-  const segments = relativePath.split("/").filter(Boolean);
-  if (segments.length <= 1) return [];
-  const out: string[] = [];
-  let acc = "";
-  for (let i = 0; i < segments.length - 1; i++) {
-    acc = acc ? `${acc}/${segments[i]}` : segments[i]!;
-    out.push(acc);
-  }
-  return out;
-}
-
-function ancestorFoldersForAllVisibleFiles(
-  nodes: FileTreeNodeData[],
-): string[] {
-  const folders = new Set<string>();
-  for (const filePath of collectFilePathsFromTree(nodes)) {
-    for (const a of ancestorFolderPathsForFile(filePath)) {
-      folders.add(a);
-    }
-  }
-  return [...folders];
-}
-
-function defaultExpandedFolders(files: FileSummary[]): Set<string> {
-  const next = new Set<string>();
-  for (const file of files) {
-    const firstSegment = file.relativePath.split("/").filter(Boolean)[0];
-    if (firstSegment) next.add(firstSegment);
-  }
-  return next;
-}
+// ─── Filtered file list for tree ─────────────────────────────────────────────
 
 const contentPathsForFilter = computed(() =>
   searchMode.value === "contents" ? contentMatchPaths.value : [],
 );
 
-/**
- * Filter `allFiles` to rows visible for the current query — O(n) in the number of summaries.
- * (Previous implementation scanned all files again for every directory row, which was O(n²).)
- */
 const summariesForTree = computed(() => {
   const files = allFiles.value;
   const q = debouncedQuery.value.trim();
@@ -395,10 +343,6 @@ const summariesForTree = computed(() => {
   });
 });
 
-const fileTree = computed(() => buildFileTree(summariesForTree.value));
-
-const visibleTree = computed(() => fileTree.value);
-
 const searchPlaceholder = computed(() =>
   searchMode.value === "contents"
     ? "Search files by name or contents…"
@@ -416,100 +360,80 @@ function onSearchModeRequest(next: string): void {
   searchMode.value = next;
 }
 
-function expandFoldersForVisibleMatches(): void {
-  const nextExpanded = new Set(expandedFolders.value);
-  for (const f of ancestorFoldersForAllVisibleFiles(visibleTree.value)) {
-    nextExpanded.add(f);
+// ─── @pierre/trees integration ───────────────────────────────────────────────
+
+const treeContainerRef = ref<HTMLDivElement | null>(null);
+let fileTreeInstance: FileTree | null = null;
+
+// Context menu state — populated on right-click from trees' focused item
+const ctxMenuPath = ref<string | null>(null);
+const ctxMenuIsFolder = ref<boolean | null>(null);
+
+function onTreeContextMenu(): void {
+  const item = fileTreeInstance?.getFocusedItem() ?? null;
+  if (item) {
+    ctxMenuPath.value = item.path;
+    ctxMenuIsFolder.value = item.isDirectory();
+  } else {
+    ctxMenuPath.value = null;
+    ctxMenuIsFolder.value = null;
   }
-  expandedFolders.value = nextExpanded;
 }
 
-/** On first non-empty debounced query, expand folders that lead to visible files. */
-watch(debouncedQuery, (next, prev) => {
-  if ((prev ?? "").trim().length > 0 || next.trim().length === 0) return;
-  expandFoldersForVisibleMatches();
+function mountFileTree(): void {
+  if (!treeContainerRef.value || fileTreeInstance) return;
+
+  fileTreeInstance = new FileTree({
+    density: "compact",
+    paths: summariesForTree.value.filter((f) => f.kind !== "directory").map((f) => f.relativePath),
+    onSelectionChange: (paths) => {
+      const p = paths[0];
+      if (p && !fileTreeInstance?.getItem(p)?.isDirectory()) handleSelectFile(p);
+    },
+  });
+
+  fileTreeInstance.render({ fileTreeContainer: treeContainerRef.value });
+
+  const sel = selectedPath.value;
+  if (sel) fileTreeInstance.focusPath(sel);
+}
+
+function getAncestorPaths(filePaths: string[]): string[] {
+  const ancestors = new Set<string>();
+  for (const p of filePaths) {
+    const parts = p.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      ancestors.add(parts.slice(0, i).join("/"));
+    }
+  }
+  return Array.from(ancestors);
+}
+
+watch(summariesForTree, (summaries) => {
+  const paths = summaries.filter((f) => f.kind !== "directory").map((f) => f.relativePath);
+  const isFiltered = !!debouncedQuery.value.trim();
+  const initialExpandedPaths = isFiltered ? getAncestorPaths(paths) : undefined;
+  fileTreeInstance?.resetPaths(paths, initialExpandedPaths ? { initialExpandedPaths } : undefined);
 });
 
-/** When full-text results arrive, expand folders along matching files. */
+watch(selectedPath, (path) => {
+  if (path && fileTreeInstance) {
+    fileTreeInstance.focusPath(path);
+  }
+});
+
+/** Expand folders for visible file paths after content search results arrive. */
 watch(
   contentMatchPaths,
   () => {
     if (searchMode.value !== "contents") return;
     if (!debouncedQuery.value.trim()) return;
-    expandFoldersForVisibleMatches();
+    // trees handles expansion internally when resetPaths is called
   },
   { flush: "post" },
 );
 
-watch(
-  [
-    () => debouncedQuery.value,
-    () => wtPath.value,
-    () => searchMode.value,
-  ],
-  async () => {
-    if (!wtPath.value) {
-      contentMatchPaths.value = [];
-      contentSearchError.value = null;
-      isContentSearching.value = false;
-      contentSearchSeq += 1;
-      return;
-    }
-
-    const q = debouncedQuery.value.trim();
-    if (!q) {
-      contentMatchPaths.value = [];
-      contentSearchError.value = null;
-      isContentSearching.value = false;
-      contentSearchSeq += 1;
-      return;
-    }
-
-    if (searchMode.value !== "contents") {
-      contentMatchPaths.value = [];
-      contentSearchError.value = null;
-      isContentSearching.value = false;
-      return;
-    }
-
-    const api = getApi();
-    const cwd = wtPath.value;
-    const seq = ++contentSearchSeq;
-    contentSearchError.value = null;
-    contentMatchPaths.value = [];
-    isContentSearching.value = true;
-
-    if (!api?.searchFileContents) {
-      contentMatchPaths.value = [];
-      contentSearchError.value =
-        "Full-text search is not available in this build.";
-      if (seq === contentSearchSeq) {
-        isContentSearching.value = false;
-      }
-      return;
-    }
-
-    try {
-      const paths = await api.searchFileContents(cwd, q);
-      if (seq !== contentSearchSeq || wtPath.value !== cwd) return;
-      contentMatchPaths.value = paths;
-    } catch (searchErr) {
-      if (seq !== contentSearchSeq || wtPath.value !== cwd) return;
-      contentMatchPaths.value = [];
-      contentSearchError.value =
-        searchErr instanceof Error
-          ? searchErr.message
-          : "Could not search file contents.";
-    } finally {
-      if (seq === contentSearchSeq) {
-        isContentSearching.value = false;
-      }
-    }
-  },
-  { flush: "post" },
-);
-
-
+// ─── Agent queue ──────────────────────────────────────────────────────────────
 
 async function onQueueTreeItemForAgent(payload: {
   kind: "file" | "folder";
@@ -520,11 +444,11 @@ async function onQueueTreeItemForAgent(payload: {
     toast.error("No active thread", "Select a thread before queuing context.");
     return;
   }
+  const svc = fileService.value;
   const cwd = wtPath.value;
-  if (!cwd) return;
-  const api = getApi();
-  if (!api?.listFiles) return;
-  const files = await api.listFiles(cwd);
+  if (!svc || !cwd) return;
+
+  const files = await svc.listFiles(cwd);
   if (payload.kind === "folder") {
     const listing = formatFolderListingFromFiles(payload.path, files);
     const capture: QueueCapture = {
@@ -540,12 +464,11 @@ async function onQueueTreeItemForAgent(payload: {
     });
     return;
   }
+
   let body = "";
   try {
-    if (api.readFile) {
-      body = await api.readFile(cwd, payload.path);
-      if (body.length > 8000) body = `${body.slice(0, 8000)}\n… (truncated)`;
-    }
+    body = await svc.readFile(cwd, payload.path);
+    if (body.length > 8000) body = `${body.slice(0, 8000)}\n… (truncated)`;
   } catch {
     body = "(could not read file)";
   }
@@ -563,6 +486,8 @@ async function onQueueTreeItemForAgent(payload: {
     meta: { filePath: payload.path },
   });
 }
+
+// ─── File / folder creation ───────────────────────────────────────────────────
 
 function normalizeNewFilePathInput(raw: string): string {
   return raw.trim().replace(/\\/g, "/").replace(/^\/+/, "");
@@ -606,9 +531,7 @@ function computeNewFolderDefaultValue(folderPathPrefix?: string): string {
 }
 
 function focusSelectNewEntryPathInput(): void {
-  const c = newEntryPathInputRef.value as unknown as {
-    $el?: unknown;
-  } | null;
+  const c = newEntryPathInputRef.value as unknown as { $el?: unknown } | null;
   const el = c?.$el;
   if (el instanceof HTMLInputElement) {
     el.focus();
@@ -617,9 +540,9 @@ function focusSelectNewEntryPathInput(): void {
 }
 
 async function openNewFileDialog(folderPathPrefix?: string): Promise<void> {
-  const api = getApi();
+  const svc = fileService.value;
   const cwd = wtPath.value;
-  if (!api || !cwd) return;
+  if (!svc || !cwd) return;
 
   newEntryPathDraft.value = computeNewFileDefaultValue(
     typeof folderPathPrefix === "string" ? folderPathPrefix : undefined,
@@ -631,9 +554,9 @@ async function openNewFileDialog(folderPathPrefix?: string): Promise<void> {
 }
 
 async function openNewFolderDialog(folderPathPrefix?: string): Promise<void> {
-  const api = getApi();
+  const svc = fileService.value;
   const cwd = wtPath.value;
-  if (!api?.createFolder || !cwd) return;
+  if (!svc?.createFolder || !cwd) return;
 
   newEntryPathDraft.value = computeNewFolderDefaultValue(
     typeof folderPathPrefix === "string" ? folderPathPrefix : undefined,
@@ -672,9 +595,9 @@ function navigateToExplorerFile(relativePath: string): void {
 
 async function submitNewEntry(): Promise<void> {
   const kind = newEntryDialogKind.value;
-  const api = getApi();
+  const svc = fileService.value;
   const cwd = wtPath.value;
-  if (!kind || !api || !cwd) return;
+  if (!kind || !svc || !cwd) return;
 
   if (kind === "file") {
     const normalized = normalizeNewFilePathInput(newEntryPathDraft.value);
@@ -687,10 +610,9 @@ async function submitNewEntry(): Promise<void> {
     error.value = null;
 
     try {
-      await api.createFile(cwd, normalized);
+      await svc.createFile(cwd, normalized);
       closeNewEntryDialog();
-      await loadFileSummaries();
-      expandAncestorFolders(normalized);
+      await queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
       const bridge = getExplorerEditorBridge();
       if (bridge && !(await bridge.confirmDiscardIfDirty())) return;
       navigateToExplorerFile(normalized);
@@ -703,7 +625,7 @@ async function submitNewEntry(): Promise<void> {
     return;
   }
 
-  if (!api.createFolder) return;
+  if (!svc.createFolder) return;
 
   const normalized = normalizeNewFilePathInput(newEntryPathDraft.value).replace(
     /\/+$/,
@@ -718,29 +640,15 @@ async function submitNewEntry(): Promise<void> {
   error.value = null;
 
   try {
-    await api.createFolder(cwd, normalized);
+    await svc.createFolder(cwd, normalized);
     closeNewEntryDialog();
-    await loadFileSummaries();
-    expandAncestorFolders(normalized);
+    await queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
   } catch (createError) {
     error.value =
       createError instanceof Error
         ? createError.message
         : "Could not create the folder.";
   }
-}
-
-function expandAncestorFolders(relativePath: string): void {
-  const segments = relativePath.split("/").filter(Boolean);
-  if (segments.length <= 1) return;
-
-  const next = new Set(expandedFolders.value);
-  let acc = "";
-  for (let i = 0; i < segments.length - 1; i++) {
-    acc = acc ? `${acc}/${segments[i]}` : segments[i]!;
-    next.add(acc);
-  }
-  expandedFolders.value = next;
 }
 
 function onGlobalKeydown(e: KeyboardEvent): void {
@@ -757,34 +665,30 @@ function onGlobalKeydown(e: KeyboardEvent): void {
 }
 
 async function handleAddFile(folderPathPrefix?: string): Promise<void> {
-  const folderPrefix =
-    typeof folderPathPrefix === "string" ? folderPathPrefix : undefined;
-  await openNewFileDialog(folderPrefix);
+  await openNewFileDialog(
+    typeof folderPathPrefix === "string" ? folderPathPrefix : undefined,
+  );
 }
 
 async function handleAddFolder(folderPathPrefix?: string): Promise<void> {
-  const folderPrefix =
-    typeof folderPathPrefix === "string" ? folderPathPrefix : undefined;
-  await openNewFolderDialog(folderPrefix);
+  await openNewFolderDialog(
+    typeof folderPathPrefix === "string" ? folderPathPrefix : undefined,
+  );
 }
 
-function pathIsUnderOrEqualFolder(
-  parentRel: string,
-  childRel: string,
-): boolean {
+function pathIsUnderOrEqualFolder(parentRel: string, childRel: string): boolean {
   const p = parentRel.replace(/\/+$/, "");
   const c = childRel.replace(/\/+$/, "");
   return c === p || c.startsWith(`${p}/`);
 }
 
 async function deleteFolderAtPath(relativePath: string): Promise<void> {
-  const api = getApi();
+  const svc = fileService.value;
   const cwd = wtPath.value;
-  if (!api?.deleteFolder || !cwd) return;
+  if (!svc?.deleteFolder || !cwd) return;
 
   const bridge = getExplorerEditorBridge();
-  const loseEdits =
-    bridge?.isOpenFileDirtyUnderFolder(relativePath) ?? false;
+  const loseEdits = bridge?.isOpenFileDirtyUnderFolder(relativePath) ?? false;
   if (
     !(await requestConfirmation({
       title: `Delete folder ${relativePath} and its contents?`,
@@ -801,9 +705,9 @@ async function deleteFolderAtPath(relativePath: string): Promise<void> {
   error.value = null;
 
   try {
-    await api.deleteFolder(cwd, relativePath);
+    await svc.deleteFolder(cwd, relativePath);
     bridge?.pruneTabsUnderFolder(relativePath);
-    await loadFileSummaries();
+    await queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
     const openRel = normalizeExplorerFilenameParam(route.params.filename);
     const p = explorerNavParams();
     if (openRel && pathIsUnderOrEqualFolder(relativePath, openRel) && p) {
@@ -825,9 +729,9 @@ async function deleteFolderAtPath(relativePath: string): Promise<void> {
 }
 
 async function deleteFileAtPath(relativePath: string): Promise<void> {
-  const api = getApi();
+  const svc = fileService.value;
   const cwd = wtPath.value;
-  if (!api || !cwd) return;
+  if (!svc || !cwd) return;
 
   const openRel = normalizeExplorerFilenameParam(route.params.filename);
   const isOpen = openRel === relativePath;
@@ -849,9 +753,9 @@ async function deleteFileAtPath(relativePath: string): Promise<void> {
   error.value = null;
 
   try {
-    await api.deleteFile(cwd, relativePath);
+    await svc.deleteFile(cwd, relativePath);
     getExplorerEditorBridge()?.closeTabForDeletedFile(relativePath);
-    await loadFileSummaries();
+    await queryClient.invalidateQueries({ queryKey: ["explorer", "files", cwd] });
   } catch (deleteError) {
     error.value =
       deleteError instanceof Error
@@ -860,74 +764,13 @@ async function deleteFileAtPath(relativePath: string): Promise<void> {
   }
 }
 
-async function onCtxAddFile(folderPath?: string): Promise<void> {
-  await handleAddFile(folderPath);
-}
-
-async function onCtxAddFolder(folderPath?: string): Promise<void> {
-  await handleAddFolder(folderPath);
-}
-
-async function onCtxDeleteFolder(folderPath: string): Promise<void> {
-  await deleteFolderAtPath(folderPath);
-}
-
-async function onCtxDeleteFile(filePath: string): Promise<void> {
-  await deleteFileAtPath(filePath);
-}
-
-async function loadFileSummaries(silent = false): Promise<void> {
-  const api = getApi();
-  const cwd = wtPath.value;
-  if (!api || !cwd) {
-    allFiles.value = [];
-    isSearching.value = false;
-    return;
-  }
-
-  const seq = ++fileSummariesSeq;
-  if (!silent) isSearching.value = true;
-  error.value = null;
-
-  try {
-    const files = await api.listFiles(cwd);
-    if (seq !== fileSummariesSeq || wtPath.value !== cwd) return;
-    allFiles.value = files;
-    if (expandedFolders.value.size === 0) {
-      expandedFolders.value = defaultExpandedFolders(files);
-    }
-  } catch (searchError) {
-    if (seq !== fileSummariesSeq || wtPath.value !== cwd) return;
-    allFiles.value = [];
-    expandedFolders.value = new Set();
-    error.value =
-      searchError instanceof Error
-        ? searchError.message
-        : "Could not load files.";
-  } finally {
-    if (seq === fileSummariesSeq) {
-      isSearching.value = false;
-    }
-  }
-}
-
-function handleToggleFolder(path: string): void {
-  const next = new Set(expandedFolders.value);
-  if (next.has(path)) next.delete(path);
-  else next.add(path);
-  expandedFolders.value = next;
-}
+// ─── Selection & navigation ───────────────────────────────────────────────────
 
 function handleSelectFile(relativePath: string): void {
   navigateToExplorerFile(relativePath);
 }
 
-function invalidateSidebarForWorktreeChange(): void {
-  fileSummariesSeq += 1;
-  contentSearchSeq += 1;
-  isSearching.value = false;
-  isContentSearching.value = false;
-}
+// ─── Worktree change ──────────────────────────────────────────────────────────
 
 watch(
   () => [wtId.value ?? null, wtPath.value] as const,
@@ -935,13 +778,11 @@ watch(
     const [previousWtId, previousPath] = previousValue ?? [null, null];
     if (nextWtId === previousWtId && nextPath === previousPath) return;
 
-    invalidateSidebarForWorktreeChange();
+    contentSearchSeq += 1;
     query.value = "";
     debouncedQuery.value = "";
-    allFiles.value = [];
     contentMatchPaths.value = [];
     contentSearchError.value = null;
-    expandedFolders.value = new Set();
     error.value = null;
     closeNewEntryDialog();
 
@@ -950,12 +791,14 @@ watch(
       return;
     }
 
-    await loadFileSummaries();
+    await queryClient.invalidateQueries({ queryKey: ["explorer", "files", nextPath] });
     worktreeEpoch.value += 1;
     void focusSearchInput();
   },
   { immediate: true },
 );
+
+// ─── Sidebar controls ─────────────────────────────────────────────────────────
 
 async function focusSearchInput(): Promise<void> {
   await nextTick();
@@ -978,6 +821,8 @@ async function expandSidebar(): Promise<void> {
   sidebarCollapsed.value = false;
   await focusSearchInput();
 }
+
+// ─── Confirmation dialog ──────────────────────────────────────────────────────
 
 function requestConfirmation(
   options: Omit<ConfirmActionState, "resolve">,
@@ -1003,34 +848,52 @@ async function confirmContextSwitch(
   return bridge.confirmDiscardIfDirty();
 }
 
+// ─── Shell context ────────────────────────────────────────────────────────────
+
 const shell: ExplorerShell = {
   wtPath,
   wtId,
-  allFiles,
+  allFiles: allFiles as unknown as import("vue").Ref<FileSummary[]>,
   sidebarCollapsed,
   expandSidebar,
   focusSearchInput,
   requestConfirmation,
   worktreeEpoch,
-  reloadFileSummaries: () => loadFileSummaries(true),
+  reloadFileSummaries: async () => {
+    if (wtPath.value) {
+      await queryClient.invalidateQueries({ queryKey: ["explorer", "files", wtPath.value] });
+    }
+  },
 };
 
 provide(explorerShellKey, shell);
 
+// ─── Lifecycle ────────────────────────────────────────────────────────────────
+
+let disposeWorkspaceChanged: (() => void) | null = null;
+let disposeWorkingTreeFilesChanged: (() => void) | null = null;
+
 onMounted(() => {
   void focusSearchInput();
-  const api = getApi();
-  if (api?.onWorkspaceChanged) {
-    disposeWorkspaceChanged = api.onWorkspaceChanged(() => {
-      void loadFileSummaries(true);
+
+  const svc = fileService.value;
+  if (svc?.onWorkspaceChanged) {
+    disposeWorkspaceChanged = svc.onWorkspaceChanged(() => {
+      if (wtPath.value) {
+        void queryClient.invalidateQueries({ queryKey: ["explorer", "files", wtPath.value] });
+      }
     });
   }
-  if (api?.onWorkingTreeFilesChanged) {
-    disposeWorkingTreeFilesChanged = api.onWorkingTreeFilesChanged(() => {
-      void loadFileSummaries(true);
+  if (svc?.onWorkingTreeFilesChanged) {
+    disposeWorkingTreeFilesChanged = svc.onWorkingTreeFilesChanged(() => {
+      if (wtPath.value) {
+        void queryClient.invalidateQueries({ queryKey: ["explorer", "files", wtPath.value] });
+      }
     });
   }
+
   document.addEventListener("keydown", onGlobalKeydown);
+  mountFileTree();
 });
 
 onUnmounted(() => {
@@ -1039,6 +902,8 @@ onUnmounted(() => {
   disposeWorkingTreeFilesChanged?.();
   disposeWorkingTreeFilesChanged = null;
   document.removeEventListener("keydown", onGlobalKeydown);
+  fileTreeInstance?.cleanUp();
+  fileTreeInstance = null;
 });
 
 defineExpose({
@@ -1047,342 +912,386 @@ defineExpose({
   },
   expandSidebar,
   refreshFileExplorer: (): void => {
-    void loadFileSummaries();
+    if (wtPath.value) {
+      void queryClient.invalidateQueries({ queryKey: ["explorer", "files", wtPath.value] });
+    }
   },
   confirmContextSwitch,
   openWorkspaceFile: handleSelectFile,
 });
-
 </script>
 
 <template>
   <div class="flex min-h-0 min-w-0 flex-1 flex-row w-full">
     <template v-if="wtPath">
       <SidebarProvider
-      class="flex-1 w-full"
-    v-model:open="explorerSidebarOpen"
-    sidebar-scope="fileExplorer"
-    :persist-cookie="false"    
-    :keyboard-shortcut="false"
-  >
-    <Sidebar
-      id="file-search-sidebar"
-      sidebar-scope="fileExplorer"
-      layout="nested"
-      class="border-e"
-    >
-      <SidebarHeader data-testid="file-search-header" class="gap-1">
-        <div class="relative min-w-0">
-          <Search
-            class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <SidebarInput
-            id="file-search"
-            ref="searchInput"
-            v-model="query"
-            data-testid="file-search-input"
-            type="search"
-            autocomplete="off"
-            :placeholder="searchPlaceholder"
-            class="ps-8 bg-background"
-            :disabled="!hasWorkspace"
-          />
-        </div>
-        <div
-          class="flex min-w-0 items-center gap-1 overflow-x-auto"
-          role="group"
-          aria-label="Search scope and file explorer actions"
-        >
-          <PillTabs
-            data-testid="file-search-scope"
-            :model-value="searchMode"
-            size="xs"
-            aria-label="Search scope"
-            :tabs="searchModeTabs"
-            @update:model-value="onSearchModeRequest"
-          />
-          <div
-            class="ms-auto flex items-center gap-1"
-            role="toolbar"
-            aria-label="File explorer actions"
-          >
-            <Button
-              data-testid="refresh-file-explorer"
-              variant="outline"
-              size="icon-sm"
-              :disabled="!hasWorkspace || isSearching"
-              title="Refresh file explorer"
-              @click="loadFileSummaries"
-            >
-              <RefreshCw aria-hidden="true" />
-              <span class="sr-only">Refresh file explorer</span>
-            </Button>
-            <Button
-              data-testid="add-file"
-              variant="outline"
-              size="icon-sm"
-              :disabled="!hasWorkspace"
-              title="Add file"
-              @click="handleAddFile()"
-            >
-              <FilePlus aria-hidden="true" />
-              <span class="sr-only">Add file</span>
-            </Button>
-            <Button
-              data-testid="add-folder"
-              variant="outline"
-              size="icon-sm"
-              :disabled="!hasWorkspace"
-              title="Add folder"
-              @click="handleAddFolder()"
-            >
-              <FolderPlus aria-hidden="true" />
-              <span class="sr-only">Add folder</span>
-            </Button>
-            <Button
-              data-testid="file-search-sidebar-collapse"
-              variant="outline"
-              size="icon-sm"
-              title="Hide file explorer"
-              @click="collapseSidebar()"
-            >
-              <PanelLeftOpen aria-hidden="true" />
-              <span class="sr-only">Hide file explorer</span>
-            </Button>
-          </div>
-        </div>
-      </SidebarHeader>
-      <SidebarContent>        
-          <ContextMenu>
-            <ContextMenuTrigger as-child>
-              <div
-                data-testid="file-tree-scroll"
-                class="min-h-0 flex-1 overflow-auto px-2 py-2"
-              >
-                <p
-                  v-if="!hasWorkspace"
-                  class="px-2 text-xs text-muted-foreground"
-                >
-                  Open a workspace to search and edit files.
-                </p>
-                <div
-                  v-else-if="isSearching"
-                  class="min-h-24 px-2 py-1"
-                >
-                  <CursorLoading class="min-h-24 w-full" />
-                </div>
-                <p v-else-if="error" class="px-2 text-xs text-destructive">
-                  {{ error }}
-                </p>
-                <p
-                  v-else-if="debouncedQuery.trim() && contentSearchError"
-                  class="px-2 text-xs text-destructive"
-                >
-                  {{ contentSearchError }}
-                </p>
-                <div
-                  v-else-if="
-                    debouncedQuery.trim() &&
-                    isContentSearching &&
-                    visibleTree.length === 0
-                  "
-                  class="min-h-24 px-2 py-1"
-                >
-                  <CursorLoading class="min-h-24 w-full" />
-                </div>
-                <p
-                  v-else-if="visibleTree.length === 0"
-                  class="px-2 text-xs text-muted-foreground"
-                >
-                  No matching files.
-                </p>
-                <ul v-else class="space-y-0.5 text-xs">
-                  <FileTreeNode
-                    v-for="node in visibleTree"
-                    :key="node.path"
-                    :node="node"
-                    :selected-path="selectedPath"
-                    :expanded-folders="expandedFolders"
-                    @toggle-folder="handleToggleFolder"
-                    @select-file="handleSelectFile"
-                    @add-file="onCtxAddFile"
-                    @add-folder="onCtxAddFolder"
-                    @delete-folder="onCtxDeleteFolder"
-                    @delete-file="onCtxDeleteFile"
-                    @queue-for-agent="onQueueTreeItemForAgent"
-                  />
-                </ul>
-              </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent
-              data-testid="file-tree-context-menu"
-              class="min-w-44"
-            >
-              <ContextMenuItem
-                data-testid="ctx-add-file"
-                @select="onCtxAddFile()"
-              >
-                Add file…
-              </ContextMenuItem>
-              <ContextMenuItem
-                data-testid="ctx-add-folder"
-                @select="onCtxAddFolder()"
-              >
-                Add folder…
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>        
-      </SidebarContent>
-    </Sidebar>
-    <SidebarInset class="flex-1 w-full">
-      <RouterView
-        v-slot="{ Component }"
+        class="flex-1 w-full"
+        v-model:open="explorerSidebarOpen"
+        sidebar-scope="fileExplorer"
+        :persist-cookie="false"
+        :keyboard-shortcut="false"
       >
-        <component
-          :is="Component"
-          :show-thread-sidebar-expand="showThreadSidebarExpand"
-          @expand-thread-sidebar="emit('expandThreadSidebar')"
-        />
-      </RouterView>
-    </SidebarInset>
-  </SidebarProvider>
+        <Sidebar
+          id="file-search-sidebar"
+          sidebar-scope="fileExplorer"
+          layout="nested"
+          class="border-e"
+        >
+          <SidebarHeader data-testid="file-search-header" class="gap-1">
+            <div class="relative min-w-0">
+              <Search
+                class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <SidebarInput
+                id="file-search"
+                ref="searchInput"
+                v-model="query"
+                data-testid="file-search-input"
+                type="search"
+                autocomplete="off"
+                :placeholder="searchPlaceholder"
+                class="ps-8 bg-background"
+                :disabled="!hasWorkspace"
+              />
+            </div>
+            <div
+              class="flex min-w-0 items-center gap-1 overflow-x-auto"
+              role="group"
+              aria-label="Search scope and file explorer actions"
+            >
+              <PillTabs
+                data-testid="file-search-scope"
+                :model-value="searchMode"
+                size="xs"
+                aria-label="Search scope"
+                :tabs="searchModeTabs"
+                @update:model-value="onSearchModeRequest"
+              />
+              <div
+                class="ms-auto flex items-center gap-1"
+                role="toolbar"
+                aria-label="File explorer actions"
+              >
+                <Button
+                  data-testid="refresh-file-explorer"
+                  variant="outline"
+                  size="icon-sm"
+                  :disabled="!hasWorkspace || isSearching"
+                  title="Refresh file explorer"
+                  @click="() => wtPath && queryClient.invalidateQueries({ queryKey: ['explorer', 'files', wtPath] })"
+                >
+                  <RefreshCw aria-hidden="true" />
+                  <span class="sr-only">Refresh file explorer</span>
+                </Button>
+                <Button
+                  data-testid="add-file"
+                  variant="outline"
+                  size="icon-sm"
+                  :disabled="!hasWorkspace"
+                  title="Add file"
+                  @click="handleAddFile()"
+                >
+                  <FilePlus aria-hidden="true" />
+                  <span class="sr-only">Add file</span>
+                </Button>
+                <Button
+                  data-testid="add-folder"
+                  variant="outline"
+                  size="icon-sm"
+                  :disabled="!hasWorkspace"
+                  title="Add folder"
+                  @click="handleAddFolder()"
+                >
+                  <FolderPlus aria-hidden="true" />
+                  <span class="sr-only">Add folder</span>
+                </Button>
+                <Button
+                  data-testid="file-search-sidebar-collapse"
+                  variant="outline"
+                  size="icon-sm"
+                  title="Hide file explorer"
+                  @click="collapseSidebar()"
+                >
+                  <PanelLeftOpen aria-hidden="true" />
+                  <span class="sr-only">Hide file explorer</span>
+                </Button>
+              </div>
+            </div>
+          </SidebarHeader>
+          <SidebarContent class="p-0">
+            <ContextMenu>
+              <ContextMenuTrigger as-child>
+                <div
+                  data-testid="file-tree-scroll"
+                  class="min-h-0 flex-1 overflow-auto px-2 py-2"
+                  @contextmenu="onTreeContextMenu"
+                >
+                  <p
+                    v-if="!hasWorkspace"
+                    class="px-2 text-xs text-muted-foreground"
+                  >
+                    Open a workspace to search and edit files.
+                  </p>
+                  <div
+                    v-else-if="isSearching && allFiles.length === 0"
+                    class="min-h-24 px-2 py-1"
+                  >
+                    <CursorLoading class="min-h-24 w-full" />
+                  </div>
+                  <p v-else-if="error" class="px-2 text-xs text-destructive">
+                    {{ error }}
+                  </p>
+                  <p
+                    v-else-if="debouncedQuery.trim() && contentSearchError"
+                    class="px-2 text-xs text-destructive"
+                  >
+                    {{ contentSearchError }}
+                  </p>
+                  <div
+                    v-else-if="
+                      debouncedQuery.trim() &&
+                      isContentSearching &&
+                      summariesForTree.length === 0
+                    "
+                    class="min-h-24 px-2 py-1"
+                  >
+                    <CursorLoading class="min-h-24 w-full" />
+                  </div>
+                  <p
+                    v-else-if="summariesForTree.length === 0"
+                    class="px-2 text-xs text-muted-foreground"
+                  >
+                    No matching files.
+                  </p>
+                  <!-- trees mounts into this container -->
+                  <div
+                    ref="treeContainerRef"
+                    class="w-full trees-shadcn p-0"
+                    :class="{ hidden: summariesForTree.length === 0 || isSearching && allFiles.length === 0 || !!error }"
+                  />
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent
+                data-testid="file-tree-context-menu"
+                class="min-w-44"
+              >
+                <template v-if="ctxMenuPath !== null">
+                  <!-- Folder context menu -->
+                  <template v-if="ctxMenuIsFolder">
+                    <ContextMenuItem
+                      data-testid="ctx-add-file"
+                      class="text-xs"
+                      @select="handleAddFile(ctxMenuPath!)"
+                    >
+                      Add file…
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      data-testid="ctx-add-folder"
+                      class="text-xs"
+                      @select="handleAddFolder(ctxMenuPath!)"
+                    >
+                      Add folder…
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      data-testid="ctx-delete-folder"
+                      variant="destructive"
+                      class="text-xs"
+                      @select="deleteFolderAtPath(ctxMenuPath!)"
+                    >
+                      Delete folder
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      data-testid="ctx-queue-folder"
+                      class="text-xs"
+                      @select="onQueueTreeItemForAgent({ kind: 'folder', path: ctxMenuPath! })"
+                    >
+                      Queue folder for agent
+                    </ContextMenuItem>
+                  </template>
+                  <!-- File context menu -->
+                  <template v-else>
+                    <ContextMenuItem
+                      data-testid="ctx-delete-file"
+                      variant="destructive"
+                      class="text-xs"
+                      @select="deleteFileAtPath(ctxMenuPath!)"
+                    >
+                      Delete file
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      data-testid="ctx-queue-file"
+                      class="text-xs"
+                      @select="onQueueTreeItemForAgent({ kind: 'file', path: ctxMenuPath! })"
+                    >
+                      Queue file for agent
+                    </ContextMenuItem>
+                  </template>
+                </template>
+                <!-- Root-level right-click -->
+                <template v-else>
+                  <ContextMenuItem
+                    data-testid="ctx-add-file"
+                    @select="handleAddFile()"
+                  >
+                    Add file…
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    data-testid="ctx-add-folder"
+                    @select="handleAddFolder()"
+                  >
+                    Add folder…
+                  </ContextMenuItem>
+                </template>
+              </ContextMenuContent>
+            </ContextMenu>
+          </SidebarContent>
+        </Sidebar>
+        <SidebarInset class="flex-1 w-full">
+          <RouterView v-slot="{ Component }">
+            <component
+              :is="Component"
+              :show-thread-sidebar-expand="showThreadSidebarExpand"
+              @expand-thread-sidebar="emit('expandThreadSidebar')"
+            />
+          </RouterView>
+        </SidebarInset>
+      </SidebarProvider>
 
-  <Dialog
-    :open="newEntryDialogKind !== null"
-    @update:open="(open) => (!open ? closeNewEntryDialog() : undefined)"
-  >
-    <DialogContent
-      :data-testid="
-        newEntryDialogKind === 'folder'
-          ? 'new-folder-dialog'
-          : 'new-file-dialog'
-      "
-      class="sm:max-w-md"
-    >
-      <DialogHeader>
-        <DialogTitle
-          :id="
+      <Dialog
+        :open="newEntryDialogKind !== null"
+        @update:open="(open) => (!open ? closeNewEntryDialog() : undefined)"
+      >
+        <DialogContent
+          :data-testid="
             newEntryDialogKind === 'folder'
-              ? 'new-folder-dialog-title'
-              : 'new-file-dialog-title'
+              ? 'new-folder-dialog'
+              : 'new-file-dialog'
           "
+          class="sm:max-w-md"
         >
-          {{ newEntryDialogKind === "folder" ? "New folder" : "New file" }}
-        </DialogTitle>
-        <DialogDescription v-if="newEntryDialogKind === 'file'" class="text-xs">
-          Path relative to the workspace (use
-          <span class="font-mono">/</span> for folders).
-        </DialogDescription>
-        <DialogDescription
-          v-else-if="newEntryDialogKind === 'folder'"
-          class="text-xs"
-        >
-          Path relative to the workspace (nested folders are created as needed).
-        </DialogDescription>
-      </DialogHeader>
-      <form class="space-y-3" @submit.prevent="submitNewEntry">
-        <div>
-          <label :for="newEntryPathInputId" class="sr-only">
-            {{ newEntryDialogKind === "folder" ? "Folder path" : "File path" }}
-          </label>
-          <Input
-            :id="newEntryPathInputId"
-            ref="newEntryPathInputRef"
-            v-model="newEntryPathDraft"
-            :data-testid="
-              newEntryDialogKind === 'folder'
-                ? 'new-folder-path-input'
-                : 'new-file-path-input'
-            "
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            class="h-9 w-full rounded-md px-2.5 text-xs focus-visible:ring-2"
-            :placeholder="
-              newEntryDialogKind === 'folder'
-                ? 'e.g. src/components/MyFolder'
-                : 'e.g. src/components/MyFile.ts'
-            "
-          />
-          <p
-            v-if="newEntryDialogFieldError"
-            :data-testid="
-              newEntryDialogKind === 'folder'
-                ? 'new-folder-dialog-error'
-                : 'new-file-dialog-error'
-            "
-            class="mt-1.5 text-xs text-destructive"
-          >
-            {{ newEntryDialogFieldError }}
-          </p>
-        </div>
-        <DialogFooter>
-          <Button
-            type="button"
-            :data-testid="
-              newEntryDialogKind === 'folder'
-                ? 'new-folder-cancel'
-                : 'new-file-cancel'
-            "
-            variant="outline"
-            @click="closeNewEntryDialog"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            :data-testid="
-              newEntryDialogKind === 'folder'
-                ? 'new-folder-confirm'
-                : 'new-file-confirm'
-            "
-            variant="default"
-          >
-            Create
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  </Dialog>
+          <DialogHeader>
+            <DialogTitle
+              :id="
+                newEntryDialogKind === 'folder'
+                  ? 'new-folder-dialog-title'
+                  : 'new-file-dialog-title'
+              "
+            >
+              {{ newEntryDialogKind === "folder" ? "New folder" : "New file" }}
+            </DialogTitle>
+            <DialogDescription v-if="newEntryDialogKind === 'file'" class="text-xs">
+              Path relative to the workspace (use
+              <span class="font-mono">/</span> for folders).
+            </DialogDescription>
+            <DialogDescription
+              v-else-if="newEntryDialogKind === 'folder'"
+              class="text-xs"
+            >
+              Path relative to the workspace (nested folders are created as needed).
+            </DialogDescription>
+          </DialogHeader>
+          <form class="space-y-3" @submit.prevent="submitNewEntry">
+            <div>
+              <label :for="newEntryPathInputId" class="sr-only">
+                {{ newEntryDialogKind === "folder" ? "Folder path" : "File path" }}
+              </label>
+              <Input
+                :id="newEntryPathInputId"
+                ref="newEntryPathInputRef"
+                v-model="newEntryPathDraft"
+                :data-testid="
+                  newEntryDialogKind === 'folder'
+                    ? 'new-folder-path-input'
+                    : 'new-file-path-input'
+                "
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                class="h-9 w-full rounded-md px-2.5 text-xs focus-visible:ring-2"
+                :placeholder="
+                  newEntryDialogKind === 'folder'
+                    ? 'e.g. src/components/MyFolder'
+                    : 'e.g. src/components/MyFile.ts'
+                "
+              />
+              <p
+                v-if="newEntryDialogFieldError"
+                :data-testid="
+                  newEntryDialogKind === 'folder'
+                    ? 'new-folder-dialog-error'
+                    : 'new-file-dialog-error'
+                "
+                class="mt-1.5 text-xs text-destructive"
+              >
+                {{ newEntryDialogFieldError }}
+              </p>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                :data-testid="
+                  newEntryDialogKind === 'folder'
+                    ? 'new-folder-cancel'
+                    : 'new-file-cancel'
+                "
+                variant="outline"
+                @click="closeNewEntryDialog"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                :data-testid="
+                  newEntryDialogKind === 'folder'
+                    ? 'new-folder-confirm'
+                    : 'new-file-confirm'
+                "
+                variant="default"
+              >
+                Create
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-  <AlertDialog :open="confirmAction !== null">
-    <AlertDialogContent data-testid="confirm-action-dialog">
-      <AlertDialogHeader>
-        <AlertDialogTitle>{{ confirmAction?.title }}</AlertDialogTitle>
-        <AlertDialogDescription>{{
-          confirmAction?.description
-        }}</AlertDialogDescription>
-      </AlertDialogHeader>
-      <AlertDialogFooter>
-        <AlertDialogCancel as-child>
-          <Button
-            type="button"
-            variant="outline"
-            data-testid="confirm-action-cancel"
-            @click="settleConfirmation(false)"
-          >
-            Cancel
-          </Button>
-        </AlertDialogCancel>
-        <AlertDialogAction as-child>
-          <Button
-            type="button"
-            :variant="
-              confirmAction?.variant === 'destructive'
-                ? 'destructive'
-                : 'default'
-            "
-            data-testid="confirm-action-confirm"
-            @click="settleConfirmation(true)"
-          >
-            {{ confirmAction?.confirmLabel ?? "Continue" }}
-          </Button>
-        </AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
-
+      <AlertDialog :open="confirmAction !== null">
+        <AlertDialogContent data-testid="confirm-action-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{{ confirmAction?.title }}</AlertDialogTitle>
+            <AlertDialogDescription>{{
+              confirmAction?.description
+            }}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel as-child>
+              <Button
+                type="button"
+                variant="outline"
+                data-testid="confirm-action-cancel"
+                @click="settleConfirmation(false)"
+              >
+                Cancel
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction as-child>
+              <Button
+                type="button"
+                :variant="
+                  confirmAction?.variant === 'destructive'
+                    ? 'destructive'
+                    : 'default'
+                "
+                data-testid="confirm-action-confirm"
+                @click="settleConfirmation(true)"
+              >
+                {{ confirmAction?.confirmLabel ?? "Continue" }}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </template>
     <div
       v-else
@@ -1392,3 +1301,21 @@ defineExpose({
     </div>
   </div>
 </template>
+
+<style>
+.trees-shadcn {
+  --trees-padding-inline-override: 0px;
+  --trees-bg-override: var(--background);
+  --trees-fg-override: var(--sidebar-foreground);
+  --trees-fg-muted-override: var(--muted-foreground);
+  --trees-bg-muted-override: var(--muted);
+  --trees-border-color-override: var(--border);
+  --trees-selected-bg-override: var(--accent);
+  --trees-selected-fg-override: var(--accent-foreground);
+  --trees-search-bg-override: var(--input);
+  --trees-search-fg-override: var(--sidebar-foreground);
+  --trees-focus-ring-color-override: var(--ring);
+  --trees-scrollbar-thumb-override: var(--border);
+  --trees-border-radius-override: var(--radius-sm);
+}
+</style>

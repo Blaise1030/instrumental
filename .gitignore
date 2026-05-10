@@ -37,3 +37,8 @@ coverage/
 .worktrees
 worktrees
 lQa9ysQrxO3pt8j7t5Qwc/
+eK3S7gskYiGRv1Ztt6Tvp/
+
+# Hook/store test scratch directories
+instrument-hook-test-*/
+instrument-store-*/

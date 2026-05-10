@@ -58,7 +58,8 @@ const commandSearchText = computed(() =>
 );
 
 const commandShortcutHints = computed(() => ({
-  "toggle-thread-sidebar": keybindings.shortcutLabelForId("toggleThreadSidebar")
+  "toggle-thread-sidebar": keybindings.shortcutLabelForId("toggleThreadSidebar"),
+  "open-settings": keybindings.shortcutLabelForId("openSettings")
 }));
 
 const rows = computed<LauncherRow[]>(() => {

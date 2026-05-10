@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
 import { buildThreadCreatePromptWithAttachmentBlocks } from "@/modules/agent/utils/threadCreatePromptAssembly";
@@ -29,33 +29,37 @@ const terminalRef = ref<InstanceType<typeof TerminalPane> | null>(null);
 
 useThreadMessageDraft(threadId, prompt);
 
-onMounted(async () => {
-  const tid = threadId.value;
-  if (!tid) return;
+watch(
+  threadId,
+  async (tid) => {
+    pendingBootstrap.value = null;
+    if (!tid) return;
 
-  const pendingCreateBootstrap = takePendingAgentBootstrapForThread(tid);
-  if (pendingCreateBootstrap?.command.trim()) {
-    pendingBootstrap.value = pendingCreateBootstrap;
-    return;
-  }
+    const pendingCreateBootstrap = takePendingAgentBootstrapForThread(tid);
+    if (pendingCreateBootstrap?.command.trim()) {
+      pendingBootstrap.value = pendingCreateBootstrap;
+      return;
+    }
 
-  const workspaceService = appContext.value?.workspaceService;
-  if (!workspaceService) return;
+    const workspaceService = appContext.value?.workspaceService;
+    if (!workspaceService) return;
 
-  const snapshot = await workspaceService.getSnapshot();
-  const thread = snapshot.threads.find((t) => t.id === tid);
-  if (!thread) return;
+    const snapshot = await workspaceService.getSnapshot();
+    const thread = snapshot.threads.find((t) => t.id === tid);
+    if (!thread) return;
 
-  const session = snapshot.threadSessions.find((s) => s.threadId === tid);
-  if (!session?.resumeId || !isValidPersistedResumeId(session.resumeId)) return;
+    const session = snapshot.threadSessions.find((s) => s.threadId === tid);
+    if (!session?.resumeId || !isValidPersistedResumeId(session.resumeId)) return;
 
-  const resumeCmd = threadAgentResumeCommandLine(
-    bootstrapCommandFor(thread.agent),
-    thread.agent,
-    session.resumeId,
-  );
-  pendingBootstrap.value = { threadId: tid, command: resumeCmd, mode: "resume" };
-});
+    const resumeCmd = threadAgentResumeCommandLine(
+      bootstrapCommandFor(thread.agent),
+      thread.agent,
+      session.resumeId,
+    );
+    pendingBootstrap.value = { threadId: tid, command: resumeCmd, mode: "resume" };
+  },
+  { immediate: true }
+);
 
 function onBootstrapConsumed(): void {
   pendingBootstrap.value = null;

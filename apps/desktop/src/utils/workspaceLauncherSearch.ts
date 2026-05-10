@@ -39,7 +39,7 @@ export type LauncherSectionId =
   | "agents"
   | "files";
 
-export const LAUNCHER_COMMAND_IDS = ["toggle-thread-sidebar"] as const;
+export const LAUNCHER_COMMAND_IDS = ["toggle-thread-sidebar", "open-settings"] as const;
 export type LauncherCommandId = (typeof LAUNCHER_COMMAND_IDS)[number];
 
 type CommandDoc = { id: LauncherCommandId; label: string; keywords: string };
@@ -49,6 +49,11 @@ const COMMAND_DOCS: readonly CommandDoc[] = [
     id: "toggle-thread-sidebar",
     label: "Toggle threads sidebar",
     keywords: "sidebar threads collapse expand panel rail narrow strip icons hide show"
+  },
+  {
+    id: "open-settings",
+    label: "Open settings",
+    keywords: "preferences workspace configure agents terminal keyboard shortcuts"
   }
 ];
 

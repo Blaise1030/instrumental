@@ -219,4 +219,20 @@ describe("TerminalPane", () => {
     expect(ptyWrite).toHaveBeenCalledWith("thread-1", "fix the bug\nplease");
     expect(ptyWrite).toHaveBeenCalledWith("thread-1", "\r");
   });
+
+  it("injectScript writes each non-empty line with Enter", async () => {
+    const { wrapper, ptyWrite } = mountPaneWithPtyCreate(
+      vi.fn<WorkspaceApi["ptyCreate"]>().mockResolvedValue({ buffer: "", created: true }),
+      null
+    );
+
+    await flushPromises();
+
+    (wrapper.vm as { injectScript: (text: string) => void }).injectScript("  echo a  \n\n  echo b");
+
+    expect(ptyWrite).toHaveBeenNthCalledWith(1, "thread-1", "  echo a");
+    expect(ptyWrite).toHaveBeenNthCalledWith(2, "thread-1", "\r");
+    expect(ptyWrite).toHaveBeenNthCalledWith(3, "thread-1", "  echo b");
+    expect(ptyWrite).toHaveBeenNthCalledWith(4, "thread-1", "\r");
+  });
 });

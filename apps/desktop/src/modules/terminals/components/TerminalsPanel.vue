@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { ComponentPublicInstance } from "vue";
 import { computed, watch } from "vue";
 import { ChevronDown, Plus } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import PillTabs, { type PillTabItem } from "@/components/ui/PillTabs.vue";
 import TerminalPane from "@/modules/agent/components/TerminalPane.vue";
+import TerminalQuickScriptsMenu from "@/modules/terminals/components/TerminalQuickScriptsMenu.vue";
 import { useTerminalTabs } from "@/modules/terminals/hooks/useTerminalTabs";
 
 const props = defineProps<{
@@ -49,6 +51,23 @@ async function onCloseTab(id: string): Promise<void> {
   const remaining = (tabs.value ?? []).filter((t) => t.id !== id);
   if (remaining.length === 0) emit("close");
 }
+
+const paneByTabId = new Map<string, ComponentPublicInstance>();
+
+function setTerminalPaneRef(tabId: string, el: Element | ComponentPublicInstance | null): void {
+  if (!el) {
+    paneByTabId.delete(tabId);
+    return;
+  }
+  paneByTabId.set(tabId, el as ComponentPublicInstance);
+}
+
+function runQuickScript(command: string): void {
+  const tid = activeTab.value?.id;
+  if (!tid) return;
+  const pane = paneByTabId.get(tid) as { injectScript?: (text: string) => void } | undefined;
+  pane?.injectScript?.(command);
+}
 </script>
 
 <template>
@@ -65,6 +84,7 @@ async function onCloseTab(id: string): Promise<void> {
           @tab-close="onCloseTab"
         />
       </div>
+      <TerminalQuickScriptsMenu :run-command="runQuickScript" />
       <Button
         type="button"
         variant="ghost"
@@ -94,6 +114,7 @@ async function onCloseTab(id: string): Promise<void> {
           class="absolute inset-0"
         >
           <TerminalPane
+            :ref="(el) => setTerminalPaneRef(tab.id, el)"
             :session-id="tab.sessionId"
             :worktree-id="worktreeId"
             :cwd="cwd"

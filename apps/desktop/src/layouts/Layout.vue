@@ -58,7 +58,7 @@ import {
 import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useToast } from "@/hooks/useToast";
 import { useRemoveThread } from "@/modules/agent/hooks/useThreads";
-import AgentCommandsSettingsDialog from "@/modules/agent/components/AgentCommandsSettingsDialog.vue";
+import type { LauncherCommandId } from "@/utils/workspaceLauncherSearch";
 import WorkspaceLauncherModal from "@/components/WorkspaceLauncherModal.vue";
 import { eventMatchesShortcut, findDefinitionIn } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
@@ -72,7 +72,6 @@ const queryClient = useQueryClient();
 const route = useRoute();
 const router = useRouter();
 const filterMode = ref(false);
-const settingsOpen = ref(false);
 const terminalPanelOpen = ref(false);
 const workspaceLauncherOpen = ref(false);
 const sidebarOpen = ref(true);
@@ -113,6 +112,7 @@ const panelTabs = [
 
 const activeTab = computed<string>(() => {
   const name = route.name as string;
+  if (name === "workspaceSettings") return "settings";
   if (
     name === "gitPanel" ||
     name === "gitPullRequests" ||
@@ -311,7 +311,13 @@ function openFeedbackIssue(): void {
 }
 
 function openSettings(): void {
-  settingsOpen.value = true;
+  const pid = projectId.value;
+  const branch = branchId.value;
+  if (!pid || !branch) return;
+  void router.push({
+    name: "workspaceSettings",
+    params: { projectId: pid, branch }
+  });
 }
 
 function openTerminalPanel(): void {
@@ -358,8 +364,12 @@ function onLauncherPickWorktree(worktreeId: string): void {
   });
 }
 
-function onLauncherPickCommand(id: "toggle-thread-sidebar"): void {
-  if (id === "toggle-thread-sidebar") sidebarOpen.value = !sidebarOpen.value;
+function onLauncherPickCommand(id: LauncherCommandId): void {
+  if (id === "toggle-thread-sidebar") {
+    sidebarOpen.value = !sidebarOpen.value;
+    return;
+  }
+  if (id === "open-settings") openSettings();
 }
 
 function onGlobalKeydownForWorkspaceLauncher(ev: KeyboardEvent): void {
@@ -369,12 +379,18 @@ function onGlobalKeydownForWorkspaceLauncher(ev: KeyboardEvent): void {
   workspaceLauncherOpen.value = !workspaceLauncherOpen.value;
 }
 
+let unlistenOpenWorkspaceSettings: (() => void) | undefined;
+
 onMounted(() => {
   window.addEventListener("keydown", onGlobalKeydownForWorkspaceLauncher, { capture: true });
+  unlistenOpenWorkspaceSettings = window.workspaceApi?.onOpenWorkspaceSettings?.(() => {
+    openSettings();
+  });
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onGlobalKeydownForWorkspaceLauncher, { capture: true });
+  unlistenOpenWorkspaceSettings?.();
 });
 
 const addWorktreePopoverOpen = ref(false);
@@ -435,7 +451,6 @@ async function onCreateWorktreeGroup(
 </script>
 
 <template>  
-  <AgentCommandsSettingsDialog v-model="settingsOpen" />
   <WorkspaceLauncherModal
     v-model="workspaceLauncherOpen"
     @pick-thread="onLauncherPickThread"

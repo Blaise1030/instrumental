@@ -332,7 +332,30 @@ function injectPrompt(text: string): void {
   terminal?.focus();
 }
 
-defineExpose({ focus: focusTerminal, refresh: refreshTerminal, injectPrompt });
+/** Run each non-empty line as if the user typed it and pressed Enter (quick scripts / snippets). */
+function injectScript(text: string): void {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+$/, ""))
+    .filter((l) => l.length > 0);
+  if (lines.length === 0) return;
+  const api = getApi();
+  const sid = activeSessionId.value;
+  if (!api || !sid) return;
+  emit("user-typed", sid);
+  for (const line of lines) {
+    void api.ptyWrite(sid, line);
+    void api.ptyWrite(sid, "\r");
+  }
+  terminal?.focus();
+}
+
+defineExpose({
+  focus: focusTerminal,
+  refresh: refreshTerminal,
+  injectPrompt,
+  injectScript
+});
 </script>
 
 <template>

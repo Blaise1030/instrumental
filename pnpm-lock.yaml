@@ -16,6 +16,9 @@ importers:
       '@mlc-ai/web-llm':
         specifier: ^0.2.82
         version: 0.2.82
+      '@pierre/trees':
+        specifier: 1.0.0-beta.3
+        version: 1.0.0-beta.3(react-dom@19.2.5)(react@19.2.5)
       '@tanstack/vue-query':
         specifier: ^5.100.3
         version: 5.100.3(vue@3.5.32)
@@ -2547,6 +2550,18 @@ packages:
 
   /@oslojs/encoding@1.1.0:
     resolution: {integrity: sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ==}
+    dev: false
+
+  /@pierre/trees@1.0.0-beta.3(react-dom@19.2.5)(react@19.2.5):
+    resolution: {integrity: sha512-gfV7V1AoceIwTSFwiiWl/89gNtJROyo2dFeYYuAkT4F3AbE+ajCIGZEICBw1ygmVxVetF9Kq1Xpjz8BhXXZwTQ==}
+    peerDependencies:
+      react: ^18.3.1 || ^19.0.0
+      react-dom: ^18.3.1 || ^19.0.0
+    dependencies:
+      preact: 11.0.0-beta.0
+      preact-render-to-string: 6.6.5(preact@11.0.0-beta.0)
+      react: 19.2.5
+      react-dom: 19.2.5(react@19.2.5)
     dev: false
 
   /@pkgjs/parseargs@0.11.0:
@@ -8523,6 +8538,18 @@ packages:
     resolution: {integrity: sha512-dM0jVuXJPsDN6DvRpea484tCUaMiXWjuCn++HGTqUWzGDjv5tZkEZldAJ/UMlqRYGFrD/etByo4/xOuC/snX2A==}
     engines: {node: '>=20'}
     dev: true
+
+  /preact-render-to-string@6.6.5(preact@11.0.0-beta.0):
+    resolution: {integrity: sha512-O6MHzYNIKYaiSX3bOw0gGZfEbOmlIDtDfWwN1JJdc/T3ihzRT6tGGSEWE088dWrEDGa1u7101q+6fzQnO9XCPA==}
+    peerDependencies:
+      preact: '>=10 || >= 11.0.0-0'
+    dependencies:
+      preact: 11.0.0-beta.0
+    dev: false
+
+  /preact@11.0.0-beta.0:
+    resolution: {integrity: sha512-IcODoASASYwJ9kxz7+MJeiJhvLriwSb4y4mHIyxdgaRZp6kPUud7xytrk/6GZw8U3y6EFJaRb5wi9SrEK+8+lg==}
+    dev: false
 
   /prebuild-install@7.1.3:
     resolution: {integrity: sha512-8Mf2cbV7x1cXPUILADGI3wuhfqWvtiLA1iclTDbFRZkgRQS0NqsPZphna9V+HyTEadheuPmjaJMsbzKQFOzLug==}
