@@ -66,6 +66,7 @@ const draftModel = computed({
           :worktree-id="worktreeId"
           :cwd="cwd"
           aria-label="Agent"
+          :agent-tab="true"
           :pending-agent-bootstrap="pendingAgentBootstrap"
           @bootstrap-consumed="emit('bootstrapConsumed')"
         />
