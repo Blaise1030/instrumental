@@ -56,7 +56,7 @@ vi.mock("@/hooks/useActiveWorkspace", () => {
   };
 });
 
-import SourceControlPanel from "@/modules/git/components/SourceControlPanel.vue";
+import GitLocalChangesPage from "@/modules/git/pages/GitLocalChangesPage.vue";
 
 const baseProps = {};
 
@@ -73,7 +73,7 @@ const scmSidebarStubs = {
 
 function mountPanel(props: Record<string, unknown> = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return mount(SourceControlPanel, {
+  return mount(GitLocalChangesPage, {
     shallow: true,
     props: { ...baseProps, ...props },
     global: {
@@ -129,7 +129,7 @@ describe("SourceControlPanel window focus", () => {
     activeWorktreeRef.value = { path: "/my/repo" };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
-    const wrapper = mount(SourceControlPanel, {
+    const wrapper = mount(GitLocalChangesPage, {
       shallow: true,
       props: { ...baseProps },
       global: {
@@ -147,7 +147,7 @@ describe("SourceControlPanel window focus", () => {
   it("does not invalidate SCM when no worktree is active", async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
-    const wrapper = mount(SourceControlPanel, {
+    const wrapper = mount(GitLocalChangesPage, {
       shallow: true,
       props: { ...baseProps },
       global: {

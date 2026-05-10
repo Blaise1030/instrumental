@@ -147,7 +147,7 @@ const extendDataFallback = { oldFile: {}, newFile: {} } as const;
       <PillTabs
         v-if="filePath && mergeResult?.kind === 'ok'"
         v-model="layoutPillModel"
-        variant="segmented"
+        variant="default"
         size="xs"
         class="shrink-0"
         :tabs="diffLayoutTabs"

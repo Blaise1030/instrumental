@@ -245,6 +245,8 @@ const props = withDefaults(
     allowScmBranchSwitcher?: boolean;
     /** Active worktree label shown in the panel chrome. */
     contextLabel?: string | null;
+    /** Passed by GitModuleLayout; SCM resolves cwd from active worktree. */
+    cwd?: string;
     /** When true, show local LLM “Suggest” control (parent gates on IPC + staged changes). */
     suggestCommitAvailable?: boolean;
     /** Tooltip / `title` when suggest is disabled (e.g. WebGPU unavailable). */
@@ -712,6 +714,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <div class="flex min-h-0 flex-1 flex-col">
   <SidebarProvider
     class="flex h-full border-t min-h-0 w-full flex-1 flex-row overflow-hidden text-[11px] text-foreground"
     :keyboard-shortcut="false"
@@ -905,8 +908,8 @@ onBeforeUnmount(() => {
         </template>
       </SidebarContent>
 
-      <SidebarFooter class="shrink-0 gap-0 border-t border-sidebar-border p-0">
-        <div class="flex items-center justify-between gap-2 border-b border-sidebar-border px-2 py-1">
+      <SidebarFooter class="shrink-0 gap-0 border-t bg-sidebar border-sidebar-border p-0">
+        <div class="flex items-center justify-between gap-2 px-2 py-1">
           <ScmBranchCombobox
             :branch-line="scmBranchLine"
             :current-branch="scmCurrentBranch"
@@ -919,8 +922,7 @@ onBeforeUnmount(() => {
             <Button
               type="button"
               size="xs"
-              variant="outline"
-              class="h-6 shrink-0 gap-1 px-2 text-[10px]"
+              variant="outline"              
               :disabled="scmFetchPending || scmPushPending"
               aria-label="Fetch from remote"
               @click="handleFetch()"
@@ -941,8 +943,7 @@ onBeforeUnmount(() => {
             <Button
               type="button"
               size="xs"
-              variant="outline"
-              class="h-6 shrink-0 gap-1 px-2 text-[10px]"
+              variant="outline"              
               :disabled="scmPushPending || scmFetchPending"
               aria-label="Push current branch to remote"
               title="Push current branch (upstream must be set)"
@@ -964,7 +965,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="relative border-b border-sidebar-border">
+        <div class="relative">
           <textarea
             v-model="commitMessage"
             rows="4"
@@ -1016,9 +1017,8 @@ onBeforeUnmount(() => {
           </div>
           <Button
             type="button"
-            size="xs"
-            variant="default"
-            class="h-7 shrink-0 px-3 text-[10px]"
+            size="sm"
+            variant="default"            
             :disabled="!canCommit"
             aria-label="Commit staged changes"
             @click="handleCommit()"
@@ -1034,6 +1034,7 @@ onBeforeUnmount(() => {
       </SidebarFooter>
     </Sidebar>
   </SidebarProvider>
+  </div>
 </template>
 
 <style scoped>

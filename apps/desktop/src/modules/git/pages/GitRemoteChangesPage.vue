@@ -45,10 +45,10 @@ import {
   type GitHubPrComment,
   type ParsedFileDiff,
 } from "@/modules/git/stores/githubPrStore";
-import GitHubTokenSetup from "./GitHubTokenSetup.vue";
+import GitHubTokenSetup from "@/modules/git/components/GitHubTokenSetup.vue";
 import Label from "@/components/ui/label/Label.vue";
 
-const props = defineProps<{ cwd: string }>();
+defineProps<{ cwd: string; contextLabel?: string | null }>();
 
 const route = useRoute();
 const router = useRouter();
@@ -251,7 +251,8 @@ const filteredFiles = computed(() =>
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 bg-background text-foreground">
+  <div class="flex min-h-0 flex-1 flex-col">
+  <section class="flex h-full min-h-0 flex-1 bg-background text-foreground">
     <GitHubTokenSetup v-if="showSetup" :cwd="cwd" @saved="onSaved" />
 
     <template v-else>      
@@ -715,6 +716,7 @@ const filteredFiles = computed(() =>
       </SidebarProvider>
     </template>
   </section>
+  </div>
 </template>
 
 <style scoped>
