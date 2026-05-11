@@ -63,7 +63,7 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <div
-      v-show="previewFull"
+      v-show="false"
       role="status"
       aria-live="polite"
       class="pointer-events-none fixed z-[35] max-w-[calc(100vw-2rem)] whitespace-normal break-all rounded-md border border-border/80 bg-popover/95 px-2.5 py-1.5 font-mono text-[11px] leading-snug text-popover-foreground shadow-md backdrop-blur-md select-none bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))] left-[max(0.75rem,env(safe-area-inset-left,0px))]"
