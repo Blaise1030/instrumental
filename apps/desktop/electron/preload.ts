@@ -21,7 +21,11 @@ import type {
   TerminalTab,
   GitHubPrByProjectInput,
   GitHubPrDiffByProjectInput,
-  GitHubPrCommentsByProjectInput
+  GitHubPrCommentsByProjectInput,
+  SymphonyGetTasksInput,
+  SymphonySetConfigInput,
+  SymphonyStoredConfig,
+  SymphonyTasksSnapshot
 } from "../src/shared/ipc.js";
 
 /**
@@ -106,6 +110,11 @@ const IPC_CHANNELS = {
   workspaceListBranches: "workspace:listBranches",
   workspaceWorktreeHealth: "workspace:worktreeHealth",
   workspaceSyncWorktrees: "workspace:syncWorktrees",
+  symphonyGetConfig: "symphony:getConfig",
+  symphonySetConfig: "symphony:setConfig",
+  symphonyDeleteConfig: "symphony:deleteConfig",
+  symphonyGetTasks: "symphony:getTasks",
+  symphonyDidChange: "symphony:didChange",
   workspaceSetAgentSkillSearchRoots: "workspace:setAgentSkillSearchRoots",
   workspaceSetProjectGitHubPr: "workspace:setProjectGitHubPr",
   workspaceGithubFetchPrDiff: "workspace:githubFetchPrDiff",
@@ -363,4 +372,22 @@ contextBridge.exposeInMainWorld("terminalsApi", {
     ipcRenderer.invoke(IPC_CHANNELS.terminalsDeleteTab, id) as Promise<void>,
   setActiveTab: (worktreeId: string, id: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.terminalsSetActiveTab, { worktreeId, id }) as Promise<void>,
+});
+
+contextBridge.exposeInMainWorld("symphonyApi", {
+  getConfig: (payload: { projectId: string }) =>
+    ipcRenderer.invoke(IPC_CHANNELS.symphonyGetConfig, payload) as Promise<
+      (SymphonyStoredConfig & { createdAt: string; updatedAt: string }) | null
+    >,
+  setConfig: (payload: SymphonySetConfigInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.symphonySetConfig, payload) as Promise<void>,
+  deleteConfig: (payload: { projectId: string }) =>
+    ipcRenderer.invoke(IPC_CHANNELS.symphonyDeleteConfig, payload) as Promise<void>,
+  getTasks: (payload: SymphonyGetTasksInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.symphonyGetTasks, payload) as Promise<SymphonyTasksSnapshot>,
+  onDidChange: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.symphonyDidChange, handler);
+    return () => ipcRenderer.off(IPC_CHANNELS.symphonyDidChange, handler);
+  },
 });
