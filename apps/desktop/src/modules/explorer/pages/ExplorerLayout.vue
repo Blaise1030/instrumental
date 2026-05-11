@@ -22,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { FileTree, type FileTreeBatchOperation, type FileTreeDropResult, type FileTreeRenameEvent } from "@pierre/trees";
 import { Button } from "@/components/ui/button";
 import { CursorLoading } from "@/components/ui/cursor-loading";
+import Switch from "@/components/ui/Switch.vue";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -116,6 +117,7 @@ let contentSearchSeq = 0;
 const error = ref<string | null>(null);
 
 const SEARCH_MODE_KEY = "instrument.fileSearchSearchMode";
+const MARKDOWN_ONLY_KEY = "instrument.fileExplorerMarkdownOnly";
 
 function readSearchMode(): "path" | "contents" {
   try {
@@ -128,6 +130,17 @@ function readSearchMode(): "path" | "contents" {
 }
 
 const searchMode = ref<"path" | "contents">(readSearchMode());
+
+function readMarkdownOnlyFilter(): boolean {
+  try {
+    if (typeof localStorage === "undefined") return false;
+    return localStorage.getItem(MARKDOWN_ONLY_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+const markdownOnlyFilter = ref(readMarkdownOnlyFilter());
 
 onMounted(() => {
   if (sidebarCollapsed.value === undefined) {
@@ -160,6 +173,14 @@ watch(searchMode, (mode) => {
     contentMatchPaths.value = [];
     contentSearchError.value = null;
     isContentSearching.value = false;
+  }
+});
+
+watch(markdownOnlyFilter, (on) => {
+  try {
+    localStorage.setItem(MARKDOWN_ONLY_KEY, on ? "1" : "0");
+  } catch {
+    /* ignore */
   }
 });
 
@@ -285,8 +306,35 @@ const contentPathsForFilter = computed(() =>
   searchMode.value === "contents" ? contentMatchPaths.value : [],
 );
 
+/** Keep `.md` files and folders that contain them (for tree hierarchy). */
+function filterSummariesToMarkdownTree(files: FileSummary[]): FileSummary[] {
+  const mdRelativePaths: string[] = [];
+  for (const f of files) {
+    if (f.kind === "directory") continue;
+    if (/\.md$/i.test(f.relativePath)) mdRelativePaths.push(f.relativePath);
+  }
+  const folderWithMarkdownDescendant = new Set<string>();
+  for (const filePath of mdRelativePaths) {
+    const segments = filePath.split("/").filter(Boolean);
+    let acc = "";
+    for (let i = 0; i < segments.length - 1; i++) {
+      acc = acc ? `${acc}/${segments[i]!}` : segments[i]!;
+      folderWithMarkdownDescendant.add(acc);
+    }
+  }
+  return files.filter((f) => {
+    const rp = f.relativePath;
+    if (f.kind === "directory") return folderWithMarkdownDescendant.has(rp);
+    return /\.md$/i.test(rp);
+  });
+}
+
 const summariesForTree = computed(() => {
-  const files = allFiles.value;
+  let files = allFiles.value;
+  if (markdownOnlyFilter.value) {
+    files = filterSummariesToMarkdownTree(files);
+  }
+
   const q = debouncedQuery.value.trim();
   if (!q) return files;
 
@@ -321,6 +369,16 @@ const summariesForTree = computed(() => {
     if (contentSet.has(rp)) return true;
     return folderWithMatchingDescendant.has(rp);
   });
+});
+
+const treeFilterActive = computed(
+  () => !!debouncedQuery.value.trim() || markdownOnlyFilter.value,
+);
+
+const treeEmptyMessage = computed(() => {
+  if (debouncedQuery.value.trim()) return "No matching files.";
+  if (markdownOnlyFilter.value) return "No markdown files.";
+  return "No matching files.";
 });
 
 const searchPlaceholder = computed(() =>
@@ -406,7 +464,7 @@ function getAncestorPaths(filePaths: string[]): string[] {
 
 watch(summariesForTree, (summaries) => {
   const newPaths = summaries.filter((f) => f.kind !== "directory").map((f) => f.relativePath);
-  const isFiltered = !!debouncedQuery.value.trim();
+  const isFiltered = treeFilterActive.value;
 
   if (isFiltered) {
     // In search mode: reset with expansion (expansion loss is acceptable; we expand matches)
@@ -1008,38 +1066,26 @@ defineExpose({
           class="border-e"
         >
           <SidebarHeader data-testid="file-search-header" class="shrink-0 gap-1">
-            <div class="relative min-w-0">
-              <Search
-                class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <SidebarInput
-                id="file-search"
-                ref="searchInput"
-                v-model="query"
-                data-testid="file-search-input"
-                type="search"
-                autocomplete="off"
-                :placeholder="searchPlaceholder"
-                class="ps-8 bg-background"
-                :disabled="!hasWorkspace"
-              />
-            </div>
-            <div
-              class="flex min-w-0 items-center gap-1 overflow-x-auto"
-              role="group"
-              aria-label="Search scope and file explorer actions"
-            >
-              <PillTabs
-                data-testid="file-search-scope"
-                :model-value="searchMode"
-                size="xs"
-                aria-label="Search scope"
-                :tabs="searchModeTabs"
-                @update:model-value="onSearchModeRequest"
-              />
+            <div class="flex min-w-0 items-center gap-1">
+              <div class="relative min-w-0 flex-1">
+                <Search
+                  class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <SidebarInput
+                  id="file-search"
+                  ref="searchInput"
+                  v-model="query"
+                  data-testid="file-search-input"
+                  type="search"
+                  autocomplete="off"
+                  :placeholder="searchPlaceholder"
+                  class="ps-8 bg-background"
+                  :disabled="!hasWorkspace"
+                />
+              </div>
               <div
-                class="ms-auto flex items-center gap-1"
+                class="flex shrink-0 items-center gap-1"
                 role="toolbar"
                 aria-label="File explorer actions"
               >
@@ -1076,6 +1122,38 @@ defineExpose({
                   <FolderPlus aria-hidden="true" />
                   <span class="sr-only">Add folder</span>
                 </Button>
+              </div>
+            </div>
+            <div
+              class="flex min-w-0 items-center gap-1 overflow-x-auto"
+              role="group"
+              aria-label="Search scope and filters"
+            >
+              <PillTabs
+                data-testid="file-search-scope"
+                :model-value="searchMode"
+                size="xs"
+                aria-label="Search scope"
+                :tabs="searchModeTabs"
+                @update:model-value="onSearchModeRequest"
+              />
+              <div
+                class="flex shrink-0 items-center gap-1.5 px-0.5"
+                role="group"
+                aria-label="Markdown file filter"
+              >
+                <Switch
+                  id="file-explorer-markdown-only"
+                  v-model="markdownOnlyFilter"
+                  data-testid="file-explorer-markdown-only"
+                  aria-label="Show markdown files only"
+                />
+                <label
+                  class="cursor-pointer select-none text-xs text-muted-foreground whitespace-nowrap"
+                  for="file-explorer-markdown-only"
+                >
+                  Markdown only
+                </label>
               </div>
             </div>
           </SidebarHeader>
@@ -1122,7 +1200,7 @@ defineExpose({
                     v-else-if="summariesForTree.length === 0"
                     class="px-2 text-xs text-muted-foreground"
                   >
-                    No matching files.
+                    {{ treeEmptyMessage }}
                   </p>
                   <!-- trees mounts into this container -->
                   <div

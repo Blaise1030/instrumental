@@ -374,6 +374,34 @@ describe("FileSearchEditor", () => {
     expect(input.classes()).toContain("disabled:opacity-50");
   });
 
+  it("renders markdown-only filter switch", async () => {
+    listFiles.mockResolvedValue([]);
+
+    const wrapper = await mountFileSearchEditor({
+      props: { worktreePath: "/tmp/project" },
+    });
+
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="file-explorer-markdown-only"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("Markdown only");
+  });
+
+  it("shows no markdown files when markdown-only filter is on", async () => {
+    listFiles.mockResolvedValue([{ relativePath: "src/App.vue", size: 1, modifiedAt: 1 }]);
+
+    const wrapper = await mountFileSearchEditor({
+      props: { worktreePath: "/tmp/project" },
+    });
+
+    await flushPromises();
+
+    await wrapper.get('[data-testid="file-explorer-markdown-only"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("No markdown files.");
+  });
+
   it("renders a thinner editor header", async () => {
     listFiles.mockResolvedValue([]);
 
