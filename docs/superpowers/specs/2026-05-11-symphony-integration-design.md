@@ -176,9 +176,9 @@ Threads are tagged `source: "symphony"` in metadata so the Symphony tab can filt
 
 ## 6. UI
 
-### View Toggle (top-right of `WorkspaceLayout.vue`)
+### View Toggle (top-right of `Layout.vue`)
 
-Two icon buttons in the top-right corner of the existing `WorkspaceLayout.vue` toggle the entire main area between:
+Two icon buttons in the top-right corner of the existing `Layout.vue` toggle the entire main area between:
 
 - **Chat view** — the current workbench layout (thread sidebar + agent terminal + diff/source control panels), unchanged
 - **Kanban view** — the Symphony board

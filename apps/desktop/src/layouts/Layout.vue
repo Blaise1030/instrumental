@@ -76,6 +76,10 @@ import { injectContextToAgentKey, openWorkspaceFileKey } from "@/contextQueue/in
 import { injectContextQueue } from "@/contextQueue/injectContextQueue";
 import type { QueueItem } from "@/contextQueue/types";
 import { getPromptInsertFn } from "@/modules/contextQueue/activePromptInsert";
+import { useLocalStorage } from "@vueuse/core";
+import SymphonyPage from "@/modules/symphony/pages/SymphonyPage.vue";
+import { useSymphonyConfig } from "@/modules/symphony/hooks/useSymphonyConfig";
+import { useSymphonyTasks } from "@/modules/symphony/hooks/useSymphonyTasks";
 
 const appContext = useAppContext();
 const workspace = useWorkspaceStore();
@@ -88,6 +92,15 @@ const filterMode = ref(false);
 const terminalPanelOpen = ref(false);
 const terminalsPanelRef = ref<InstanceType<typeof TerminalsPanel> | null>(null);
 const projectId = computed(() => route.params.projectId as string);
+const symphonyView = useLocalStorage<"chat" | "kanban">(
+  computed(() => `symphony-view-${projectId.value || "none"}`),
+  "chat",
+);
+useSymphonyConfig(projectId);
+useSymphonyTasks(projectId);
+const symphonyEnabled = computed(
+  () => Boolean(projectId.value && typeof window !== "undefined" && window.symphonyApi),
+);
 const shellUi = useWorkspaceShellUiStore();
 const keybindings = useKeybindingsStore();
 const { sidebarOpen, terminalDockTogglePulse, terminalNewTabPulse } = storeToRefs(shellUi);
@@ -652,6 +665,30 @@ async function requestDeleteProject(project: Project): Promise<void> {
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-1 pe-2 ps-1">
+          <div v-if="symphonyEnabled" class="flex items-center gap-1 mr-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              title="Chat view"
+              aria-label="Chat view"
+              :class="symphonyView === 'chat' ? 'bg-accent text-accent-foreground' : ''"
+              @click="symphonyView = 'chat'"
+            >
+              <span aria-hidden="true">💬</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              title="Kanban view"
+              aria-label="Kanban view"
+              :class="symphonyView === 'kanban' ? 'bg-accent text-accent-foreground' : ''"
+              @click="symphonyView = 'kanban'"
+            >
+              <span aria-hidden="true">▦</span>
+            </Button>
+          </div>
           <Button
             type="button"
             variant="ghost"
@@ -662,7 +699,7 @@ async function requestDeleteProject(project: Project): Promise<void> {
             class="text-sm"
             @click="openFeedbackIssue"
           >
-            <span aria-hidden="true">💬</span>
+            <span aria-hidden="true">📝</span>
           </Button>
           <Button
             type="button"
@@ -721,13 +758,13 @@ async function requestDeleteProject(project: Project): Promise<void> {
                         />
                       </div>
                       <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          aria-label="New thread on this branch"
-                          title="New thread"
-                          data-testid="layout-worktree-new-thread"
-                          @click.stop="goNewThread(value.branch)"
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        aria-label="New thread on this branch"
+                        title="New thread"
+                        data-testid="layout-worktree-new-thread"
+                        @click.stop="goNewThread(value.branch)"
                         >
                           <PlusIcon />
                       </Button>
@@ -857,7 +894,7 @@ async function requestDeleteProject(project: Project): Promise<void> {
                             </div>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
-                        <div v-if="value?.threads.length === 0" class="flex gap-2 items-center py-4 flex-col">
+                        <div v-if="value?.threads.length === 0" class="flex border border-dashed bg-muted rounded-sm gap-2 items-center py-4 flex-col">
                           <p class="text-xs text-muted-foreground">                          
                             No threads created                       
                           </p>
@@ -960,6 +997,8 @@ async function requestDeleteProject(project: Project): Promise<void> {
           </SidebarFooter>          
         </Sidebar>
         <SidebarInset class="mx-1 h-[calc(100dvh-var(--header-height)-0.3rem)] min-h-0 rounded-xl border shadow-sm overflow-hidden bg-background">
+          <SymphonyPage v-if="symphonyView === 'kanban' && symphonyEnabled" class="h-full min-h-0" />
+          <template v-else>
           <ResizablePanelGroup
             v-if="terminalPanelOpen && activeTab === 'agent'"
             direction="vertical"
@@ -984,6 +1023,7 @@ async function requestDeleteProject(project: Project): Promise<void> {
             </ResizablePanel>
           </ResizablePanelGroup>
           <RouterView v-else class="h-full min-h-0" />
+          </template>
         </SidebarInset>
       </div>
     </SidebarProvider>

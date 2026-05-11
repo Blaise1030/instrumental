@@ -1,12 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { createTestDb } from './testDb';
 import { SymphonyConfigStore } from '../stores/SymphonyConfigStore.js';
 
 function makeStore(): SymphonyConfigStore {
-  const client = new Database(':memory:');
-  const db = drizzle(client);
-  const store = new SymphonyConfigStore(db as any);
+  const db = createTestDb();
+  const store = new SymphonyConfigStore(db);
   store.initialize();
   return store;
 }
