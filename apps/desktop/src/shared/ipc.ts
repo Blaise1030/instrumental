@@ -32,6 +32,7 @@ export interface CreateThreadInput {
   worktreePath: string;
   title: string;
   agent: ThreadAgent;
+  metadataJson?: string | null;
 }
 
 export interface AddProjectInput {

@@ -9,7 +9,7 @@ function makeThread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "t-1", projectId: "proj-1", worktreePath: "/r",
     title: "My thread", agent: "claude",
-    createdBranch: "main", resumeId: null,
+    createdBranch: "main", resumeId: null, metadataJson: null,
     createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z",
     ...overrides,
   };
