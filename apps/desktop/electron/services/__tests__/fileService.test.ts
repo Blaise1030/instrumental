@@ -230,7 +230,7 @@ describe("FileService", () => {
   });
 
   it("rejects absolute image paths outside temp and user media folders", async () => {
-    const dir = path.join(process.cwd(), ".instrument-test-external-reject");
+    const dir = path.join(os.homedir(), ".cache", `.instrument-test-external-reject-${Date.now()}`);
     await fs.mkdir(dir, { recursive: true });
     const abs = path.join(dir, "x.png");
     const tinyPng = Buffer.from(

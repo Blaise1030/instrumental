@@ -6,7 +6,10 @@ export const THREAD_PROMPT_BLOCK_SEP = "\n";
 
 function inlineNodeText(node: PMNode): string {
   if (node.isText) return node.text ?? "";
-  if (node.type.name === "threadFileBadge" || node.type.name === "threadImageBadge") {
+  if (node.type.name === "threadFileBadge") {
+    return "";
+  }
+  if (node.type.name === "threadImageBadge") {
     return String(node.attrs.path ?? "");
   }
   if (node.type.name === "threadMention" && String(node.attrs.itemKind ?? "") === "file") {

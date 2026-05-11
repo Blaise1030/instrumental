@@ -1,4 +1,9 @@
-import { parseDiffQueuePaste } from "@/contextQueue/diffPasteParse";
+import {
+  basenamePath,
+  parseCompactQueuePathRef,
+  parseDiffQueuePaste,
+  unwrapCompactDoubleNewlinePaste
+} from "@/contextQueue/diffPasteParse";
 import type { QueueItem } from "@/contextQueue/types";
 
 type LineSpan = { a: number; b: number };
@@ -24,7 +29,9 @@ export function parseFileQueuePaste(text: string): {
   const lines = text.split(/\r?\n/);
   let i = 0;
   while (i < lines.length && lines[i] === "") i++;
-  if (lines[i] !== "[file]") return null;
+  if (lines[i] !== "[file]") {
+    return tryParseCompactFilePaste(text);
+  }
   i++;
   const pathLine = lines[i];
   if (pathLine == null || !pathLine.startsWith("Path: ")) return null;
@@ -52,6 +59,19 @@ export function parseFileQueuePaste(text: string): {
   if (closing <= open) return null;
   const body = lines.slice(open + 1, closing).join("\n");
   return { filePath, lineStart, lineEnd, body };
+}
+
+function tryParseCompactFilePaste(text: string): {
+  filePath: string;
+  lineStart?: number;
+  lineEnd?: number;
+  body: string;
+} | null {
+  const w = unwrapCompactDoubleNewlinePaste(text);
+  if (!w) return null;
+  const ref = parseCompactQueuePathRef(w.core);
+  if (!ref) return null;
+  return { filePath: ref.filePath, lineStart: ref.lineStart, lineEnd: ref.lineEnd, body: "" };
 }
 
 export function parseTerminalQueuePaste(text: string): {
@@ -109,8 +129,11 @@ export function queueContextBadgeLabel(row: QueueItem): string {
       if (p.capture.lineStart != null && p.capture.lineEnd != null) {
         return `[File, ${p.capture.lineStart}:${p.capture.lineEnd}]`;
       }
-      const { a, b } = spanFromBody(p.capture.selectedText);
-      return `[File, ${a}:${b}]`;
+      if (p.capture.selectedText.trim()) {
+        const { a, b } = spanFromBody(p.capture.selectedText);
+        return `[File, ${a}:${b}]`;
+      }
+      return `[File, 1:1]`;
     }
   }
   if (row.source === "file") {
@@ -119,8 +142,11 @@ export function queueContextBadgeLabel(row: QueueItem): string {
       if (p.lineStart != null && p.lineEnd != null) {
         return `[File, ${p.lineStart}:${p.lineEnd}]`;
       }
-      const { a, b } = spanFromBody(p.body);
-      return `[File, ${a}:${b}]`;
+      if (p.body.trim()) {
+        const { a, b } = spanFromBody(p.body);
+        return `[File, ${a}:${b}]`;
+      }
+      return `[File, 1:1]`;
     }
   }
   if (row.source === "terminal") {
@@ -146,11 +172,17 @@ export function queueContextBadgeLabel(row: QueueItem): string {
 export function queueSnippetPreview(row: QueueItem, maxLen = 900): string {
   if (row.source === "diff") {
     const p = parseDiffQueuePaste(row.pasteText);
-    if (p?.capture.selectedText) return truncate(p.capture.selectedText, maxLen);
+    if (p) {
+      if (p.capture.selectedText.trim()) return truncate(p.capture.selectedText, maxLen);
+      return truncate(basenamePath(p.capture.filePath), maxLen);
+    }
   }
   if (row.source === "file") {
     const p = parseFileQueuePaste(row.pasteText);
-    if (p?.body) return truncate(p.body, maxLen);
+    if (p) {
+      if (p.body.trim()) return truncate(p.body, maxLen);
+      return truncate(basenamePath(p.filePath), maxLen);
+    }
   }
   if (row.source === "terminal") {
     const p = parseTerminalQueuePaste(row.pasteText);

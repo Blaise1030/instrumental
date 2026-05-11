@@ -24,6 +24,19 @@ export default defineConfig({
       // monaco-editor only declares `module`; Vite 6 package entry resolution needs a concrete file.
       "monaco-editor": fileURLToPath(
         new URL("./node_modules/monaco-editor/esm/vs/editor/editor.main.js", import.meta.url)
+      ),
+      // monacoApi imports editor.all.js by subpath — alias so Vitest resolves like Vite.
+      "monaco-editor/esm/vs/editor/editor.all.js": fileURLToPath(
+        new URL("./node_modules/monaco-editor/esm/vs/editor/editor.all.js", import.meta.url)
+      ),
+      "monaco-editor/esm/vs/basic-languages/monaco.contribution.js": fileURLToPath(
+        new URL(
+          "./node_modules/monaco-editor/esm/vs/basic-languages/monaco.contribution.js",
+          import.meta.url
+        )
+      ),
+      "monaco-editor/esm/vs/editor/editor.api": fileURLToPath(
+        new URL("./node_modules/monaco-editor/esm/vs/editor/editor.api.js", import.meta.url)
       )
     }
   },

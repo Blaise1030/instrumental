@@ -1,6 +1,12 @@
 import { defineStore } from "pinia";
 import type { Project, Thread, ThreadSession } from "@shared/domain";
 
+/** Minimal shape for `branch · name` labels (full worktree rows satisfy this). */
+export type WorktreeContextLabelSource = {
+  branch?: string | null;
+  name?: string | null;
+};
+
 export interface WorktreeSummary {
   path: string;
   /** Equal to path — used as opaque key for TerminalPane and localStorage. */
@@ -24,8 +30,18 @@ export interface WorkspaceContextBadge {
   threadCount: number;
 }
 
-export function worktreeBranchNameContextLabel(branch: string | null | undefined): string {
-  return branch?.trim() || "Primary";
+export function worktreeBranchNameContextLabel(
+  worktreeOrBranch: WorktreeContextLabelSource | string | null | undefined
+): string {
+  if (worktreeOrBranch == null || worktreeOrBranch === "") return "Primary";
+  if (typeof worktreeOrBranch === "string") {
+    return worktreeOrBranch.trim() || "Primary";
+  }
+  const wt = worktreeOrBranch;
+  const branch = wt.branch != null && typeof wt.branch === "string" ? wt.branch.trim() : "";
+  const name = wt.name != null && typeof wt.name === "string" ? wt.name.trim() : "";
+  if (branch && name && branch !== name) return `${branch} · ${name}`;
+  return branch || name || "Primary";
 }
 
 export const useWorkspaceStore = defineStore("workspace", {

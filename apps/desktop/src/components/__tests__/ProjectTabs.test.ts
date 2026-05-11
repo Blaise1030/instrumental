@@ -157,6 +157,18 @@ describe("ProjectTabs", () => {
     expect(wrapper.emitted("configureCommands")).toEqual([[]]);
   });
 
+  it("opens a new workbench feedback issue when feedback is clicked", async () => {
+    const openAppExternalUrl = vi.fn();
+    window.workspaceApi = { openAppExternalUrl } as unknown as WorkspaceApi;
+    const wrapper = mount(ProjectTabs, {
+      props: baseProps
+    });
+
+    await wrapper.get('[aria-label="Raise feedback"]').trigger("click");
+
+    expect(openAppExternalUrl).toHaveBeenCalledWith("https://github.com/Blaise1030/workbench/issues/new");
+  });
+
   it("keeps the nav and action cluster aligned", () => {
     const wrapper = mount(ProjectTabs, {
       props: baseProps

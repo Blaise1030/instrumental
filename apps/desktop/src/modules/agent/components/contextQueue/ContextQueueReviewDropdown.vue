@@ -5,7 +5,7 @@ import type { QueueItem } from "@/contextQueue/types";
 import { parseDiffQueuePaste } from "@/contextQueue/diffPasteParse";
 import { queueContextBadgeLabel, queueSnippetPreview } from "@/contextQueue/reviewPasteLabels";
 import { Badge } from "@/components/ui/badge/index";
-import {Button} from "@/components/ui/button";;
+import { Button } from "@/components/ui/button";
 import ContextQueueDiffPasteComposer from "./ContextQueueDiffPasteComposer.vue";
 import PromptWithFileAttachments from "@/modules/agent/components/PromptWithFileAttachments.vue";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";

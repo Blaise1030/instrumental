@@ -36,13 +36,12 @@ describe("ThreadInlinePromptEditor", () => {
     expect(wrapper.text()).toContain("feature/foo · my-worktree");
   });
 
-  it("renders start and cancel controls", () => {
+  it("renders send control", () => {
     wrapper = mount(ThreadInlinePromptEditor, {
       attachTo: document.body,
       props: { worktreeId: "wt-1", worktreePath: null }
     });
-    expect(wrapper.find('[data-testid="inline-prompt-cancel"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="inline-prompt-start-thread"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="inline-prompt-send"]').exists()).toBe(true);
   });
 
   it("emits submit payload when start thread is clicked", async () => {
@@ -51,7 +50,7 @@ describe("ThreadInlinePromptEditor", () => {
       props: { worktreeId: "wt-1", worktreePath: null }
     });
     await nextTick();
-    await wrapper.find('[data-testid="inline-prompt-start-thread"]').trigger("click");
+    await wrapper.find('[data-testid="inline-prompt-send"]').trigger("click");
     await nextTick();
     const emitted = wrapper.emitted("submit");
     expect(emitted).toBeTruthy();

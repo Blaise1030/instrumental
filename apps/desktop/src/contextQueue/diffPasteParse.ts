@@ -16,11 +16,30 @@ export function basenamePath(filePath: string): string {
 }
 
 /**
- * Split a queued diff paste into user text before / after the canonical `[diff]` block
- * produced by {@link buildPasteText}. The fenced body may contain lines equal to ```;
- * the closing fence is the last ``` line in the document.
+ * Parse `path:lineStart:lineEnd` (when both numeric suffixes exist) or plain `path`
+ * as produced by {@link buildPasteText} for diff/file captures.
  */
-export function parseDiffQueuePaste(text: string): ParsedDiffQueuePaste | null {
+export function parseCompactQueuePathRef(line: string): {
+  filePath: string;
+  lineStart?: number;
+  lineEnd?: number;
+} | null {
+  const t = line.trim();
+  if (!t || t.includes("\n")) return null;
+  const segs = t.split(":");
+  if (segs.length >= 3) {
+    const last = segs[segs.length - 1]!;
+    const prev = segs[segs.length - 2]!;
+    if (/^\d+$/.test(prev) && /^\d+$/.test(last)) {
+      const filePath = segs.slice(0, -2).join(":");
+      if (filePath.length === 0) return null;
+      return { filePath, lineStart: Number(prev), lineEnd: Number(last) };
+    }
+  }
+  return { filePath: t };
+}
+
+function tryParseLegacyDiffBlock(text: string): ParsedDiffQueuePaste | null {
   const lines = text.split(/\r?\n/);
   let diffIdx = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -68,6 +87,51 @@ export function parseDiffQueuePaste(text: string): ParsedDiffQueuePaste | null {
     suffix,
     capture: { source: "diff", filePath, selectedText, lineStart, lineEnd }
   };
+}
+
+export type CompactWrappedParts = { prefix: string; core: string; suffix: string };
+
+/** Split `prefix\\n\\ncore\\n\\nsuffix` where `core` is a single-line path ref. */
+export function unwrapCompactDoubleNewlinePaste(text: string): CompactWrappedParts | null {
+  const chunks = text.split(/\n\n/);
+  if (chunks.length === 1) return { prefix: "", core: chunks[0]!, suffix: "" };
+  if (chunks.length === 2) {
+    if (parseCompactQueuePathRef(chunks[1]!)) return { prefix: chunks[0]!, core: chunks[1]!, suffix: "" };
+    if (parseCompactQueuePathRef(chunks[0]!)) return { prefix: "", core: chunks[0]!, suffix: chunks[1]! };
+    return null;
+  }
+  if (chunks.length === 3) return { prefix: chunks[0]!, core: chunks[1]!, suffix: chunks[2]! };
+  return null;
+}
+
+function tryParseCompactDiffWrapped(text: string): ParsedDiffQueuePaste | null {
+  const w = unwrapCompactDoubleNewlinePaste(text);
+  if (!w) return null;
+  const ref = parseCompactQueuePathRef(w.core);
+  if (!ref) return null;
+  return {
+    prefix: w.prefix.replace(/\n+$/, ""),
+    suffix: w.suffix.replace(/^\n+/, ""),
+    capture: {
+      source: "diff",
+      filePath: ref.filePath,
+      selectedText: "",
+      lineStart: ref.lineStart,
+      lineEnd: ref.lineEnd
+    }
+  };
+}
+
+/**
+ * Split a queued diff paste into user text before / after the canonical `[diff]` block
+ * produced by {@link buildPasteText}, or a compact `path[:start:end]` reference from
+ * {@link buildPasteText} (current format). The fenced body may contain lines equal to ```;
+ * the closing fence is the last ``` line in the document.
+ */
+export function parseDiffQueuePaste(text: string): ParsedDiffQueuePaste | null {
+  const legacy = tryParseLegacyDiffBlock(text);
+  if (legacy) return legacy;
+  return tryParseCompactDiffWrapped(text);
 }
 
 export function joinDiffQueuePaste(prefix: string, capture: DiffQueueCapture, suffix: string): string {

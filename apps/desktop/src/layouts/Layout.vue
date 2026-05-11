@@ -374,7 +374,7 @@ function threadIconClass(threadId: string): string {
 }
 
 function openFeedbackIssue(): void {
-  window.open("https://github.com/instrument-ai/instrument/issues", "_blank");
+  window.open("https://github.com/Blaise1030/workbench/issues/new", "_blank");
 }
 
 function openSettings(): void {
@@ -726,7 +726,7 @@ async function requestDeleteProject(project: Project): Promise<void> {
                             )
                           "
                         >
-                          <Trash2 />
+                          <Archive />
                         </Button>
                         <Button
                           type="button"
@@ -807,7 +807,7 @@ async function requestDeleteProject(project: Project): Promise<void> {
                                   data-testid="layout-thread-archive"
                                   @click="void removeThreadViaArchiveButton(thread)"
                                 >
-                                  <Archive class="size-4" />
+                                  <Archive />
                                 </Button>
                               </span>                                                            
                             </div>

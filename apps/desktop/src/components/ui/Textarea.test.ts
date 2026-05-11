@@ -35,7 +35,7 @@ describe("Textarea", () => {
 
     const textarea = wrapper.get("textarea");
     expect(textarea.attributes("aria-label")).toBe("Draft");
-    expect(textarea.classes()).toContain("rounded-lg");
+    expect(textarea.classes()).toContain("rounded-md");
     expect(textarea.classes()).toContain("border");
     expect(textarea.classes()).toContain("font-mono");
     expect(textarea.classes()).toContain("min-h-28");

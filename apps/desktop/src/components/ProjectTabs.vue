@@ -24,7 +24,7 @@ import type { KeybindingId } from "@/keybindings/registry";
 import { shortcutForModDigitSlot } from "@/keybindings/registry";
 import { useKeybindingsStore } from "@/stores/keybindingsStore";
 
-const FEEDBACK_ISSUES_URL = "https://github.com/Blaise1030/instrumental/issues/new";
+const FEEDBACK_ISSUES_URL = "https://github.com/Blaise1030/workbench/issues/new";
 
 const keybindings = useKeybindingsStore();
 function titleWithShortcut(label: string, id: KeybindingId): string {

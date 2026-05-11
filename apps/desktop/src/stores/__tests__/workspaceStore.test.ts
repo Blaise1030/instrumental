@@ -1,7 +1,9 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
-import { worktreeBranchNameContextLabel } from "../workspaceStore";
-import type { Worktree } from "@shared/domain";
+import {
+  worktreeBranchNameContextLabel,
+  type WorktreeContextLabelSource
+} from "../workspaceStore";
 
 describe("workspaceStore", () => {
   beforeEach(() => {
@@ -9,17 +11,9 @@ describe("workspaceStore", () => {
   });
 
   it("worktreeBranchNameContextLabel joins branch and worktree name when they differ", () => {
-    const wt: Worktree = {
-      id: "wt-1",
-      projectId: "project-1",
+    const wt: WorktreeContextLabelSource = {
       name: "Auth UI",
-      branch: "feat/auth",
-      path: "/tmp/wt",
-      isActive: true,
-      isDefault: false,
-      baseBranch: "main",
-      createdAt: "2026-04-07T00:00:00.000Z",
-      updatedAt: "2026-04-07T00:00:00.000Z"
+      branch: "feat/auth"
     };
     expect(worktreeBranchNameContextLabel(wt)).toBe("feat/auth · Auth UI");
   });
