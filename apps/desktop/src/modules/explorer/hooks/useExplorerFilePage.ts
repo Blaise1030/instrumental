@@ -785,39 +785,37 @@ async function syncExplorerRouteFromSelection(options?: {
   replace?: boolean;
 }): Promise<void> {
   const name = route.name;
-  if (name !== "filesPanel" && name !== "fileDetail") return;
-  const threadId = route.params.threadId as string | undefined;
+  const isBranch = name === "filesPanelBranch" || name === "fileDetailBranch";
+  const isThread = name === "filesPanel" || name === "fileDetail";
+  if (!isThread && !isBranch) return;
+
   const projectId = route.params.projectId as string | undefined;
   const branch = route.params.branch as string | undefined;
-  if (!threadId || !projectId || !branch) return;
+  if (!projectId || !branch) return;
+  const threadId = route.params.threadId as string | undefined;
+  if (isThread && !threadId) return;
 
   const path = selectedPath.value;
-  const replace = options?.replace ?? false;
+  const doReplace = options?.replace ?? false;
+  const panelName = isBranch ? "filesPanelBranch" : "filesPanel";
+  const detailName = isBranch ? "fileDetailBranch" : "fileDetail";
+  const baseParams = threadId ? { projectId, branch, threadId } : { projectId, branch };
 
   if (!path) {
-    if (route.name !== "filesPanel") {
-      const nav = {
-        name: "filesPanel" as const,
-        params: { projectId, branch, threadId },
-      };
-      if (replace) await router.replace(nav);
+    if (route.name !== panelName) {
+      const nav = { name: panelName as string, params: baseParams };
+      if (doReplace) await router.replace(nav);
       else await router.push(nav);
     }
     return;
   }
 
-  if (
-    route.name === "fileDetail" &&
-    normalizeExplorerFilenameParam(route.params.filename) === path
-  ) {
+  if (route.name === detailName && normalizeExplorerFilenameParam(route.params.filename) === path) {
     return;
   }
 
-  const nav = {
-    name: "fileDetail" as const,
-    params: { projectId, branch, threadId, filename: path },
-  };
-  if (replace) await router.replace(nav);
+  const nav = { name: detailName as string, params: { ...baseParams, filename: path } };
+  if (doReplace) await router.replace(nav);
   else await router.push(nav);
 }
 
@@ -828,7 +826,7 @@ watch(
       normalizeExplorerFilenameParam(route.params.filename),
     ] as const,
   async ([name, pathFromRoute]) => {
-    if (name !== "fileDetail" || pathFromRoute == null) return;
+    if ((name !== "fileDetail" && name !== "fileDetailBranch") || pathFromRoute == null) return;
     if (selectedPath.value === pathFromRoute) return;
     await handleSelectFile(pathFromRoute);
   },

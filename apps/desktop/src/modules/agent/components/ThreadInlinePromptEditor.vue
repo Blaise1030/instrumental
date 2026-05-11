@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { ThreadAgent, ThreadCreateWithAgentPayload } from "@shared/domain";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import {
+  clearThreadMessageDraft,
+  useThreadMessageDraft
+} from "@/modules/agent/hooks/useThreadMessageDraft";
+import { registerPromptInsert, unregisterPromptInsert } from "@/modules/contextQueue/activePromptInsert";
 import ThreadAdaptivePromptInput from "@/modules/agent/components/ThreadAdaptivePromptInput.vue";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +57,8 @@ const selectedAgentLabel = computed(
 );
 const prompt = ref("");
 const attachments = ref<LocalFileAttachment[]>([]);
+const draftKey = computed(() => `new:${props.threadContextLabel?.trim() || props.worktreeId}`);
+useThreadMessageDraft(draftKey, prompt);
 const skillPaths = ref<string[]>([]);
 const isDarkTheme = ref(false);
 
@@ -67,6 +74,7 @@ function startThread(): void {
     skillPaths.value,
     attachments.value.map((a) => a.path)
   );
+  clearThreadMessageDraft(draftKey.value);
   emit("submit", { agent: selectedAgent.value, prompt: finalPrompt });
 }
 
@@ -92,9 +100,14 @@ onMounted(() => {
   });
 
   window.addEventListener("keydown", onKeyDown, { capture: true });
+  registerPromptInsert((text) => {
+    const prefix = prompt.value.trim() ? "\n\n" : "";
+    promptEditorRef.value?.insertText(prefix + text);
+  });
 });
 
 onBeforeUnmount(() => {
+  unregisterPromptInsert();
   themeObserver?.disconnect();
   themeObserver = null;
   window.removeEventListener("keydown", onKeyDown, { capture: true });

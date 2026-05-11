@@ -100,26 +100,41 @@ const { mutateAsync: removeThreadMutate } = useRemoveThread();
 const { activeThreadId, activeWorktreeId } = useActiveWorkspace();
 
 provide(injectContextToAgentKey, async (items: QueueItem[], opts?: { sessionId?: string }) => {
+  if (!window.workspaceApi) return false;
   const sid = opts?.sessionId ?? activeThreadId.value;
-  if (!sid || !window.workspaceApi) return false;
 
   const promptInsert = getPromptInsertFn();
   if (promptInsert) {
     for (const item of items) {
       promptInsert(item.pasteText);
     }
+    const p = workspaceNavParams.value;
+    if (p) await router.push({ name: "agent", params: p });
+    return true;
+  }
+
+  // Navigate to the editor first so it mounts and registers its insert fn
+  if (sid) {
+    const p = workspaceNavParams.value;
+    if (p) await router.push({ name: "agent", params: p });
   } else {
+    const bp = branchOnlyParams.value;
+    if (!bp) return false;
+    await router.push({ name: "threadNew", params: bp });
+  }
+
+  await nextTick();
+  const fn = getPromptInsertFn();
+  if (fn) {
+    for (const item of items) fn(item.pasteText);
+  } else if (sid) {
+    // Fallback: write to PTY if prompt editor still not available
     await injectContextQueue({
       sessionId: sid,
       items,
       ptyWrite: (id, data) => window.workspaceApi!.ptyWrite(id, data),
       delayMs: 50,
     });
-  }
-
-  const p = workspaceNavParams.value;
-  if (p) {
-    await router.push({ name: "agent", params: p });
   }
 
   return true;
@@ -175,36 +190,59 @@ function workspacePanelKeybindingId(tabValue: string): KeybindingId | null {
   }
 }
 
+const branchOnlyParams = computed(() => {
+  const pid = route.params.projectId as string;
+  const branch = route.params.branch as string;
+  if (!pid || !branch) return null;
+  return { projectId: pid, branch };
+});
+
+const panelBranchRouteMap: Record<string, string> = {
+  gitPanel: "gitPanelBranch",
+  previewPanel: "previewPanelBranch",
+  filesPanel: "filesPanelBranch",
+};
+
 const workspacePanelPills = computed<PillTabItem[]>(() => {
   const p = workspaceNavParams.value;
+  const bp = branchOnlyParams.value;
   return panelTabs.map((tab) => {
     const kbId = workspacePanelKeybindingId(tab.value);
     const shortcutHint = kbId ? keybindings.shortcutLabelForId(kbId) : "";
+    const branchRoute = panelBranchRouteMap[tab.value];
+    const to = p
+      ? { name: tab.value, params: p }
+      : bp && branchRoute
+        ? { name: branchRoute, params: bp }
+        : undefined;
     return {
       value: tab.value,
       label: tab.label,
       ...(shortcutHint ? { shortcutHint } : {}),
-      ...(p ? { to: { name: tab.value, params: p } } : {})
+      ...(to ? { to } : {})
     };
   });
 });
 
 function onWorkspacePanelTabNavigate(value: string): void {
   const p = workspaceNavParams.value;
-  if (!p) return;
-  void router.push({ name: value, params: p });
+  if (p) {
+    void router.push({ name: value, params: p });
+    return;
+  }
+  const bp = branchOnlyParams.value;
+  const branchRoute = panelBranchRouteMap[value];
+  if (bp && branchRoute) {
+    void router.push({ name: branchRoute, params: bp });
+  }
 }
 
 const activeTab = computed<string>(() => {
   const name = route.name as string;
-  if (
-    name === "gitPanel" ||
-    name === "gitPullRequests" ||
-    name === "gitPullRequest"
-  )
+  if (["gitPanel", "gitPanelBranch", "gitPullRequests", "gitPullRequestsBranch", "gitPullRequest", "gitPullRequestBranch"].includes(name))
     return "gitPanel";
-  if (name === "previewPanel") return "previewPanel";
-  if (name === "filesPanel" || name === "fileDetail") return "filesPanel";
+  if (name === "previewPanel" || name === "previewPanelBranch") return "previewPanel";
+  if (["filesPanel", "filesPanelBranch", "fileDetail", "fileDetailBranch"].includes(name)) return "filesPanel";
   return "agent";
 });
 
@@ -303,7 +341,7 @@ const { data: threadsGroup } = useQuery({
       {} as Record<string, Thread[]>,
     );
 
-    return listed.map(({ path: wtPath, branch }) => {
+    const groups = listed.map(({ path: wtPath, branch }) => {
       const row =
         persisted.find((w) => w.path === wtPath) ??
         persisted.find((w) => w.branch === branch);
@@ -319,6 +357,13 @@ const { data: threadsGroup } = useQuery({
         })),
       };
     });
+
+    workspace.registerWorktrees(
+      projectId.value,
+      groups.map((g) => ({ branch: g.branch, path: g.worktreePath })),
+    );
+
+    return groups;
   },
 });
 
@@ -532,7 +577,7 @@ async function requestDeleteProject(project: Project): Promise<void> {
           :class="{ 'ps-20': !isFullscreen }"
         >
           <SidebarTrigger class="border" />          
-          <ButtonGroup class="bg-background rounded-[9px]">
+          <ButtonGroup>
             <Button
               type="button"
               variant="outline"
@@ -666,7 +711,6 @@ async function requestDeleteProject(project: Project): Promise<void> {
                       </CollapsibleTrigger>
                       <div class="min-w-0 flex-1">
                         <BranchSelector
-                          class="bg-background rounded-[9px]"
                           v-if="projectPath"
                           :cwd="projectPath"
                           @branch-changed="
@@ -813,11 +857,11 @@ async function requestDeleteProject(project: Project): Promise<void> {
                             </div>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
-                        <div v-if="value?.threads.length === 0" class="flex gap-2 bg-muted rounded-md items-center py-4 flex-col">
+                        <div v-if="value?.threads.length === 0" class="flex gap-2 items-center py-4 flex-col">
                           <p class="text-xs text-muted-foreground">                          
-                            No threads created.                          
+                            No threads created                       
                           </p>
-                          <Button size="xs" class="w-fit" variant="outline" @click="goNewThread(value?.branch)">
+                          <Button size="xs" class="w-fit rounded-sm" variant="outline" @click="goNewThread(value?.branch)">
                             <PlusIcon />
                             New thread
                           </Button>

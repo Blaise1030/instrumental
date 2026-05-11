@@ -11,6 +11,16 @@ export const explorerRoutes = {
   ],
 };
 
+/** Branch-level files routes — accessible without a threadId (e.g. from the new-thread page). */
+export const explorerRoutesBranch = {
+  path: "files",
+  component: ExplorerLayout,
+  children: [
+    { path: "", name: "filesPanelBranch", component: FilePage },
+    { path: ":filename(.*)", name: "fileDetailBranch", component: FilePage },
+  ],
+};
+
 /** Normalize Vue Router `:filename(.*)` param to a single relative path string. */
 export function normalizeExplorerFilenameParam(
   raw: string | string[] | undefined,

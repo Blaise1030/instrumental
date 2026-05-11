@@ -48,7 +48,9 @@ export const useWorkspaceStore = defineStore("workspace", {
   state: () => ({
     projects: [] as Project[],
     threads: [] as Thread[],
-    threadSessions: [] as ThreadSession[]
+    threadSessions: [] as ThreadSession[],
+    /** Resolved worktree paths keyed by `${projectId}:${branch}`. Populated from listWorktrees. */
+    worktreePathByBranch: {} as Record<string, string>,
   }),
   getters: {
     /** Look up the persisted session record for a thread by its ID. */
@@ -80,6 +82,12 @@ export const useWorkspaceStore = defineStore("workspace", {
     /** Immediate UI update; call refreshSnapshot after IPC so server state wins. */
     removeThreadLocal(threadId: string): void {
       this.threads = this.threads.filter((t) => t.id !== threadId);
+    },
+    /** Register resolved branch→worktreePath mappings for a project (from listWorktrees). */
+    registerWorktrees(projectId: string, entries: { branch: string; path: string }[]): void {
+      for (const { branch, path } of entries) {
+        this.worktreePathByBranch[`${projectId}:${branch}`] = path;
+      }
     }
   }
 });

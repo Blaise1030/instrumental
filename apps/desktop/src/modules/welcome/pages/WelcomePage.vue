@@ -2,8 +2,8 @@
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { useNavigateToProject } from "@/hooks/useNavigateToProject";
+import { Loader2 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
-import { CursorLoading } from "@/components/ui/cursor-loading";
 import WorkbenchLogoMark from "@/modules/agent/components/WorkbenchLogoMark.vue";
 import { useAddProjectFromDirectoryPick } from "@/hooks/useAddProjectFromDirectoryPick";
 import { useAppContext } from "@/app-context/useAppContext";
@@ -38,9 +38,9 @@ const { pickAndAddProject } = useAddProjectFromDirectoryPick({
         <p class="text-xs text-muted-foreground px-2">Recent Projects</p>        
         <div
           v-if="welcomeProjectsPending"
-          class="flex h-full flex-col rounded-lg border border-dashed px-4 py-8"
+          class="flex h-full items-center justify-center rounded-lg border border-dashed px-4 py-8"
         >
-          <CursorLoading class="min-h-24 w-full" />
+          <Loader2 class="animate-spin size-5 text-muted-foreground" aria-hidden="true" />
         </div>        
         <div v-else-if="(welcomeProjects ?? []).length > 0" class="flex flex-col gap-1">
           <Button
@@ -59,14 +59,7 @@ const { pickAndAddProject } = useAddProjectFromDirectoryPick({
             </span>            
           </Button>        
         </div>
-        <p
-          v-else
-          class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground"
-        >
-          No projects in this workspace yet. Add a folder from the app menu once you are inside a
-          project, or reopen a repo you have added before.
-        </p>
-        <Button @click="void pickAndAddProject()" size="sm" class="mt-4 w-fit" variant="outline">
+        <Button v-if="!welcomeProjectsPending" @click="void pickAndAddProject()" size="sm" class="mt-4 w-fit" variant="outline">
           📁 New project
         </Button>
       </div>

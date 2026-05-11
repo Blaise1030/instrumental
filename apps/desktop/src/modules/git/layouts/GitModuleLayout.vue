@@ -12,22 +12,29 @@ const gitScopeTabs = computed<PillTabItem[]>(() => {
   const projectId = route.params.projectId;
   const branch = route.params.branch;
   const threadId = route.params.threadId;
-  if (typeof projectId !== "string" || typeof branch !== "string" || typeof threadId !== "string") {
+  if (typeof projectId !== "string" || typeof branch !== "string") {
     return [
       { value: "local", label: "Local" },
       { value: "remote", label: "Remote PRs" }
     ];
   }
-  const params = { projectId, branch, threadId };
+  if (typeof threadId === "string") {
+    const params = { projectId, branch, threadId };
+    return [
+      { value: "local", label: "Local", to: { name: "gitPanel", params } },
+      { value: "remote", label: "Remote PRs", to: { name: "gitPullRequests", params } }
+    ];
+  }
+  const params = { projectId, branch };
   return [
-    { value: "local", label: "Local", to: { name: "gitPanel", params } },
-    { value: "remote", label: "Remote PRs", to: { name: "gitPullRequests", params } }
+    { value: "local", label: "Local", to: { name: "gitPanelBranch", params } },
+    { value: "remote", label: "Remote PRs", to: { name: "gitPullRequestsBranch", params } }
   ];
 });
 
 const gitScopeTab = computed(() => {
   const name = route.name as string;
-  if (name === "gitPullRequests" || name === "gitPullRequest") return "remote";
+  if (["gitPullRequests", "gitPullRequest", "gitPullRequestsBranch", "gitPullRequestBranch"].includes(name)) return "remote";
   return "local";
 });
 
@@ -35,14 +42,12 @@ function onGitScopeTab(value: string): void {
   const projectId = route.params.projectId;
   const branch = route.params.branch;
   const threadId = route.params.threadId;
-  if (typeof projectId !== "string" || typeof branch !== "string" || typeof threadId !== "string") {
+  if (typeof projectId !== "string" || typeof branch !== "string") return;
+  if (typeof threadId === "string") {
+    void router.push({ name: value === "remote" ? "gitPullRequests" : "gitPanel", params: { projectId, branch, threadId } });
     return;
   }
-  if (value === "remote") {
-    void router.push({ name: "gitPullRequests", params: { projectId, branch, threadId } });
-    return;
-  }
-  void router.push({ name: "gitPanel", params: { projectId, branch, threadId } });
+  void router.push({ name: value === "remote" ? "gitPullRequestsBranch" : "gitPanelBranch", params: { projectId, branch } });
 }
 </script>
 

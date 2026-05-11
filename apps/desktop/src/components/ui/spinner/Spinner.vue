@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
 
-import { CursorLoading } from '@/components/ui/cursor-loading'
+import { Loader2 } from 'lucide-vue-next'
 import { cn } from '@/utils/cn'
 
 const props = defineProps<{
@@ -10,5 +10,5 @@ const props = defineProps<{
 </script>
 
 <template>
-  <CursorLoading :class="cn('inline-block size-4 min-h-0 shrink-0 overflow-hidden', props.class)" />
+  <Loader2 :class="cn('animate-spin size-4 shrink-0', props.class)" />
 </template>

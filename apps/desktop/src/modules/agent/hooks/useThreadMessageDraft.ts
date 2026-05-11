@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
-import { watch } from "vue";
+import { computed, watch } from "vue";
+import { StorageSerializers, useStorage } from "@vueuse/core";
 
 const STORAGE_PREFIX = "instrument.threadMessageDraft";
 
@@ -7,34 +8,12 @@ function storageKey(threadId: string): string {
   return `${STORAGE_PREFIX}.${threadId}`;
 }
 
-function saveDraft(threadId: string, text: string): void {
-  if (typeof localStorage === "undefined") return;
-  try {
-    if (text) {
-      localStorage.setItem(storageKey(threadId), text);
-    } else {
-      localStorage.removeItem(storageKey(threadId));
-    }
-  } catch {
-    /* quota or private mode */
-  }
-}
-
-function loadDraft(threadId: string): string {
-  if (typeof localStorage === "undefined") return "";
-  try {
-    return localStorage.getItem(storageKey(threadId)) ?? "";
-  } catch {
-    return "";
-  }
-}
-
 export function clearThreadMessageDraft(threadId: string): void {
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.removeItem(storageKey(threadId));
   } catch {
-    /* */
+    /* quota or private mode */
   }
 }
 
@@ -45,18 +24,35 @@ export function clearThreadMessageDraft(threadId: string): void {
  * Call clearThreadMessageDraft(threadId) after a successful send.
  */
 export function useThreadMessageDraft(threadId: Ref<string>, prompt: Ref<string>): void {
+  const key = computed(() => {
+    const tid = threadId.value;
+    return tid ? storageKey(tid) : `${STORAGE_PREFIX}.__inactive__`;
+  });
+
+  const stored = useStorage(
+    key,
+    "",
+    typeof localStorage === "undefined" ? undefined : localStorage,
+    { serializer: StorageSerializers.string },
+  );
+
   watch(
     threadId,
     (tid) => {
       if (!tid) return;
-      prompt.value = loadDraft(tid);
+      prompt.value = stored.value;
     },
-    { immediate: true }
+    { immediate: true },
   );
 
   watch(prompt, (text) => {
     const tid = threadId.value;
     if (!tid) return;
-    saveDraft(tid, text);
+    if (text) {
+      stored.value = text;
+      return;
+    }
+    clearThreadMessageDraft(tid);
+    stored.value = "";
   });
 }

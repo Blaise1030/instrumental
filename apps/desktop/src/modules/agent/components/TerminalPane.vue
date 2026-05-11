@@ -2,7 +2,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "xterm";
 import "xterm/css/xterm.css";
-import { CursorLoading } from "@/components/ui/cursor-loading";
+import { Loader2 } from "lucide-vue-next";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { PendingAgentBootstrap } from "@shared/pendingAgentBootstrap";
 import type { QueueItem } from "@/contextQueue/types";
@@ -402,7 +402,7 @@ defineExpose({
       aria-live="polite"
       aria-busy="true"
     >
-      <CursorLoading class="h-full min-h-0 w-full" />
+      <Loader2 class="animate-spin size-5 text-muted-foreground" aria-hidden="true" />
     </div>
     <ContextQueueSelectionPopup
       :visible="termQueue.visible.value"

@@ -3,9 +3,8 @@ import { DiffView, DiffModeEnum } from "@git-diff-view/vue";
 import "@git-diff-view/vue/styles/diff-view.css";
 import { createTwoFilesPatch } from "diff";
 import { computed, ref, watch } from "vue";
-import { FileText } from "lucide-vue-next";
+import { FileText, Loader2 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
-import { CursorLoading } from "@/components/ui/cursor-loading";
 import PillTabs, { type PillTabItem } from "@/components/ui/pill-tabs";
 import type { FileMergeSidesResult } from "@shared/ipc";
 
@@ -169,8 +168,8 @@ const extendDataFallback = { oldFile: {}, newFile: {} } as const;
     </header>
 
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div v-if="loading" class="flex min-h-0 flex-1 flex-col">
-        <CursorLoading class="min-h-0 flex-1" />
+      <div v-if="loading" class="flex min-h-0 flex-1 items-center justify-center">
+        <Loader2 class="animate-spin size-5 text-muted-foreground" aria-hidden="true" />
       </div>
       <div
         v-else-if="emptyMessage"

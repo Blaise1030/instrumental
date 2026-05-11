@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronsDown,
   ChevronsUp,
+  Loader2,
   Maximize2,
   Minimize2,
   Minus,
@@ -20,7 +21,6 @@ import {
   Trash2
 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
-import { CursorLoading } from "@/components/ui/cursor-loading";
 import ScmBranchCombobox from "@/components/ScmBranchCombobox.vue";
 import {
   DropdownMenu,
@@ -964,9 +964,9 @@ async function onCommitSendToAgent(): Promise<void> {
               aria-label="Fetch from remote"
               @click="handleFetch()"
             >
-              <CursorLoading
+              <Loader2
                 v-if="scmFetchPending"
-                class="inline-block h-2.5 w-2.5 min-h-0 shrink-0 overflow-hidden"
+                class="animate-spin h-2.5 w-2.5 shrink-0"
                 aria-hidden="true"
               />
               <ArrowDownToLine
@@ -986,9 +986,9 @@ async function onCommitSendToAgent(): Promise<void> {
               title="Push current branch (upstream must be set)"
               @click="handlePush()"
             >
-              <CursorLoading
+              <Loader2
                 v-if="scmPushPending"
-                class="inline-block h-2.5 w-2.5 min-h-0 shrink-0 overflow-hidden"
+                class="animate-spin h-2.5 w-2.5 shrink-0"
                 aria-hidden="true"
               />
               <ArrowUpFromLine
@@ -1040,9 +1040,9 @@ async function onCommitSendToAgent(): Promise<void> {
               aria-label="Suggest commit message from staged changes"
               @click="emit('suggestCommit')"
             >
-              <CursorLoading
+              <Loader2
                 v-if="suggestCommitBusy"
-                class="inline-block h-3 w-3 min-h-0 shrink-0 overflow-hidden"
+                class="animate-spin h-3 w-3 shrink-0"
                 aria-hidden="true"
               />
               <span v-else class="text-xs">✨</span>
@@ -1062,9 +1062,9 @@ async function onCommitSendToAgent(): Promise<void> {
             aria-label="Commit staged changes"
             @click="handleCommit()"
           >
-            <CursorLoading
+            <Loader2
               v-if="scmCommitPending"
-              class="mr-1 inline-block h-3 w-3 min-h-0 shrink-0 overflow-hidden"
+              class="animate-spin mr-1 h-3 w-3 shrink-0"
               aria-hidden="true"
             />
             Commit

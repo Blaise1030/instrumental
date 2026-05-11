@@ -14,6 +14,7 @@ import { RouterView, useRoute, useRouter } from "vue-router";
 import {
   FilePlus,
   FolderPlus,
+  Loader2,
   RefreshCw,
   Search,
 } from "lucide-vue-next";
@@ -21,7 +22,6 @@ import type { FileSummary } from "@shared/ipc";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { FileTree, type FileTreeBatchOperation, type FileTreeDropResult, type FileTreeRenameEvent } from "@pierre/trees";
 import { Button } from "@/components/ui/button";
-import { CursorLoading } from "@/components/ui/cursor-loading";
 import Switch from "@/components/ui/Switch.vue";
 import {
   ContextMenu,
@@ -688,26 +688,21 @@ async function openNewFolderDialog(folderPathPrefix?: string): Promise<void> {
 function explorerNavParams(): {
   projectId: string;
   branch: string;
-  threadId: string;
+  threadId?: string;
 } | null {
   const projectId = route.params.projectId as string | undefined;
   const branch = route.params.branch as string | undefined;
+  if (!projectId || !branch) return null;
   const threadId = route.params.threadId as string | undefined;
-  if (!projectId || !branch || !threadId) return null;
-  return { projectId, branch, threadId };
+  return threadId ? { projectId, branch, threadId } : { projectId, branch };
 }
 
 function navigateToExplorerFile(relativePath: string): void {
   const p = explorerNavParams();
   if (!p) return;
   void router.push({
-    name: "fileDetail",
-    params: {
-      projectId: p.projectId,
-      branch: p.branch,
-      threadId: p.threadId,
-      filename: relativePath,
-    },
+    name: p.threadId ? "fileDetail" : "fileDetailBranch",
+    params: { ...p, filename: relativePath },
   });
 }
 
@@ -815,8 +810,10 @@ const deleteFolderMutation = useMutation({
     const p = explorerNavParams();
     if (openRel && pathIsUnderOrEqualFolder(relativePath, openRel) && p) {
       void router.replace({
-        name: "filesPanel",
-        params: { projectId: p.projectId, branch: p.branch, threadId: p.threadId },
+        name: p.threadId ? "filesPanel" : "filesPanelBranch",
+        params: p.threadId
+          ? { projectId: p.projectId, branch: p.branch, threadId: p.threadId }
+          : { projectId: p.projectId, branch: p.branch },
       });
     }
   },
@@ -1173,9 +1170,9 @@ defineExpose({
                   </p>
                   <div
                     v-else-if="isSearching && allFiles.length === 0"
-                    class="min-h-24 px-2 py-1"
+                    class="flex min-h-24 items-center justify-center px-2 py-1"
                   >
-                    <CursorLoading class="min-h-24 w-full" />
+                    <Loader2 class="animate-spin size-5 text-muted-foreground" aria-hidden="true" />
                   </div>
                   <p v-else-if="error" class="px-2 text-xs text-destructive">
                     {{ error }}
@@ -1192,9 +1189,9 @@ defineExpose({
                       isContentSearching &&
                       summariesForTree.length === 0
                     "
-                    class="min-h-24 px-2 py-1"
+                    class="flex min-h-24 items-center justify-center px-2 py-1"
                   >
-                    <CursorLoading class="min-h-24 w-full" />
+                    <Loader2 class="animate-spin size-5 text-muted-foreground" aria-hidden="true" />
                   </div>
                   <p
                     v-else-if="summariesForTree.length === 0"

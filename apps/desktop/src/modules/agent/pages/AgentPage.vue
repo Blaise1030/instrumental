@@ -33,7 +33,10 @@ const terminalRef = ref<InstanceType<typeof TerminalPane> | null>(null);
 useThreadMessageDraft(threadId, prompt);
 
 onMounted(() => {
-  registerPromptInsert((text) => promptEditorRef.value?.insertText(text));
+  registerPromptInsert((text) => {
+    const prefix = prompt.value.trim() ? "\n\n" : "";
+    promptEditorRef.value?.insertText(prefix + text);
+  });
 });
 
 onUnmounted(() => {

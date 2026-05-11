@@ -5,11 +5,11 @@ import { computed } from 'vue'
 import {
   CircleCheckIcon,
   InfoIcon,
+  Loader2,
   OctagonXIcon,
   TriangleAlertIcon,
   XIcon,
 } from 'lucide-vue-next'
-import { CursorLoading } from '@/components/ui/cursor-loading'
 import { useColorScheme } from '@/hooks/useColorScheme'
 import { Toaster as Sonner } from 'vue-sonner'
 import { cn } from '@/utils/cn'
@@ -51,7 +51,7 @@ const theme = computed(() => props.theme ?? (resolvedIsDark.value ? 'dark' : 'li
       <OctagonXIcon class="size-4" />
     </template>
     <template #loading-icon>
-      <CursorLoading class="inline-block size-4 min-h-0 shrink-0 overflow-hidden" />
+      <Loader2 class="animate-spin size-4 shrink-0" />
     </template>
     <template #close-icon>
       <XIcon class="size-4" />

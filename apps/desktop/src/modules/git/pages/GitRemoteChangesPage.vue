@@ -7,6 +7,7 @@ import {
   Filter,
   GitBranch,
   List,
+  Loader2,
   MessageSquare,
   RefreshCw,
   Settings2,
@@ -14,7 +15,6 @@ import {
 import { DiffView, DiffModeEnum } from "@git-diff-view/vue";
 import "@git-diff-view/vue/styles/diff-view.css";
 import { Button } from "@/components/ui/button";
-import { CursorLoading } from "@/components/ui/cursor-loading";
 import { Badge } from "@/components/ui/badge/index";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -319,9 +319,9 @@ async function onPrDiffSendToAgent(): Promise<void> {
                         :disabled="store.loading"
                         @click="void store.fetchPrs()"
                       >
-                        <CursorLoading
+                        <Loader2
                           v-if="store.loading"
-                          class="inline-block size-4 min-h-0 shrink-0 overflow-hidden"
+                          class="animate-spin size-4 shrink-0"
                         />
                         <RefreshCw v-else />
                       </Button>
@@ -435,9 +435,9 @@ async function onPrDiffSendToAgent(): Promise<void> {
               <!-- Loading diff -->
               <div
                 v-else-if="store.diffLoading"
-                class="flex min-h-0 flex-1 flex-col"
+                class="flex min-h-0 flex-1 items-center justify-center"
               >
-                <CursorLoading class="min-h-0 flex-1" />
+                <Loader2 class="animate-spin size-5 text-muted-foreground" aria-hidden="true" />
               </div>
 
               <template v-else-if="store.selectedPr">

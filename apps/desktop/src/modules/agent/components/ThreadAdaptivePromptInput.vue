@@ -180,6 +180,7 @@ function attachDocLayoutListener(): void {
 
   const onTx = (): void => {
     updateIsMultiLineFromDoc();
+    applyEditorToModels(ed);
   };
   ed.on("transaction", onTx);
   detachDocLayoutListener = () => {
@@ -392,7 +393,7 @@ defineExpose({
       :data-testid="`${testIdPrefix}-container`"
       :class="
         cn(
-          'border border-input bg-input shadow-xs focus-within:shadow-md',
+          'border border-input bg-input/40 shadow-xs focus-within:shadow-md',
           isMultiLine
             ? 'flex flex-col rounded-xl'
             : 'flex items-center gap-1 rounded-full p-1'

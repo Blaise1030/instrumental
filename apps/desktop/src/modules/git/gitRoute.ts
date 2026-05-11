@@ -23,3 +23,14 @@ export const gitRoutes = {
     },
   ],
 };
+
+/** Branch-level git routes — accessible without a threadId (e.g. from the new-thread page). */
+export const gitRoutesBranch = {
+  path: "git",
+  component: GitModuleLayout,
+  children: [
+    { path: "", name: "gitPanelBranch", component: GitLocalChangesPage },
+    { path: "pull-requests", name: "gitPullRequestsBranch", component: GitRemoteChangesPage },
+    { path: "pull-requests/:prId", name: "gitPullRequestBranch", component: GitRemoteChangesPage },
+  ],
+};

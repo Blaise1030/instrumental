@@ -1,8 +1,8 @@
 import Layout from "@/layouts/Layout.vue";
 import { agentRoutes } from "@/modules/agent/agentRoute";
-import { browserRoutes } from "@/modules/browser/browserRoute";
-import { explorerRoutes } from "@/modules/explorer/explorerRoute";
-import { gitRoutes } from "@/modules/git/gitRoute";
+import { browserRoutes, browserRoutesBranch } from "@/modules/browser/browserRoute";
+import { explorerRoutes, explorerRoutesBranch } from "@/modules/explorer/explorerRoute";
+import { gitRoutes, gitRoutesBranch } from "@/modules/git/gitRoute";
 
 const [agentThreadNewRoute, agentThreadParamShell] = agentRoutes;
 
@@ -18,6 +18,9 @@ export const workspaceRoute = {
   component: Layout,
   children: [
     agentThreadNewRoute,
+    gitRoutesBranch,
+    browserRoutesBranch,
+    explorerRoutesBranch,
     {
       path: agentThreadParamShell.path,
       children: [

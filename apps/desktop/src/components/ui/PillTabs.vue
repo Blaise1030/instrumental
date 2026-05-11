@@ -191,10 +191,10 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
               ]"
               @keydown="onTabKeydown($event, index)"
             >
-              <span class="flex min-w-0 text-xs max-w-full items-center gap-1">
+              <span class="flex min-w-0 text-xs max-w-full items-center gap-1 text-xs">
                 <span
                   v-if="tab.tag"
-                  class="rounded border border-border bg-background px-1 py-0 text-[10px] font-semibold leading-none text-muted-foreground"
+                  class="rounded border border-border bg-background px-1 py-0 font-semibold leading-none text-muted-foreground"
                   data-testid="pill-tab-tag"
                 >
                   {{ tab.tag }}
@@ -220,10 +220,10 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
               @click="select(tab.value)"
               @keydown="onTabKeydown($event, index)"
             >
-              <span class="flex min-w-0 max-w-full items-center gap-1">
+              <span class="flex min-w-0 max-w-full items-center gap-1 text-xs">                
                 <span
                   v-if="tab.tag"
-                  class="rounded border border-border bg-background px-1 py-0 text-[10px] font-semibold leading-none text-muted-foreground"
+                  class="rounded border border-border bg-background px-1 py-0 font-semibold leading-none text-muted-foreground"
                   data-testid="pill-tab-tag"
                 >
                   {{ tab.tag }}

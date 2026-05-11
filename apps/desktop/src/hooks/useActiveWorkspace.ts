@@ -54,9 +54,20 @@ export function useActiveWorkspace() {
     const thread = workspace.threads.find(
       (t) => t.projectId === pid && t.createdBranch === branch
     );
-    if (!thread) return undefined;
-    const isDefault = thread.worktreePath === activeProject.value?.repoPath;
-    return makeWorktreeSummary(thread.worktreePath, branch, isDefault, pid);
+    if (thread) {
+      const isDefault = thread.worktreePath === activeProject.value?.repoPath;
+      return makeWorktreeSummary(thread.worktreePath, branch, isDefault, pid);
+    }
+    // No thread — use the registered worktree path for this branch (populated by listWorktrees)
+    const registeredPath = workspace.worktreePathByBranch[`${pid}:${branch}`];
+    if (registeredPath) {
+      const isDefault = registeredPath === activeProject.value?.repoPath;
+      return makeWorktreeSummary(registeredPath, branch, isDefault, pid);
+    }
+    // Last resort: project root
+    const repoPath = activeProject.value?.repoPath;
+    if (repoPath) return makeWorktreeSummary(repoPath, branch, true, pid);
+    return undefined;
   });
 
   /** The worktree path for the currently active worktree context. */

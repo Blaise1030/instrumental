@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { inject, ref, watch } from "vue";
-import { PanelLeftClose, PanelLeftOpen, RefreshCw, X } from "lucide-vue-next";
+import { Loader2, PanelLeftClose, PanelLeftOpen, RefreshCw, X } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
-import { CursorLoading } from "@/components/ui/cursor-loading";
 import { badgeVariants } from "@/components/ui/badge/index";
 import { cn } from "@/utils/cn";
 import MonacoEditor from "@/components/MonacoEditor.vue";
@@ -265,9 +264,9 @@ function setMonacoRef(el: unknown): void {
         </div>
         <div
           v-else-if="page.isLoadingFile"
-          class="flex min-h-[18rem] flex-1 flex-col px-0 pt-0"
+          class="flex min-h-[18rem] flex-1 items-center justify-center"
         >
-          <CursorLoading class="min-h-[18rem] flex-1" />
+          <Loader2 class="animate-spin size-5 text-muted-foreground" aria-hidden="true" />
         </div>
         <div
           v-else-if="

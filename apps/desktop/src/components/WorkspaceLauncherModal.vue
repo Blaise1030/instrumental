@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { Search } from "lucide-vue-next";
+import { Loader2, Search } from "lucide-vue-next";
 import { computed, nextTick, ref, watch } from "vue";
 import { RouterLink, useRoute, type RouteLocationRaw } from "vue-router";
-import { CursorLoading } from "@/components/ui/cursor-loading";
 import WorkspaceLauncherModalRow from "@/components/WorkspaceLauncherModalRow.vue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -407,10 +406,10 @@ function launcherRowTestId(row: LauncherRow): string {
           </template>
           <div
             v-if="loading"
-            class="flex min-h-[8rem] flex-col"
+            class="flex min-h-[8rem] items-center justify-center"
             data-testid="workspace-launcher-loading"
           >
-            <CursorLoading class="min-h-[8rem] w-full" />
+            <Loader2 class="animate-spin size-5 text-muted-foreground" aria-hidden="true" />
           </div>
           <div
             v-else-if="rows.length === 0"

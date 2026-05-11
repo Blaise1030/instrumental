@@ -8,7 +8,9 @@ export function buildPasteText(c: QueueCapture): string {
         c.lineStart != null && c.lineEnd != null
           ? `${c.filePath}:${c.lineStart}:${c.lineEnd}`
           : c.filePath;
-      return fileRef;
+      return c.selectedText
+        ? [`\`\`\`${c.filePath}`, c.selectedText, "```"].join("\n")
+        : fileRef;
     }
     case "folder":
       return [`[folder]`, `Path: ${c.folderPath}`, "", c.listingText].join("\n");
@@ -17,7 +19,6 @@ export function buildPasteText(c: QueueCapture): string {
         return ["[Agent Tab]", "```", c.selectedText, "```"].join("\n");
       }
       return [
-        "[terminal]",
         c.sessionLabel ? `Session: ${c.sessionLabel}` : "",
         "```",
         c.selectedText,
