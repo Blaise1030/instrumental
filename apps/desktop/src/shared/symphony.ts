@@ -41,6 +41,6 @@ export interface SymphonySetConfigInput {
 export interface SymphonyStoredConfig {
   projectId: string;
   trackerKind: 'linear' | 'github';
-  apiKey: string;
+  hasApiKey: boolean;
   projectSlug: string;
 }

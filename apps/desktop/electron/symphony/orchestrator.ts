@@ -31,14 +31,17 @@ export interface OrchestratorDeps {
 export class SymphonyOrchestrator {
   private readonly activeRuns = new Map<string, ActiveRun>();
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private stopped = false;
 
   constructor(private readonly deps: OrchestratorDeps) {}
 
   start(): void {
+    this.stopped = false;
     void this.tick();
   }
 
   stop(): void {
+    this.stopped = true;
     if (this.pollTimer) {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;
@@ -72,7 +75,9 @@ export class SymphonyOrchestrator {
     } catch (err) {
       console.error('[symphony] tick error:', err);
     } finally {
-      this.scheduleNextTick(pollIntervalMs);
+      if (!this.stopped) {
+        this.scheduleNextTick(pollIntervalMs);
+      }
     }
   }
 

@@ -757,9 +757,18 @@ ptyService.setSubmittedInputListener((sessionId, input) => {
   }
 });
 registerIpc(workspaceService);
-ipcMain.handle(IPC_CHANNELS.symphonyGetConfig, (_, payload: { projectId: string }) =>
-  symphonyConfigStore.get(payload.projectId)
-);
+ipcMain.handle(IPC_CHANNELS.symphonyGetConfig, (_, payload: { projectId: string }) => {
+  const cfg = symphonyConfigStore.get(payload.projectId);
+  if (!cfg) return null;
+  return {
+    projectId: cfg.projectId,
+    trackerKind: cfg.trackerKind,
+    projectSlug: cfg.projectSlug,
+    hasApiKey: cfg.apiKey.length > 0,
+    createdAt: cfg.createdAt,
+    updatedAt: cfg.updatedAt,
+  };
+});
 ipcMain.handle(
   IPC_CHANNELS.symphonySetConfig,
   (_, payload: Omit<SymphonyProjectConfig, "createdAt" | "updatedAt">) => {

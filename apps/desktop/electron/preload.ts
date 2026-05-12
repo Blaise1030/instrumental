@@ -378,7 +378,7 @@ contextBridge.exposeInMainWorld("symphonyApi", {
   getConfig: (payload: { projectId: string }) =>
     ipcRenderer.invoke(IPC_CHANNELS.symphonyGetConfig, payload) as Promise<
       (SymphonyStoredConfig & { createdAt: string; updatedAt: string }) | null
-    >,
+    >, // SymphonyStoredConfig.hasApiKey replaces apiKey — raw key never crosses IPC
   setConfig: (payload: SymphonySetConfigInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.symphonySetConfig, payload) as Promise<void>,
   deleteConfig: (payload: { projectId: string }) =>
