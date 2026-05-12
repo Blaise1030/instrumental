@@ -23,9 +23,6 @@ agent:
   max_concurrent_agents: 3
   on_complete: open_pr
 
-codex:
-  command: claude
-
 kanban:
   columns:
     - label: "Todo"
@@ -80,12 +77,6 @@ describe('readWorkflowConfig', () => {
     expect(cfg!.agent.max_concurrent_agents).toBe(3);
     expect(cfg!.agent.on_complete).toBe('open_pr');
     expect(cfg!.kanban.columns).toHaveLength(3);
-  });
-
-  it('reads raw WORKFLOW.md content for template rendering', () => {
-    fs.writeFileSync(path.join(tmpDir, 'WORKFLOW.md'), SAMPLE_WORKFLOW);
-    const cfg = readWorkflowConfig(tmpDir);
-    expect(cfg).not.toBeNull();
   });
 });
 

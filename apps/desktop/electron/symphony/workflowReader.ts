@@ -35,12 +35,14 @@ export function renderPromptTemplate(
   if (!bodyMatch) return workflowContent;
   let body = bodyMatch[1];
 
+  // Resolve {% if attempt %}...{% endif %} blocks
   if (attempt > 0) {
     body = body.replace(/\{%-?\s*if attempt\s*-?%\}([\s\S]*?)\{%-?\s*endif\s*-?%\}/g, '$1');
   } else {
     body = body.replace(/\{%-?\s*if attempt\s*-?%\}[\s\S]*?\{%-?\s*endif\s*-?%\}/g, '');
   }
 
+  // Substitute {{ variables }}
   body = body
     .replace(/\{\{\s*issue\.identifier\s*\}\}/g, issue.identifier)
     .replace(/\{\{\s*issue\.title\s*\}\}/g, issue.title)
