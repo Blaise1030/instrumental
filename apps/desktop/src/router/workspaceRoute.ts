@@ -1,33 +1,47 @@
+import LayoutShell from "@/layouts/LayoutShell.vue";
 import Layout from "@/layouts/Layout.vue";
 import { agentRoutes } from "@/modules/agent/agentRoute";
 import { browserRoutes, browserRoutesBranch } from "@/modules/browser/browserRoute";
 import { explorerRoutes, explorerRoutesBranch } from "@/modules/explorer/explorerRoute";
 import { gitRoutes, gitRoutesBranch } from "@/modules/git/gitRoute";
+import { symphonyRoute } from "@/modules/symphony/symphonyRoute";
 
 const [agentThreadNewRoute, agentThreadParamShell] = agentRoutes;
 
 /**
- * Workspace shell for `/:projectId/:branch`.
- * Git, preview, and file explorer routes are nested under `thread/:threadId` (not siblings of
- * `thread/new`) so URLs stay `.../thread/<id>/git` etc. — see `agentRoute`.
- * Settings live outside this shell — see `workspaceSettingsRoute` in `router/index.ts`.
+ * LayoutShell provides the top nav bar (project tabs, view toggle, settings) and a RouterView.
+ *
+ * Symphony routes render directly inside LayoutShell (no sidebar).
+ *
+ * All other workspace routes render inside the pathless Layout child, which adds the
+ * thread/worktree sidebar and the workspace panel area.
  */
 export const workspaceRoute = {
   path: "/:projectId/:branch",
   name: "workspace",
-  component: Layout,
+  component: LayoutShell,
   children: [
-    agentThreadNewRoute,
-    gitRoutesBranch,
-    browserRoutesBranch,
-    explorerRoutesBranch,
+    // Symphony: full-width inside shell, no sidebar
+    symphonyRoute,
+
+    // Workspace: sidebar + panels
     {
-      path: agentThreadParamShell.path,
+      path: "",
+      component: Layout,
       children: [
-        ...(agentThreadParamShell.children ?? []),
-        gitRoutes,
-        browserRoutes,
-        explorerRoutes,
+        agentThreadNewRoute,
+        gitRoutesBranch,
+        browserRoutesBranch,
+        explorerRoutesBranch,
+        {
+          path: agentThreadParamShell.path,
+          children: [
+            ...(agentThreadParamShell.children ?? []),
+            gitRoutes,
+            browserRoutes,
+            explorerRoutes,
+          ],
+        },
       ],
     },
   ],
