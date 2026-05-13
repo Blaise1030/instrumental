@@ -1,4 +1,4 @@
-import type { TrackerAdapter, TrackerIssue, SymphonyConfig } from '../types.js';
+import type { TrackerAdapter, TrackerIssue, IssueStateSnapshot, SymphonyConfig } from '../types.js';
 
 const GH_API = 'https://api.github.com';
 
@@ -45,9 +45,15 @@ export class GitHubAdapter implements TrackerAdapter {
           state: matchedState,
           labels: labelNames,
           url: issue.html_url,
-        } satisfies TrackerIssue;
+          branchName: null as string | null,
+        };
       })
       .filter((i): i is TrackerIssue => i !== null);
+  }
+
+  async fetchIssueStatesByIds(_issueIds: string[], _apiKey: string): Promise<IssueStateSnapshot[]> {
+    // GitHub has no lightweight state-check endpoint; caller must use fetchEligibleIssues.
+    return [];
   }
 
   async transitionIssue(

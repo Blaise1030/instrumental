@@ -1,6 +1,7 @@
 export interface KanbanColumn {
   label: string;
   state: string;
+  activeStates?: string[];
 }
 
 export type SymphonyRunStatus =

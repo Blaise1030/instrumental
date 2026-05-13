@@ -10,7 +10,8 @@ const props = defineProps<{
 const emit = defineEmits<{ "select-task": [task: SymphonyTask] }>();
 
 function tasksForColumn(column: KanbanColumn): SymphonyTask[] {
-  return props.tasks.filter((t) => t.issueState === column.state);
+  const states = column.activeStates ?? [column.state];
+  return props.tasks.filter((t) => states.includes(t.issueState));
 }
 </script>
 
@@ -27,13 +28,19 @@ function tasksForColumn(column: KanbanColumn): SymphonyTask[] {
         </h3>
         <span class="text-xs text-muted-foreground">{{ tasksForColumn(col).length }}</span>
       </div>
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-2 flex-1">
         <KanbanCard
           v-for="task in tasksForColumn(col)"
           :key="task.issueId"
           :task="task"
           @click="emit('select-task', task)"
         />
+        <div
+          v-if="tasksForColumn(col).length === 0"
+          class="flex flex-1 items-center justify-center rounded-lg border border-dashed py-8"
+        >
+          <p class="text-xs text-muted-foreground">No issues</p>
+        </div>
       </div>
     </div>
   </div>

@@ -46,15 +46,15 @@ Add a **+** control at the end of the top-bar **project tab strip** (in `Layout.
 
 - If `addProject` rejects (I/O, validation, or future server-side rules), show feedback through the same mechanism as other workspace failures; do not leave partial UI state.
 
-## Architecture
+## Architecture 1
 
 ### Primary location
 
-- **`apps/desktop/src/layouts/Layout.vue`**: markup for **+**, click handler, query invalidation, navigation.
+- `**apps/desktop/src/layouts/Layout.vue**`: markup for **+**, click handler, query invalidation, navigation.
 
 ### Optional refactor (YAGNI unless duplication hurts)
 
-- Extract **`useAddProjectFromDirectoryPick()`** (or similar) in `src/composables/` if the same sequence should power ThreadSidebar’s “Add project” (`createProject` emit) in a follow-up. Not required for the first ship if only the header uses it.
+- Extract `**useAddProjectFromDirectoryPick()**` (or similar) in `src/composables/` if the same sequence should power ThreadSidebar’s “Add project” (`createProject` emit) in a follow-up. Not required for the first ship if only the header uses it.
 
 ## Dependencies (existing)
 
@@ -70,7 +70,8 @@ Add a **+** control at the end of the top-bar **project tab strip** (in `Layout.
 
 ## Self-review checklist
 
-- [x] No unresolved TBDs.
-- [x] Duplicate path behaviour specified explicitly.
-- [x] Scope limited to header + native picker + add + navigate.
-- [x] Aligns with existing `Layout.vue` tab strip and `useNavigateToProject` invalidation pattern.
+- No unresolved TBDs.
+- Duplicate path behaviour specified explicitly.
+- Scope limited to header + native picker + add + navigate.
+- Aligns with existing `Layout.vue` tab strip and `useNavigateToProject` invalidation pattern.
+

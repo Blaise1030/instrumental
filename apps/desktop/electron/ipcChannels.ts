@@ -102,6 +102,7 @@ export const IPC_CHANNELS = {
   symphonySetConfig: "symphony:setConfig",
   symphonyDeleteConfig: "symphony:deleteConfig",
   symphonyGetTasks: "symphony:getTasks",
+  symphonyGetWorkflowRaw: "symphony:getWorkflowRaw",
   symphonyDidChange: "symphony:didChange",
   /** Absolute skill-directory roots from renderer (Settings → Agents); used to allow `files:search` outside worktrees. */
   workspaceSetAgentSkillSearchRoots: "workspace:setAgentSkillSearchRoots",

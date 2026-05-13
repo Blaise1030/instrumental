@@ -157,10 +157,10 @@ async function navigateToProject(targetProjectId: string): Promise<void> {
 const { pickAndAddProject } = useAddProjectFromDirectoryPick({ navigateToProject });
 
 const panelTabs = [
-  { value: "agent", label: "🤖 Agent" },
-  { value: "gitPanel", label: "🌳 Git" },
-  { value: "previewPanel", label: "🌐 Browser" },
-  { value: "filesPanel", label: "📁 Files" },
+  { value: "agent", label: "Agent" },
+  { value: "gitPanel", label: "Changes" },
+  { value: "filesPanel", label: "Files" },
+  { value: "previewPanel", label: "Browser" },
 ] as const;
 
 const workspaceNavParams = computed(() => resolveThreadScopedWorkspaceParams(route));
@@ -188,41 +188,9 @@ const panelBranchRouteMap: Record<string, string> = {
   filesPanel: "filesPanelBranch",
 };
 
-const workspacePanelPills = computed<PillTabItem[]>(() => {
-  const p = workspaceNavParams.value;
-  const bp = branchOnlyParams.value;
-  return panelTabs.map((tab) => {
-    const kbId = workspacePanelKeybindingId(tab.value);
-    const shortcutHint = kbId ? keybindings.shortcutLabelForId(kbId) : "";
-    const branchRoute = panelBranchRouteMap[tab.value];
-    const to = p
-      ? { name: tab.value, params: p }
-      : bp && branchRoute
-        ? { name: branchRoute, params: bp }
-        : undefined;
-    return {
-      value: tab.value,
-      label: tab.label,
-      ...(shortcutHint ? { shortcutHint } : {}),
-      ...(to ? { to } : {}),
-    };
-  });
-});
+const activeRouteBranch = computed(() => route.params.branch as string | undefined);
 
-function onWorkspacePanelTabNavigate(value: string): void {
-  const p = workspaceNavParams.value;
-  if (p) {
-    void router.push({ name: value, params: p });
-    return;
-  }
-  const bp = branchOnlyParams.value;
-  const branchRoute = panelBranchRouteMap[value];
-  if (bp && branchRoute) {
-    void router.push({ name: branchRoute, params: bp });
-  }
-}
-
-const activeTab = computed<string>(() => {
+const activeRouteTab = computed<string>(() => {
   const name = route.name as string;
   if (["gitPanel", "gitPanelBranch", "gitPullRequests", "gitPullRequestsBranch", "gitPullRequest", "gitPullRequestBranch"].includes(name))
     return "gitPanel";
@@ -230,6 +198,50 @@ const activeTab = computed<string>(() => {
   if (["filesPanel", "filesPanelBranch", "fileDetail", "fileDetailBranch"].includes(name)) return "filesPanel";
   return "agent";
 });
+
+function activeTabForBranch(branch: string): string {
+  return encodeBranch(branch) === activeRouteBranch.value ? activeRouteTab.value : "agent";
+}
+
+function panelPillsForBranch(branch: string): PillTabItem[] {
+  const encodedBranch = encodeBranch(branch);
+  const isActiveBranch = encodedBranch === activeRouteBranch.value;
+  const bp = { projectId: projectId.value, branch: encodedBranch };
+  const threadParams = isActiveBranch ? workspaceNavParams.value : null;
+
+  return panelTabs.map((tab) => {
+    const kbId = isActiveBranch ? workspacePanelKeybindingId(tab.value) : null;
+    const shortcutHint = kbId ? keybindings.shortcutLabelForId(kbId) : "";
+    const branchRoute = panelBranchRouteMap[tab.value];
+    let to: { name: string; params: Record<string, string> } | undefined;
+    if (tab.value === "agent") {
+      to = threadParams
+        ? { name: "agent", params: threadParams as Record<string, string> }
+        : { name: "threadNew", params: bp };
+    } else if (branchRoute) {
+      to = { name: branchRoute, params: bp };
+    }
+    return {
+      value: tab.value,
+      label: tab.label,
+      ...(shortcutHint ? { shortcutHint } : {}),
+      ...(to ? { to } : {}),
+    };
+  });
+}
+
+function onWorktreePanelTabNavigate(branch: string, value: string): void {
+  const encodedBranch = encodeBranch(branch);
+  const bp = { projectId: projectId.value, branch: encodedBranch };
+  if (value === "agent") {
+    const isActiveBranch = encodedBranch === activeRouteBranch.value;
+    const p = isActiveBranch ? workspaceNavParams.value : null;
+    void router.push(p ? { name: "agent", params: p } : { name: "threadNew", params: bp });
+    return;
+  }
+  const branchRoute = panelBranchRouteMap[value];
+  if (branchRoute) void router.push({ name: branchRoute, params: bp });
+}
 
 function goNewThread(branch: string): void {
   const pid = projectId.value;
@@ -302,20 +314,25 @@ const { data: threadsGroup } = useQuery({
       {} as Record<string, Thread[]>,
     );
 
+    const mapThread = (thread: Thread) => ({
+      ...thread,
+      resumeId: sessionResumeIdMap[thread.id] ?? thread.resumeId,
+      threadPath: `/${projectId.value}/${encodeBranch(thread.createdBranch ?? "")}/thread/${thread.id}`,
+    });
+
     const groups = listed.map(({ path: wtPath, branch }) => {
       const row =
         persisted.find((w) => w.path === wtPath) ??
         persisted.find((w) => w.branch === branch);
+      const isDefault = row?.isDefault ?? wtPath === repoRoot;
       return {
         path: wtPath,
         branch,
         worktreePath: row?.path ?? wtPath,
-        isDefault: row?.isDefault ?? wtPath === repoRoot,
-        threads: (threadsMap[branch] ?? [])?.map((thread) => ({
-          ...thread,
-          resumeId: sessionResumeIdMap[thread.id] ?? thread.resumeId,
-          threadPath: `/${projectId.value}/${encodeBranch(thread.createdBranch ?? "")}/thread/${thread.id}`,
-        })),
+        isDefault,
+        // Default group shows all threads so branch switches don't hide them;
+        // filterByBranch applies the "this branch only" filter when the toggle is on.
+        threads: (isDefault ? allThreads : (threadsMap[branch] ?? [])).map(mapThread),
       };
     });
 
@@ -327,6 +344,8 @@ const { data: threadsGroup } = useQuery({
     return groups;
   },
 });
+
+watch(() => threadsGroup.value?.[0]?.branch, () => { filterMode.value = false; });
 
 const terminalPanelWorktreePath = computed(() => {
   const fromThread = activeWorktreeId.value;
@@ -345,7 +364,7 @@ const filterByBranch = (
   threads: (Thread & { threadPath: string })[],
 ): (Thread & { threadPath: string })[] => {
   if (filterMode.value) {
-    const activeBranch = decodeBranch(branchId.value ?? "");
+    const activeBranch = threadsGroup.value?.[0]?.branch ?? decodeBranch(branchId.value ?? "");
     return threads.filter((thread) => thread.createdBranch === activeBranch);
   }
   return threads;
@@ -365,10 +384,12 @@ function openTerminalPanel(): void {
   terminalPanelOpen.value = !terminalPanelOpen.value;
 }
 
+const TERMINAL_SUPPORTED_TABS = new Set(["agent", "gitPanel", "filesPanel"]);
+
 function handleToggleTerminalShortcut(): void {
   const p = workspaceNavParams.value;
   if (!p) return;
-  if (activeTab.value !== "agent") {
+  if (!TERMINAL_SUPPORTED_TABS.has(activeRouteTab.value)) {
     void router.push({ name: "agent", params: p });
     terminalPanelOpen.value = true;
     return;
@@ -379,7 +400,7 @@ function handleToggleTerminalShortcut(): void {
 async function handleAddTerminalShortcut(): Promise<void> {
   const p = workspaceNavParams.value;
   if (!p) return;
-  if (activeTab.value !== "agent") {
+  if (!TERMINAL_SUPPORTED_TABS.has(activeRouteTab.value)) {
     await router.push({ name: "agent", params: p });
   }
   terminalPanelOpen.value = true;
@@ -450,7 +471,7 @@ async function onCreateWorktreeGroup(
 
 <template>
   <Sidebar class="top-(--header-height) h-[calc(100dvh-var(--header-height))]">
-    <SidebarContent class="gap-0 flex flex-col">
+    <SidebarContent class="gap-0 flex flex-col">      
       <template v-for="(value, index) in threadsGroup ?? []" :key="value.branch">
         <SidebarGroup class="gap-0 flex flex-col" :class="index === 0 ? 'px-1' : ''">
           <Collapsible default-open class="group/collapsible p-0">
@@ -523,14 +544,14 @@ async function onCreateWorktreeGroup(
                   <Switch v-model="filterMode" />
                   <Label class="text-muted-foreground">Threads from this branch only</Label>
                 </div>
-                <div v-if="branchId === value.branch" class="pb-1">
+                <div class="pb-1">
                   <PillTabs
-                    :model-value="activeTab"
+                    :model-value="activeTabForBranch(value.branch)"
                     size="default"
                     wrap
                     aria-label="Workspace panels"
-                    :tabs="workspacePanelPills"
-                    @update:model-value="onWorkspacePanelTabNavigate"
+                    :tabs="panelPillsForBranch(value.branch)"
+                    @update:model-value="onWorktreePanelTabNavigate(value.branch, $event)"
                   />
                 </div>
               </div>
@@ -666,7 +687,7 @@ async function onCreateWorktreeGroup(
 
   <SidebarInset class="mx-1 h-[calc(100dvh-var(--header-height)-0.3rem)] min-h-0 rounded-xl border shadow-sm overflow-hidden bg-background">
     <ResizablePanelGroup
-      v-if="terminalPanelOpen && activeTab === 'agent'"
+      v-if="terminalPanelOpen && TERMINAL_SUPPORTED_TABS.has(activeRouteTab)"
       direction="vertical"
       class="h-full min-h-0"
     >
@@ -676,7 +697,7 @@ async function onCreateWorktreeGroup(
         </div>
       </ResizablePanel>
 
-      <ResizablePanel :default-size="30" :min-size="10" class="min-h-0 relative min-w-0 border-t">
+      <ResizablePanel :default-size="30" :min-size="10" class="min-h-0 bg-background relative min-w-0 border-t z-10">
         <ResizableHandle
           class="bg-border absolute left-1/2 -translate-x-1/2 top-1 active:bg-foreground w-6 mx-auto h-1 rounded-lg z-10 flex shrink-0"
         />

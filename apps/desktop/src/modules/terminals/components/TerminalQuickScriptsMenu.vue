@@ -112,6 +112,7 @@ function runScript(command: string): void {
   <Sheet :open="manageOpen" @update:open="(v) => (manageOpen = v)">
     <SheetContent
       side="right"
+      floating
       class="flex w-full max-w-sm flex-col gap-0 overflow-hidden p-0 sm:max-w-sm"
     >
       <SheetHeader class="shrink-0 border-b border-border px-4 py-3 text-left">

@@ -10,8 +10,17 @@ export const symphonyRoute = {
     },
     {
       path: ":taskId",
-      name: "symphonyTask",
-      component: SymphonyPage,
+      redirect: (to: { params: Record<string, unknown> }) => ({
+        name: "symphonyTaskTab",
+        params: { ...to.params, tab: "agent" },
+      }),
+      children: [
+        {
+          path: ":tab",
+          name: "symphonyTaskTab",
+          component: SymphonyPage,
+        },
+      ],
     },
   ],
 };

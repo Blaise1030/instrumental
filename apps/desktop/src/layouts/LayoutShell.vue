@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, provide, storeToRefs } from "vue";
+import { computed, provide } from "vue";
+import { storeToRefs } from "pinia";
 import { useRoute, useRouter } from "vue-router";
 import { useIsFullscreen } from "@/hooks/useIsFullscreen";
 import { useAppContext } from "@/app-context/useAppContext";
@@ -261,9 +262,9 @@ function onNavigateForward(): void {
 
         <div class="flex shrink-0 items-center gap-1 pe-2 ps-1">
           <PillTabs
-            v-if="symphonyEnabled"
+            v-if="Boolean(projectId)"
             :model-value="symphonyView"
-            :tabs="[{ value: 'chat', label: 'Thread view' }, { value: 'kanban', label: '🎵 Symphony' }]"
+            :tabs="[{ value: 'chat', label: 'Threads' }, { value: 'kanban', label: 'Symphony' }]"
             size="xs"
             class="mr-1"
             @update:model-value="onViewToggle($event)"
@@ -293,8 +294,13 @@ function onNavigateForward(): void {
         </div>
       </nav>
 
-      <div class="flex min-h-0 flex-1 bg-sidebar">
-        <RouterView />
+      <div class="flex min-h-0 w-full flex-1 bg-sidebar">
+        <template v-if="isSymphonyRoute">
+          <div class="mx-1 h-[calc(100dvh-var(--header-height)-0.3rem)] min-h-0 flex-1 rounded-xl border shadow-sm overflow-hidden bg-background">
+            <RouterView class="h-full min-h-0" />
+          </div>
+        </template>
+        <RouterView v-else />
       </div>
     </SidebarProvider>
   </div>

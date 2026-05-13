@@ -781,6 +781,11 @@ ipcMain.handle(IPC_CHANNELS.symphonyDeleteConfig, (_, payload: { projectId: stri
   symphonyConfigStore.delete(payload.projectId);
   orchestrator.stop();
 });
+ipcMain.handle(IPC_CHANNELS.symphonyGetWorkflowRaw, (_, payload: { projectId: string }) => {
+  const snapshot = workspaceService.getSnapshot();
+  const repoPath = snapshot.projects.find((p) => p.id === payload.projectId)?.repoPath;
+  return repoPath ? readWorkflowRaw(repoPath) : null;
+});
 ipcMain.handle(IPC_CHANNELS.symphonyGetTasks, (_, payload: { projectId: string }) => {
   const snapshot = workspaceService.getSnapshot();
   const repoPath = snapshot.projects.find((p) => p.id === payload.projectId)?.repoPath;
@@ -790,7 +795,7 @@ ipcMain.handle(IPC_CHANNELS.symphonyGetTasks, (_, payload: { projectId: string }
     tasks,
     columns: config?.kanban?.columns ?? [],
     trackerError: null,
-    enabled: !!symphonyConfigStore.get(payload.projectId),
+    enabled: !!config,
   };
 });
 orchestrator.start();

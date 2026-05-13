@@ -1,18 +1,21 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import type { SymphonyTask } from "@/shared/symphony";
 import { useActiveWorkspace } from "@/hooks/useActiveWorkspace";
 import TerminalPane from "@/modules/agent/components/TerminalPane.vue";
+import PillTabs from "@/components/ui/PillTabs.vue";
 
 const props = defineProps<{
   task: SymphonyTask | null;
   open: boolean;
+  projectId: string;
+  branch: string;
+  taskId: string;
+  activeTab: string;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
 
-type SheetTab = "chat" | "diff";
-const activeTab = ref<SheetTab>("chat");
 const { activeWorktree } = useActiveWorkspace();
 
 const hasDiff = computed(
@@ -48,6 +51,29 @@ const statusClass = computed(() => {
       return "text-muted-foreground";
   }
 });
+
+const tabs = computed(() => [
+  {
+    value: "agent",
+    label: "Agent",
+    to: { name: "symphonyTaskTab", params: { projectId: props.projectId, branch: props.branch, taskId: props.taskId, tab: "agent" } },
+  },
+  {
+    value: "changes",
+    label: "Changes",
+    to: { name: "symphonyTaskTab", params: { projectId: props.projectId, branch: props.branch, taskId: props.taskId, tab: "changes" } },
+  },
+  {
+    value: "files",
+    label: "Files",
+    to: { name: "symphonyTaskTab", params: { projectId: props.projectId, branch: props.branch, taskId: props.taskId, tab: "files" } },
+  },
+  {
+    value: "browser",
+    label: "Browser",
+    to: { name: "symphonyTaskTab", params: { projectId: props.projectId, branch: props.branch, taskId: props.taskId, tab: "browser" } },
+  },
+]);
 </script>
 
 <template>
@@ -84,24 +110,13 @@ const statusClass = computed(() => {
         >✕</button>
       </div>
 
-      <div class="flex border-b">
-        <button
-          v-for="tab in (['chat', 'diff'] as SheetTab[])"
-          :key="tab"
-          class="px-4 py-2 text-sm capitalize border-b-2 transition-colors"
-          :class="activeTab === tab
-            ? 'border-primary text-foreground'
-            : 'border-transparent text-muted-foreground hover:text-foreground'"
-          :disabled="tab === 'diff' && !hasDiff"
-          @click="activeTab = tab"
-        >
-          {{ tab === "chat" ? "Chat" : "Diff" }}
-        </button>
+      <div class="border-b px-3 py-2">
+        <PillTabs :model-value="activeTab" :tabs="tabs" size="sm" />
       </div>
 
       <div class="flex-1 overflow-hidden">
         <TerminalPane
-          v-if="activeTab === 'chat' && task.threadId && activeWorktree"
+          v-if="activeTab === 'agent' && task.threadId && activeWorktree"
           class="h-full"
           :session-id="task.threadId"
           :worktree-id="activeWorktree.id"
@@ -110,10 +125,22 @@ const statusClass = computed(() => {
           :agent-tab="true"
         />
         <div
-          v-else-if="activeTab === 'diff'"
+          v-else-if="activeTab === 'changes'"
           class="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground"
         >
-          Open the Git panel for full diff review.
+          {{ hasDiff ? 'Open the Git panel for full diff review.' : 'No changes yet.' }}
+        </div>
+        <div
+          v-else-if="activeTab === 'files'"
+          class="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground"
+        >
+          File explorer coming soon.
+        </div>
+        <div
+          v-else-if="activeTab === 'browser'"
+          class="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground"
+        >
+          Browser coming soon.
         </div>
         <div v-else class="flex items-center justify-center h-full text-sm text-muted-foreground">
           No output yet.

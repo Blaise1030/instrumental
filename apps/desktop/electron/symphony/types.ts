@@ -1,6 +1,7 @@
 export interface KanbanColumn {
   label: string;
   state: string;
+  activeStates?: string[];
 }
 
 export interface SymphonyConfig {
@@ -33,6 +34,13 @@ export interface TrackerIssue {
   state: string;
   labels: string[];
   url: string;
+  branchName: string | null;
+}
+
+export interface IssueStateSnapshot {
+  id: string;
+  identifier: string;
+  state: string;
 }
 
 export interface SymphonyTask {
@@ -53,6 +61,10 @@ export interface TrackerAdapter {
     config: SymphonyConfig,
     apiKey: string,
   ): Promise<TrackerIssue[]>;
+  fetchIssueStatesByIds(
+    issueIds: string[],
+    apiKey: string,
+  ): Promise<IssueStateSnapshot[]>;
   transitionIssue(
     issueId: string,
     state: string,

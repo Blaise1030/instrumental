@@ -114,6 +114,7 @@ const IPC_CHANNELS = {
   symphonySetConfig: "symphony:setConfig",
   symphonyDeleteConfig: "symphony:deleteConfig",
   symphonyGetTasks: "symphony:getTasks",
+  symphonyGetWorkflowRaw: "symphony:getWorkflowRaw",
   symphonyDidChange: "symphony:didChange",
   workspaceSetAgentSkillSearchRoots: "workspace:setAgentSkillSearchRoots",
   workspaceSetProjectGitHubPr: "workspace:setProjectGitHubPr",
@@ -385,6 +386,8 @@ contextBridge.exposeInMainWorld("symphonyApi", {
     ipcRenderer.invoke(IPC_CHANNELS.symphonyDeleteConfig, payload) as Promise<void>,
   getTasks: (payload: SymphonyGetTasksInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.symphonyGetTasks, payload) as Promise<SymphonyTasksSnapshot>,
+  getWorkflowRaw: (payload: { projectId: string }) =>
+    ipcRenderer.invoke(IPC_CHANNELS.symphonyGetWorkflowRaw, payload) as Promise<string | null>,
   onDidChange: (callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on(IPC_CHANNELS.symphonyDidChange, handler);
