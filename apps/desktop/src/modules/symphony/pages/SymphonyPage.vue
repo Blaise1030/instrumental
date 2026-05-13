@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import Label from "@/components/ui/label/Label.vue";
 import PillTabs from "@/components/ui/PillTabs.vue";
 import { Settings2 } from "lucide-vue-next";
+import { CursorLoading } from "@/components/ui/cursor-loading";
 
 const route = useRoute();
 const router = useRouter();
@@ -163,8 +164,8 @@ function onOpenEditor(): void {
       </p>
     </div>
 
-    <div v-else-if="isLoading" class="flex items-center justify-center h-full text-sm text-muted-foreground">
-      Loading…
+    <div v-else-if="isLoading" class="flex items-center justify-center h-full">
+      <CursorLoading />
     </div>
 
     <template v-else-if="snapshot">
@@ -275,7 +276,8 @@ function onOpenEditor(): void {
             readonly
           />
           <div v-else class="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-            {{ workflowLoading ? 'Loading…' : 'No WORKFLOW.md found at repo root.' }}
+            <CursorLoading v-if="workflowLoading" />
+            <span v-else>No WORKFLOW.md found at repo root.</span>
           </div>
           <Button type="button" variant="outline" size="sm" class="w-full" @click="onOpenEditor">
             Open in editor

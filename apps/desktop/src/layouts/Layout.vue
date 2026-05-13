@@ -61,7 +61,7 @@ import {
 } from "@/components/ui/popover";
 import type { WorkspaceSnapshot } from "@shared/ipc";
 import { useToast } from "@/hooks/useToast";
-import { useRemoveThread } from "@/modules/agent/hooks/useThreads";
+import { useRemoveThread, useRenameThread } from "@/modules/agent/hooks/useThreads";
 import { useWorkspaceShellUiStore } from "@/stores/workspaceShellUiStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import type { KeybindingId } from "@/keybindings/registry";
@@ -94,7 +94,44 @@ const branchId = computed(() => route.params.branch as string);
 watch(branchId, () => { filterMode.value = false; });
 
 const { mutateAsync: removeThreadMutate } = useRemoveThread();
+const { mutate: renameThreadMutate } = useRenameThread();
 const { activeThreadId, activeWorktreeId } = useActiveWorkspace();
+
+const editingThreadId = ref<string | null>(null);
+const editValue = ref("");
+const editInputRef = ref<HTMLElement | null>(null);
+
+function startRename(thread: { id: string; title: string }): void {
+  editingThreadId.value = thread.id;
+  editValue.value = thread.title;
+  void nextTick(() => {
+    const el = editInputRef.value;
+    if (!el) return;
+    el.textContent = editValue.value;
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+  });
+}
+
+function confirmRename(): void {
+  const val = editValue.value.trim();
+  const id = editingThreadId.value;
+  editingThreadId.value = null;
+  if (val && id) renameThreadMutate({ threadId: id, title: val });
+}
+
+function cancelRename(): void {
+  editingThreadId.value = null;
+}
+
+function onRenameBlur(): void {
+  void nextTick(() => {
+    if (editingThreadId.value) confirmRename();
+  });
+}
 
 // Run status injected from LayoutShell
 const runStatusByThreadId = inject(runStatusByThreadIdKey, ref({}));
@@ -219,7 +256,9 @@ function panelPillsForBranch(branch: string): PillTabItem[] {
         ? { name: "agent", params: threadParams as Record<string, string> }
         : { name: "threadNew", params: bp };
     } else if (branchRoute) {
-      to = { name: branchRoute, params: bp };
+      to = threadParams
+        ? { name: tab.value, params: threadParams as Record<string, string> }
+        : { name: "threadNew", params: bp };
     }
     return {
       value: tab.value,
@@ -239,8 +278,16 @@ function onWorktreePanelTabNavigate(branch: string, value: string): void {
     void router.push(p ? { name: "agent", params: p } : { name: "threadNew", params: bp });
     return;
   }
+  const isActiveBranch = encodedBranch === activeRouteBranch.value;
+  const threadP = isActiveBranch ? workspaceNavParams.value : null;
   const branchRoute = panelBranchRouteMap[value];
-  if (branchRoute) void router.push({ name: branchRoute, params: bp });
+  if (branchRoute) {
+    void router.push(
+      threadP
+        ? { name: value, params: threadP as Record<string, string> }
+        : { name: "threadNew", params: bp },
+    );
+  }
 }
 
 function goNewThread(branch: string): void {
@@ -575,13 +622,32 @@ async function onCreateWorktreeGroup(
                     >
                       <div class="relative flex w-full min-w-0 items-center">
                         <span class="flex min-w-0 flex-1 justify-between items-center gap-2 text-start outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+                          <template v-if="editingThreadId === thread.id">
+                            <AgentIcon :agent="thread?.agent" :class="threadIconClass(thread.id)" />
+                            <span
+                              :ref="(el) => { if (thread.id === editingThreadId) editInputRef = el as HTMLElement | null }"
+                              contenteditable="true"
+                              role="textbox"
+                              aria-label="Rename thread"
+                              class="min-w-0 flex-1 bg-background px-1 text-xs outline-none whitespace-nowrap"
+                              @input="editValue = ($event.currentTarget as HTMLElement)?.textContent ?? ''"
+                              @keydown.enter.prevent="confirmRename"
+                              @keydown.escape.prevent="cancelRename"
+                              @blur="onRenameBlur"
+                              @click.stop
+                            />
+                          </template>
                           <RouterLink
+                            v-else
                             :to="thread?.threadPath"
                             @click="clearIdleAttention(thread.id)"
                             class="flex gap-2 min-w-0 flex-1"
                           >
                             <AgentIcon :agent="thread?.agent" :class="threadIconClass(thread.id)" />
-                            <span class="truncate">{{ thread?.title }}</span>
+                            <span
+                              class="truncate"
+                              @dblclick.prevent.stop="startRename(thread)"
+                            >{{ thread?.title }}</span>
                           </RouterLink>
                           <Button
                             type="button"
