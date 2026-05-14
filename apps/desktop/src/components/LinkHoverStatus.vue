@@ -19,7 +19,8 @@ function resolveHrefFull(anchor: HTMLAnchorElement): string {
   const raw = anchor.getAttribute("href");
   if (!raw) return "";
   const trimmed = raw.trim();
-  if (!trimmed || trimmed.toLowerCase().startsWith("javascript:")) return "";
+  const lower = trimmed.toLowerCase();
+  if (!trimmed || lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) return "";
   if (trimmed === "#") return "";
   try {
     return new URL(anchor.href, window.location.href).href;
