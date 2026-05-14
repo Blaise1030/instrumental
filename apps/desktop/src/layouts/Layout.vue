@@ -243,8 +243,19 @@ function activeTabForBranch(branch: string): string {
 function panelPillsForBranch(branch: string): PillTabItem[] {
   const encodedBranch = encodeBranch(branch);
   const isActiveBranch = encodedBranch === activeRouteBranch.value;
+
   const bp = { projectId: projectId.value, branch: encodedBranch };
-  const threadParams = isActiveBranch ? workspaceNavParams.value : null;
+
+  // Scenario 1: active branch — use the current route's resolved thread params.
+  // Scenario 2: non-active branch — find the branch's own most-recent thread so the
+  //   agent pill links to it; fall back to null so it routes to threadNew instead of
+  //   incorrectly inheriting the active branch's thread params.
+  const branchThread = !isActiveBranch
+    ? workspace.threads.find((t) => t.projectId === projectId.value && t.createdBranch === branch)
+    : undefined;
+  const threadParams = isActiveBranch
+    ? workspaceNavParams.value
+    : branchThread ? { projectId: projectId.value, branch: encodedBranch, threadId: branchThread.id } : null;
 
   return panelTabs.map((tab) => {
     const kbId = isActiveBranch ? workspacePanelKeybindingId(tab.value) : null;
@@ -258,7 +269,7 @@ function panelPillsForBranch(branch: string): PillTabItem[] {
     } else if (branchRoute) {
       to = threadParams
         ? { name: tab.value, params: threadParams as Record<string, string> }
-        : { name: "threadNew", params: bp };
+        : { name: branchRoute, params: bp };
     }
     return {
       value: tab.value,
@@ -376,10 +387,8 @@ const { data: threadsGroup } = useQuery({
         path: wtPath,
         branch,
         worktreePath: row?.path ?? wtPath,
-        isDefault,
-        // Default group shows all threads so branch switches don't hide them;
-        // filterByBranch applies the "this branch only" filter when the toggle is on.
-        threads: (isDefault ? allThreads : (threadsMap[branch] ?? [])).map(mapThread),
+        isDefault,        
+        threads: (threadsMap[branch] ?? []).map(mapThread),
       };
     });
 
@@ -598,7 +607,6 @@ async function onCreateWorktreeGroup(
                     wrap
                     aria-label="Workspace panels"
                     :tabs="panelPillsForBranch(value.branch)"
-                    @update:model-value="onWorktreePanelTabNavigate(value.branch, $event)"
                   />
                 </div>
               </div>
