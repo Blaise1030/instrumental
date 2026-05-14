@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.1](https://github.com/Blaise1030/workbench/compare/v0.13.0...v0.13.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* resolve 27 dependabot security alerts ([6e9eb79](https://github.com/Blaise1030/workbench/commit/6e9eb79f8c3bf641a5c298b70adebebc1e0334b5))
+* resolve code scanning security alerts ([3b84c46](https://github.com/Blaise1030/workbench/commit/3b84c462c14bd9195a37df99326a46e4ea4c1f2c))
+
 ## [0.13.0](https://github.com/Blaise1030/workbench/compare/v0.12.0...v0.13.0) (2026-05-14)
 
 
