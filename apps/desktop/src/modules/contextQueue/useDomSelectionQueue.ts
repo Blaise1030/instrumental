@@ -74,13 +74,11 @@ export function useDomSelectionQueue(opts: DomSelectionQueueOpts) {
       pendingText.value = "";
       return;
     }
-    const caretRange = sel.getRangeAt(0).cloneRange();
-    caretRange.collapse(false);
-    const caretRect = caretRange.getBoundingClientRect();
+    const rangeRect = sel.getRangeAt(0).getBoundingClientRect();
 
     const diffText = opts.source === "diff" ? extractDiffContentText(sel) : null;
     pendingText.value = diffText ?? rawText;
-    anchor.value = { left: caretRect.left, top: caretRect.top, width: 2, height: caretRect.height || 16 };
+    anchor.value = { left: rangeRect.left, top: rangeRect.top, width: rangeRect.width, height: rangeRect.height };
     visible.value = true;
   }
 
