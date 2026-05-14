@@ -93,10 +93,18 @@ function workspaceThreadParams(): {
 }
 
 function navigateToPr(prNumber: number): void {
-  void router.push({
-    name: "gitPullRequest",
-    params: { ...workspaceThreadParams(), prId: String(prNumber) },
-  });
+  const isBranchRoute = (route.name as string).includes("Branch");
+  if (isBranchRoute) {
+    void router.push({
+      name: "gitPullRequestBranch",
+      params: { projectId: route.params.projectId, branch: route.params.branch, prId: String(prNumber) },
+    });
+  } else {
+    void router.push({
+      name: "gitPullRequest",
+      params: { ...workspaceThreadParams(), prId: String(prNumber) },
+    });
+  }
 }
 
 const fileFilter = ref("");
@@ -112,7 +120,7 @@ watch(
 watch(
   () => route.name,
   (name) => {
-    if (name === "gitPullRequests") {
+    if (name === "gitPullRequests" || name === "gitPullRequestsBranch") {
       store.clearPr();
     }
   },
@@ -130,7 +138,7 @@ watch(
     ] as const,
   async () => {
     if (!store.isConfigured) return;
-    if (route.name !== "gitPullRequest") return;
+    if (route.name !== "gitPullRequest" && route.name !== "gitPullRequestBranch") return;
     const prId = parseRoutePrId();
     if (prId === null) return;
     if (store.loading) return;

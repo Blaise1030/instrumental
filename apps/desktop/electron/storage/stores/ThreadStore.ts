@@ -34,6 +34,13 @@ export class ThreadStore {
       this.db.run(sql`ALTER TABLE threads ADD COLUMN resume_id TEXT`);
     }
 
+    const hasMetadataJson = this.db.get<{ v: number }>(sql`
+      SELECT 1 AS v FROM pragma_table_info('threads') WHERE name = 'metadata_json' LIMIT 1
+    `);
+    if (!hasMetadataJson) {
+      this.db.run(sql`ALTER TABLE threads ADD COLUMN metadata_json TEXT`);
+    }
+
     // Migrate worktree_id → worktree_path for legacy rows
     this.migrateWorktreeIdToPathIfNeeded();
 
@@ -132,7 +139,7 @@ export class ThreadStore {
     this.db.run(sql`
       INSERT INTO threads (
         id, project_id, worktree_path, title, agent,
-        created_branch, resume_id, created_at, updated_at
+        created_branch, resume_id, metadata_json, created_at, updated_at
       )
       VALUES (
         ${thread.id},
@@ -142,6 +149,7 @@ export class ThreadStore {
         ${thread.agent},
         ${thread.createdBranch ?? null},
         ${thread.resumeId ?? null},
+        ${thread.metadataJson ?? null},
         ${thread.createdAt},
         ${thread.updatedAt}
       )
@@ -152,6 +160,7 @@ export class ThreadStore {
         agent = excluded.agent,
         created_branch = excluded.created_branch,
         resume_id = excluded.resume_id,
+        metadata_json = excluded.metadata_json,
         updated_at = excluded.updated_at
     `);
   }
@@ -165,6 +174,7 @@ export class ThreadStore {
       agent: string;
       createdBranch: string | null;
       resumeId: string | null;
+      metadataJson: string | null;
       createdAt: string;
       updatedAt: string;
     }>(sql`
@@ -176,6 +186,7 @@ export class ThreadStore {
         agent,
         created_branch AS createdBranch,
         resume_id AS resumeId,
+        metadata_json AS metadataJson,
         created_at AS createdAt,
         updated_at AS updatedAt
       FROM threads
@@ -190,6 +201,7 @@ export class ThreadStore {
       agent: row.agent as ThreadAgent,
       createdBranch: row.createdBranch,
       resumeId: row.resumeId,
+      metadataJson: row.metadataJson,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
@@ -204,6 +216,7 @@ export class ThreadStore {
       agent: string;
       createdBranch: string | null;
       resumeId: string | null;
+      metadataJson: string | null;
       createdAt: string;
       updatedAt: string;
     }>(sql`
@@ -215,6 +228,7 @@ export class ThreadStore {
         agent,
         created_branch AS createdBranch,
         resume_id AS resumeId,
+        metadata_json AS metadataJson,
         created_at AS createdAt,
         updated_at AS updatedAt
       FROM threads
@@ -228,6 +242,7 @@ export class ThreadStore {
       agent: r.agent as ThreadAgent,
       createdBranch: r.createdBranch,
       resumeId: r.resumeId,
+      metadataJson: r.metadataJson,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     }));
@@ -242,6 +257,7 @@ export class ThreadStore {
       agent: string;
       createdBranch: string | null;
       resumeId: string | null;
+      metadataJson: string | null;
       createdAt: string;
       updatedAt: string;
     }>(sql`
@@ -253,6 +269,7 @@ export class ThreadStore {
         agent,
         created_branch AS createdBranch,
         resume_id AS resumeId,
+        metadata_json AS metadataJson,
         created_at AS createdAt,
         updated_at AS updatedAt
       FROM threads
@@ -267,6 +284,7 @@ export class ThreadStore {
       agent: r.agent as ThreadAgent,
       createdBranch: r.createdBranch,
       resumeId: r.resumeId,
+      metadataJson: r.metadataJson,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     }));

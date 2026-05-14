@@ -7,9 +7,11 @@ import type { AgentAdapter, AgentKind } from "../adapters/types.js";
 import { PtyManager } from "../runtime/ptyManager.js";
 
 type OutputListener = (runId: string, chunk: string) => void;
+type RunStatus = "running" | "done" | "failed";
 
 export class RunService {
   private pty = new PtyManager();
+  private runs = new Map<string, RunStatus>();
   private codex = new CodexCliAdapter();
   private claude = new ClaudeCodeCliAdapter();
   private cursor = new CursorCliAdapter();
@@ -37,10 +39,18 @@ export class RunService {
     const adapter = this.adapterFor(agent);
     const command = adapter.command({ cwd, prompt, threadId: runId });
 
-    this.pty.start(runId, command.file, command.args, cwd, (chunk) => {
+    const session = this.pty.start(runId, command.file, command.args, cwd, (chunk) => {
       onOutput(runId, chunk);
     });
+    this.runs.set(runId, "running");
+    session.process.onExit(({ exitCode }) => {
+      this.runs.set(runId, exitCode === 0 ? "done" : "failed");
+    });
     return runId;
+  }
+
+  getRunStatus(runId: string): RunStatus | null {
+    return this.runs.get(runId) ?? null;
   }
 
   sendInput(runId: string, input: string): void {

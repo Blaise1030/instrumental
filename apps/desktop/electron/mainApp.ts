@@ -54,6 +54,15 @@ import { handleHookEvent } from "./adapters/hookHandler.js";
 import { NotificationService } from "./services/notificationService.js";
 import { NotificationStore, registerNotificationIpc, emitNotificationsDidChange } from "./notification/index.js";
 import { TerminalTabStore } from "./storage/stores/TerminalTabStore.js";
+import {
+  SymphonyConfigStore,
+  type SymphonyProjectConfig,
+} from "./storage/stores/SymphonyConfigStore.js";
+import { SymphonyOrchestrator } from "./symphony/orchestrator.js";
+import { CompletionHandler } from "./symphony/completionHandler.js";
+import { LinearAdapter } from "./symphony/adapters/linear.js";
+import { GitHubAdapter } from "./symphony/adapters/github.js";
+import { readWorkflowConfig, readWorkflowRaw } from "./symphony/workflowReader.js";
 
 function isSafePreviewOpenExternalUrl(url: string): boolean {
   try {
@@ -673,9 +682,27 @@ const store = new WorkspaceStore(db);
 store.migrate();
 const terminalTabStore = new TerminalTabStore(db);
 terminalTabStore.initialize();
+const symphonyConfigStore = new SymphonyConfigStore(db);
+symphonyConfigStore.initialize();
 const notificationStore = new NotificationStore((db.$client as import("better-sqlite3").Database));
 const gitAdapter = createGitAdapter();
 const workspaceService = new WorkspaceService(store, gitAdapter);
+const completionHandler = new CompletionHandler();
+const orchestrator = new SymphonyOrchestrator({
+  configStore: symphonyConfigStore,
+  workspaceService,
+  runService,
+  completionHandler,
+  diffService,
+  readWorkflowConfig,
+  readWorkflowRaw,
+  makeAdapter: (kind) => (kind === "linear" ? new LinearAdapter() : new GitHubAdapter()),
+  onStateChange: () => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IPC_CHANNELS.symphonyDidChange);
+    }
+  },
+});
 
 // Use home directory to avoid spaces in paths like "Application Support" on macOS
 const hookScriptsDir = path.join(os.homedir(), ".workbench", "hooks");
@@ -730,6 +757,48 @@ ptyService.setSubmittedInputListener((sessionId, input) => {
   }
 });
 registerIpc(workspaceService);
+ipcMain.handle(IPC_CHANNELS.symphonyGetConfig, (_, payload: { projectId: string }) => {
+  const cfg = symphonyConfigStore.get(payload.projectId);
+  if (!cfg) return null;
+  return {
+    projectId: cfg.projectId,
+    trackerKind: cfg.trackerKind,
+    projectSlug: cfg.projectSlug,
+    hasApiKey: cfg.apiKey.length > 0,
+    createdAt: cfg.createdAt,
+    updatedAt: cfg.updatedAt,
+  };
+});
+ipcMain.handle(
+  IPC_CHANNELS.symphonySetConfig,
+  (_, payload: Omit<SymphonyProjectConfig, "createdAt" | "updatedAt">) => {
+    symphonyConfigStore.upsert(payload);
+    orchestrator.stop();
+    orchestrator.start();
+  }
+);
+ipcMain.handle(IPC_CHANNELS.symphonyDeleteConfig, (_, payload: { projectId: string }) => {
+  symphonyConfigStore.delete(payload.projectId);
+  orchestrator.stop();
+});
+ipcMain.handle(IPC_CHANNELS.symphonyGetWorkflowRaw, (_, payload: { projectId: string }) => {
+  const snapshot = workspaceService.getSnapshot();
+  const repoPath = snapshot.projects.find((p) => p.id === payload.projectId)?.repoPath;
+  return repoPath ? readWorkflowRaw(repoPath) : null;
+});
+ipcMain.handle(IPC_CHANNELS.symphonyGetTasks, (_, payload: { projectId: string }) => {
+  const snapshot = workspaceService.getSnapshot();
+  const repoPath = snapshot.projects.find((p) => p.id === payload.projectId)?.repoPath;
+  const config = repoPath ? readWorkflowConfig(repoPath) : null;
+  const tasks = orchestrator.getTasks(payload.projectId, config);
+  return {
+    tasks,
+    columns: config?.kanban?.columns ?? [],
+    trackerError: null,
+    enabled: !!config,
+  };
+});
+orchestrator.start();
 registerNotificationIpc(notificationStore, () => BrowserWindow.getAllWindows());
 ipcMain.handle(IPC_CHANNELS.terminalsListTabs, (_, worktreeId: string) => terminalTabStore.list(worktreeId));
 ipcMain.handle(IPC_CHANNELS.terminalsCreateTab, (_, worktreeId: string) => terminalTabStore.create(worktreeId));
@@ -740,6 +809,7 @@ ipcMain.handle(IPC_CHANNELS.terminalsSetActiveTab, (_, payload: { worktreeId: st
 gitHeadWatcher.syncFromSnapshot(workspaceService.getSnapshot());
 
 app.on("will-quit", () => {
+  orchestrator.stop();
   gitHeadWatcher?.dispose();
   gitHeadWatcher = null;
 });

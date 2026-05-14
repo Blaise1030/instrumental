@@ -23,7 +23,11 @@ import type {
   TerminalTab,
   GitHubPrByProjectInput,
   GitHubPrDiffByProjectInput,
-  GitHubPrCommentsByProjectInput
+  GitHubPrCommentsByProjectInput,
+  SymphonyGetTasksInput,
+  SymphonySetConfigInput,
+  SymphonyStoredConfig,
+  SymphonyTasksSnapshot
 } from "@shared/ipc";
 
 declare module "*.vue" {
@@ -172,10 +176,21 @@ interface TerminalsApi {
   setActiveTab: (worktreeId: string, id: string) => Promise<void>;
 }
 
+interface SymphonyApi {
+  getConfig: (payload: { projectId: string }) => Promise<
+    (SymphonyStoredConfig & { createdAt: string; updatedAt: string }) | null
+  >;
+  setConfig: (payload: SymphonySetConfigInput) => Promise<void>;
+  deleteConfig: (payload: { projectId: string }) => Promise<void>;
+  getTasks: (payload: SymphonyGetTasksInput) => Promise<SymphonyTasksSnapshot>;
+  onDidChange: (callback: () => void) => () => void;
+}
+
 declare global {
   interface Window {
     workspaceApi?: WorkspaceApi;
     previewApi?: PreviewApi;
     terminalsApi?: TerminalsApi;
+    symphonyApi?: SymphonyApi;
   }
 }

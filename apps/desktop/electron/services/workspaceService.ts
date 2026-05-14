@@ -128,6 +128,7 @@ export class WorkspaceService {
       agent: input.agent,
       createdBranch,
       resumeId: null,
+      metadataJson: input.metadataJson ?? null,
       createdAt: now,
       updatedAt: now
     };

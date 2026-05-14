@@ -50,3 +50,16 @@ export function useUpdateThread() {
     },
   });
 }
+
+export function useRenameThread() {
+  const appContext = useAppContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, title }: { threadId: string; title: string }) =>
+      appContext.value.threadManagementService.updateThreadName(threadId, title),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agent", "threads"] });
+      queryClient.invalidateQueries({ queryKey: ["worktrees"] });
+    },
+  });
+}

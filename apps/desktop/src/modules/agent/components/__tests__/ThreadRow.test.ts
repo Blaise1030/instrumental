@@ -12,9 +12,12 @@ async function hoverThreadRow(wrapper: ReturnType<typeof mountThreadRow>): Promi
 const thread: Thread = {
   id: "t1",
   projectId: "p1",
-  worktreeId: "w1",
+  worktreePath: "/tmp/w1",
   title: "Claude Code · Apr 5",
   agent: "claude",
+  createdBranch: null,
+  resumeId: null,
+  metadataJson: null,
   createdAt: "2026-04-05T00:00:00.000Z",
   updatedAt: "2026-04-05T00:00:00.000Z"
 };

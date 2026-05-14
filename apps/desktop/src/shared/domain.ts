@@ -54,6 +54,7 @@ export interface Thread {
   createdBranch: string | null;
   /** Claude/agent session ID used with `--resume` to continue an interrupted session. */
   resumeId: string | null;
+  metadataJson: string | null;
   createdAt: string;
   updatedAt: string;
 }

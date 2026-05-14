@@ -32,6 +32,7 @@ export interface CreateThreadInput {
   worktreePath: string;
   title: string;
   agent: ThreadAgent;
+  metadataJson?: string | null;
 }
 
 export interface AddProjectInput {
@@ -250,3 +251,9 @@ export interface PreviewNavigationState {
   canGoBack: boolean;
   canGoForward: boolean;
 }
+
+export interface SymphonyGetTasksInput {
+  projectId: string;
+}
+
+export type { SymphonySetConfigInput, SymphonyStoredConfig, SymphonyTasksSnapshot } from "./symphony.js";
