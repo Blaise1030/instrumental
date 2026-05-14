@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.13.0](https://github.com/Blaise1030/workbench/compare/v0.12.0...v0.13.0) (2026-05-14)
+
+
+### Features
+
+* **symphony:** add CompletionHandler for open_pr, commit, mark_done ([75a1bd7](https://github.com/Blaise1030/workbench/commit/75a1bd74cea19dc9b3f7b10a150e5958a41c851f))
+* **symphony:** add GitHubAdapter ([604b506](https://github.com/Blaise1030/workbench/commit/604b506a367153a334c930172f61290a70f65fc0))
+* **symphony:** add LinearAdapter ([a51ecc9](https://github.com/Blaise1030/workbench/commit/a51ecc9d269f0a6460f0164aa25f293d1c5a0af7))
+* **symphony:** add metadataJson to Thread for symphony source tagging ([22f6355](https://github.com/Blaise1030/workbench/commit/22f63557f552b1ac16aa0d7adf14c41bdf879458))
+* **symphony:** add symphony types and install js-yaml ([8a891b1](https://github.com/Blaise1030/workbench/commit/8a891b11b8f0734c6ec9abca4008c37eacb3af61))
+* **symphony:** add SymphonyConfigStore ([80bbb11](https://github.com/Blaise1030/workbench/commit/80bbb11037a8ab3147ac9b3a54aa2758acc7f4ce))
+* **symphony:** add SymphonyConfigStore ([2f87766](https://github.com/Blaise1030/workbench/commit/2f87766a0d85c78569ddaa5c9015ef44ca377be3))
+* **symphony:** add SymphonyOrchestrator with polling, dispatch, and reconciliation ([c0e0c2e](https://github.com/Blaise1030/workbench/commit/c0e0c2e12845c7a8e42e1aafba9d862442d29abe))
+* **symphony:** add WorkflowReader with YAML front-matter parsing and template rendering ([489e6b7](https://github.com/Blaise1030/workbench/commit/489e6b71a3626b244df6fd3db9c5aafd3a5f2e23))
+* **symphony:** add WorkflowReader with YAML parsing and template rendering ([b4a3170](https://github.com/Blaise1030/workbench/commit/b4a3170108a4fd8772b871e998466bb85277eccb))
+* **symphony:** expose RunService.getRunStatus for orchestrator polling ([5bd02ff](https://github.com/Blaise1030/workbench/commit/5bd02ff9405cfad0a3127dc2f050fe67f8c1ad39))
+* **symphony:** Symphony integration — orchestrator, adapters, Kanban UI, and layout refactor ([16bd34c](https://github.com/Blaise1030/workbench/commit/16bd34c8555789570b833c5d89126b296007c659))
+* **symphony:** wire orchestrator IPC channels, preload bridge, and mainApp startup ([eff657c](https://github.com/Blaise1030/workbench/commit/eff657c35539682e48fabe35d55546c8f8366e05))
+
+
+### Bug Fixes
+
+* bugfix and broken stylings ([612966b](https://github.com/Blaise1030/workbench/commit/612966b9fe7711bcb9ef6c0f2205eab17a394e29))
+* **symphony:** strip apiKey from getConfig response, fix ghost timer race on stop/restart ([0eacb7a](https://github.com/Blaise1030/workbench/commit/0eacb7a4d92a8a907b10f9709f5a89880e9db56d))
+
 ## [0.12.0](https://github.com/Blaise1030/workbench/compare/v0.11.0...v0.12.0) (2026-05-11)
 
 
