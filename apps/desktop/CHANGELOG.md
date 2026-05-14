@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/Blaise1030/workbench/compare/v0.13.1...v0.13.2) (2026-05-14)
+
+
+### Bug Fixes
+
+* worktree threads no longer leak into main branch thread listing ([dc64911](https://github.com/Blaise1030/workbench/commit/dc6491134b024a7c218047e6da8af920f9c89204))
+
 ## [0.13.1](https://github.com/Blaise1030/workbench/compare/v0.13.0...v0.13.1) (2026-05-14)
 
 
