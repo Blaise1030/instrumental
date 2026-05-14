@@ -20,5 +20,15 @@
     "build:landing": "pnpm --filter apps-landing-page build",
     "preview:landing": "pnpm --filter apps-landing-page preview",
     "deploy:landing": "pnpm --filter apps-landing-page run deploy"
+  },
+  "pnpm": {
+    "overrides": {
+      "next": ">=16.2.6",
+      "axios": ">=1.15.1",
+      "fast-uri": ">=3.1.2",
+      "hono": ">=4.12.18",
+      "ip-address": ">=10.1.1",
+      "esbuild": ">=0.25.0"
+    }
   }
 }
