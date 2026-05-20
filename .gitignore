@@ -42,3 +42,6 @@ eK3S7gskYiGRv1Ztt6Tvp/
 # Hook/store test scratch directories
 instrument-hook-test-*/
 instrument-store-*/
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
